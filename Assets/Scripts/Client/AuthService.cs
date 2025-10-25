@@ -7,16 +7,33 @@ using UnityEngine.Networking;
 namespace Client
 {
     [Serializable]
+    [Serializable]
+    public class AuthTokens
+    {
+        public string accessToken;
+        public string refreshToken;
+    }
+
+    [Serializable]
+    public class AuthenticatedUser
+    {
+        public string id;
+        public string email;
+        public string username;
+        public string createdAt;
+    }
+
+    [Serializable]
     public class AuthResponse
     {
-        public string token;
-        public string refreshToken;
+        public AuthenticatedUser user;
+        public AuthTokens tokens;
     }
 
     [Serializable]
     public class LoginRequest
     {
-        public string username;
+        public string email;
         public string password;
     }
 
@@ -31,17 +48,17 @@ namespace Client
             _useMock = useMock;
         }
 
-        public IEnumerator Login(string username, string password, Action<AuthResponse> onSuccess, Action<ApiError> onError)
+        public IEnumerator Login(string email, string password, Action<AuthResponse> onSuccess, Action<ApiError> onError)
         {
             if (_useMock)
             {
-                yield return RunMockLogin(username, password, onSuccess, onError);
+                yield return RunMockLogin(email, password, onSuccess, onError);
                 yield break;
             }
 
             var payload = JsonUtility.ToJson(new LoginRequest
             {
-                username = username,
+                email = email,
                 password = password
             });
 
@@ -56,13 +73,13 @@ namespace Client
             if (request.result == UnityWebRequest.Result.Success)
             {
                 var response = JsonUtility.FromJson<AuthResponse>(request.downloadHandler.text);
-                if (response == null || string.IsNullOrWhiteSpace(response.token))
+                if (response == null || response.tokens == null || string.IsNullOrWhiteSpace(response.tokens.accessToken))
                 {
                     onError?.Invoke(new ApiError(request.responseCode, "Login succeeded but no token was returned."));
                     yield break;
                 }
 
-                SessionManager.SetTokens(response.token, response.refreshToken);
+                SessionManager.SetTokens(response.tokens.accessToken, response.tokens.refreshToken);
                 onSuccess?.Invoke(response);
             }
             else
@@ -71,23 +88,33 @@ namespace Client
             }
         }
 
-        private IEnumerator RunMockLogin(string username, string password, Action<AuthResponse> onSuccess, Action<ApiError> onError)
+        private IEnumerator RunMockLogin(string email, string password, Action<AuthResponse> onSuccess, Action<ApiError> onError)
         {
             yield return null;
 
-            if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(password))
+            if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(password))
             {
-                onError?.Invoke(new ApiError(400, "Username and password are required."));
+                onError?.Invoke(new ApiError(400, "Email and password are required."));
                 yield break;
             }
 
             var response = new AuthResponse
             {
-                token = $"mock-token-{Guid.NewGuid():N}",
-                refreshToken = $"mock-refresh-{Guid.NewGuid():N}"
+                tokens = new AuthTokens
+                {
+                    accessToken = $"mock-token-{Guid.NewGuid():N}",
+                    refreshToken = $"mock-refresh-{Guid.NewGuid():N}"
+                },
+                user = new AuthenticatedUser
+                {
+                    id = Guid.NewGuid().ToString("N"),
+                    email = email,
+                    username = email.Split('@')[0],
+                    createdAt = DateTime.UtcNow.ToString("O")
+                }
             };
 
-            SessionManager.SetTokens(response.token, response.refreshToken);
+            SessionManager.SetTokens(response.tokens.accessToken, response.tokens.refreshToken);
             onSuccess?.Invoke(response);
         }
     }

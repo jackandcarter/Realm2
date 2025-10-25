@@ -11,7 +11,10 @@ namespace Client
     {
         public string id;
         public string name;
-        public int population;
+        public string narrative;
+        public string createdAt;
+        public bool isMember;
+        public string membershipRole;
     }
 
     [Serializable]
@@ -70,9 +73,24 @@ namespace Client
 
             onSuccess?.Invoke(new[]
             {
-                new RealmInfo { id = "1", name = "Valoria", population = 1280 },
-                new RealmInfo { id = "2", name = "Eldamar", population = 890 },
-                new RealmInfo { id = "3", name = "Karthos", population = 432 }
+                new RealmInfo
+                {
+                    id = "realm-valoria",
+                    name = "Valoria",
+                    narrative = "A realm of luminous skies and hidden archives.",
+                    createdAt = DateTime.UtcNow.ToString("O"),
+                    isMember = false,
+                    membershipRole = null
+                },
+                new RealmInfo
+                {
+                    id = "realm-eldamar",
+                    name = "Eldamar",
+                    narrative = "Glittering coasts watched by timeless sentinels.",
+                    createdAt = DateTime.UtcNow.ToString("O"),
+                    isMember = true,
+                    membershipRole = "builder"
+                }
             });
         }
     }
