@@ -74,7 +74,11 @@ Shader "Hidden/Digger/Terrain/URP/Lit (Add Pass)"
             #pragma multi_compile_fragment _ _SCREEN_SPACE_OCCLUSION
             #pragma multi_compile_fragment _ _LIGHT_LAYERS
             #pragma multi_compile_fragment _ _LIGHT_COOKIES
+#if defined(UNITY_6000_0_OR_NEWER)
+            #pragma multi_compile _ _CLUSTER_LIGHT_LOOP
+#else
             #pragma multi_compile _ _FORWARD_PLUS
+#endif
 
             // -------------------------------------
             // Unity defined keywords

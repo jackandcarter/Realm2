@@ -43,7 +43,7 @@ namespace Digger.Modules.Core.Editor
         {
             master = (DiggerMaster)target;
             CheckDiggerVersion();
-            diggerSystems = FindObjectsOfType<DiggerSystem>();
+            diggerSystems = FindObjectsByType<DiggerSystem>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
             foreach (var diggerSystem in diggerSystems) {
                 DiggerSystemEditor.Init(diggerSystem, false);
             }
@@ -86,7 +86,7 @@ namespace Digger.Modules.Core.Editor
 
         private static void UndoCallback()
         {
-            var diggers = FindObjectsOfType<DiggerSystem>();
+            var diggers = FindObjectsByType<DiggerSystem>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
             foreach (var digger in diggers) {
                 digger.DoUndo();
             }
@@ -181,7 +181,7 @@ namespace Digger.Modules.Core.Editor
             var showUnderlyingObjects = EditorGUILayout.Toggle("Show underlying objects", master.ShowUnderlyingObjects);
             if (showUnderlyingObjects != master.ShowUnderlyingObjects) {
                 master.ShowUnderlyingObjects = showUnderlyingObjects;
-                var diggers = FindObjectsOfType<DiggerSystem>();
+                var diggers = FindObjectsByType<DiggerSystem>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
                 foreach (var digger in diggers) {
                     digger.ShowDebug = true;
                     foreach (Transform child in digger.transform) {
@@ -337,7 +337,7 @@ namespace Digger.Modules.Core.Editor
             }
 
             if (master.CreateLODs) {
-                if (FindObjectOfType<ADiggerRuntimeMonoBehaviour>()) {
+                if (FindFirstObjectByType<ADiggerRuntimeMonoBehaviour>()) {
                     EditorGUILayout.HelpBox(
                         "It is recommended to disable LODs generation when using Digger at runtime to improve generation speed.",
                         MessageType.Warning);
@@ -498,7 +498,7 @@ namespace Digger.Modules.Core.Editor
 
         private static void DoClear()
         {
-            var diggers = FindObjectsOfType<DiggerSystem>();
+            var diggers = FindObjectsByType<DiggerSystem>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
 
             try {
                 AssetDatabase.StartAssetEditing();
@@ -527,7 +527,7 @@ namespace Digger.Modules.Core.Editor
 
         private static void DoReload()
         {
-            var diggers = FindObjectsOfType<DiggerSystem>();
+            var diggers = FindObjectsByType<DiggerSystem>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
             try {
                 AssetDatabase.StartAssetEditing();
                 foreach (var digger in diggers) {
@@ -569,7 +569,7 @@ namespace Digger.Modules.Core.Editor
         [MenuItem("Tools/Digger/Setup terrains", false, 1)]
         public static void SetupTerrains()
         {
-            if (!FindObjectOfType<DiggerMaster>()) {
+            if (!FindFirstObjectByType<DiggerMaster>()) {
                 var goMaster = new GameObject("Digger Master");
                 goMaster.transform.localPosition = Vector3.zero;
                 goMaster.transform.localRotation = Quaternion.identity;
@@ -579,7 +579,7 @@ namespace Digger.Modules.Core.Editor
             }
 
             var lightmapStaticWarn = false;
-            var terrains = FindObjectsOfType<Terrain>();
+            var terrains = FindObjectsByType<Terrain>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
             try {
                 AssetDatabase.StartAssetEditing();
 
@@ -629,7 +629,7 @@ namespace Digger.Modules.Core.Editor
             if (!confirm)
                 return;
 
-            var terrains = FindObjectsOfType<Terrain>();
+            var terrains = FindObjectsByType<Terrain>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
             foreach (var terrain in terrains) {
                 var digger = terrain.gameObject.GetComponentInChildren<DiggerSystem>();
                 if (digger) {
@@ -638,7 +638,7 @@ namespace Digger.Modules.Core.Editor
                 }
             }
 
-            var diggerMasters = FindObjectsOfType<ADiggerMonoBehaviour>();
+            var diggerMasters = FindObjectsByType<ADiggerMonoBehaviour>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
             foreach (var diggerMaster in diggerMasters) {
                 DestroyImmediate(diggerMaster.gameObject);
             }
@@ -694,7 +694,7 @@ namespace Digger.Modules.Core.Editor
         private static void SaveMeshesAsAssetsInternal()
         {
             var paths = new List<string>();
-            var diggers = FindObjectsOfType<DiggerSystem>();
+            var diggers = FindObjectsByType<DiggerSystem>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
             foreach (var digger in diggers)
             {
                 paths.Add(digger.BasePathData);
@@ -723,7 +723,7 @@ namespace Digger.Modules.Core.Editor
         public static void CheckDiggerVersion()
         {
             var warned = false;
-            var diggers = FindObjectsOfType<DiggerSystem>();
+            var diggers = FindObjectsByType<DiggerSystem>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
             foreach (var digger in diggers) {
                 var ver = digger.GetDiggerVersion();
                 if (ver != DiggerSystem.DiggerVersion) {
@@ -737,7 +737,7 @@ namespace Digger.Modules.Core.Editor
 
                     // ensure retro-compatibility before 4.0
                     if (ver < 40 || ver >= 10000 && ver < 10040) {
-                        var diggerMaster = FindObjectOfType<DiggerMaster>();
+                        var diggerMaster = FindFirstObjectByType<DiggerMaster>();
                         if (diggerMaster) {
                             diggerMaster.AutoVoxelHeight = false;
                             diggerMaster.VoxelHeight = 1f;

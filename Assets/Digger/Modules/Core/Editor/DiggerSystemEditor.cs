@@ -114,7 +114,7 @@ namespace Digger.Modules.Core.Editor
 
         private static bool IsBlockMaterial()
         {
-            var provider = FindObjectOfType<APolygonizerProvider>();
+            var provider = FindFirstObjectByType<APolygonizerProvider>();
             if (!provider)
                 return false;
             return provider.GetMaterials() != null;
@@ -136,7 +136,7 @@ namespace Digger.Modules.Core.Editor
         
         private static void SetupBlockMaterial(DiggerSystem diggerSystem)
         {
-            var provider = FindObjectOfType<APolygonizerProvider>();
+            var provider = FindFirstObjectByType<APolygonizerProvider>();
             diggerSystem.Materials = provider.GetMaterials();
         }
 

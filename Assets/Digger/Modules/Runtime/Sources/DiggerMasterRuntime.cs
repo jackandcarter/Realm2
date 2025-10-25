@@ -280,7 +280,7 @@ namespace Digger.Modules.Runtime.Sources
         public void SetPersistenceDataPathPrefix(string pathPrefix)
         {
             // we do not use diggerSystems field as it might not be initialized when this method is called
-            foreach (var diggerSystem in FindObjectsOfType<DiggerSystem>()) {
+            foreach (var diggerSystem in FindObjectsByType<DiggerSystem>(FindObjectsInactive.Exclude, FindObjectsSortMode.None)) {
                 diggerSystem.PersistenceSubPath = pathPrefix;
             }
         }
@@ -293,7 +293,7 @@ namespace Digger.Modules.Runtime.Sources
         /// <param name="guid">Optionally, you can set a specific Digger GUID for this terrain. This is useful if you plan to persist data of terrains created at runtime to be able to load data back on the next launch.</param>
         public void SetupRuntimeTerrain(Terrain terrain, string guid = null)
         {
-            var existingDiggerSystem = FindObjectOfType<DiggerSystem>();
+            var existingDiggerSystem = FindFirstObjectByType<DiggerSystem>();
             if (!existingDiggerSystem) {
                 Debug.LogError(
                     "SetupRuntimeTerrain needs at least one terrain to be already setup with Digger. You must have at least one terrain with Digger on it " +
@@ -327,12 +327,12 @@ namespace Digger.Modules.Runtime.Sources
         /// </summary>
         public void RefreshTerrainList()
         {
-            diggerSystems = FindObjectsOfType<DiggerSystem>();
+            diggerSystems = FindObjectsByType<DiggerSystem>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
         }
 
         private void Awake()
         {
-            diggerSystems = FindObjectsOfType<DiggerSystem>();
+            diggerSystems = FindObjectsByType<DiggerSystem>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
             foreach (var diggerSystem in diggerSystems) {
                 Init(diggerSystem);
             }
