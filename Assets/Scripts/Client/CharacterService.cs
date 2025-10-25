@@ -11,16 +11,11 @@ namespace Client
     public class CharacterInfo
     {
         public string id;
-        public string name;
+        public string userId;
         public string realmId;
-        public string className;
-        public int level;
-    }
-
-    [Serializable]
-    internal class CharacterListResponse
-    {
-        public CharacterInfo[] characters;
+        public string name;
+        public string bio;
+        public string createdAt;
     }
 
     [Serializable]
@@ -28,7 +23,40 @@ namespace Client
     {
         public string realmId;
         public string name;
-        public string className;
+        public string bio;
+    }
+
+    [Serializable]
+    internal class CharacterResponse
+    {
+        public CharacterInfo character;
+    }
+
+    [Serializable]
+    public class RealmDetails
+    {
+        public string id;
+        public string name;
+        public string narrative;
+        public string createdAt;
+    }
+
+    [Serializable]
+    public class RealmMembershipInfo
+    {
+        public string id;
+        public string realmId;
+        public string userId;
+        public string role;
+        public string createdAt;
+    }
+
+    [Serializable]
+    public class RealmCharactersResponse
+    {
+        public RealmDetails realm;
+        public RealmMembershipInfo membership;
+        public CharacterInfo[] characters;
     }
 
     [Serializable]
@@ -48,7 +76,7 @@ namespace Client
             _useMock = useMock;
         }
 
-        public IEnumerator GetCharacters(string realmId, Action<IReadOnlyList<CharacterInfo>> onSuccess, Action<ApiError> onError)
+        public IEnumerator GetCharacters(string realmId, Action<RealmCharactersResponse> onSuccess, Action<ApiError> onError)
         {
             if (_useMock)
             {
@@ -63,9 +91,15 @@ namespace Client
 
             if (request.result == UnityWebRequest.Result.Success)
             {
-                var response = JsonUtility.FromJson<CharacterListResponse>(request.downloadHandler.text);
-                var characters = response?.characters ?? Array.Empty<CharacterInfo>();
-                onSuccess?.Invoke(characters);
+                var response = JsonUtility.FromJson<RealmCharactersResponse>(request.downloadHandler.text);
+                if (response == null)
+                {
+                    onError?.Invoke(new ApiError(request.responseCode, "Character roster response was empty."));
+                    yield break;
+                }
+
+                response.characters ??= Array.Empty<CharacterInfo>();
+                onSuccess?.Invoke(response);
             }
             else
             {
@@ -73,11 +107,11 @@ namespace Client
             }
         }
 
-        public IEnumerator CreateCharacter(string realmId, string name, string className, Action<CharacterInfo> onSuccess, Action<ApiError> onError)
+        public IEnumerator CreateCharacter(string realmId, string name, string bio, Action<CharacterInfo> onSuccess, Action<ApiError> onError)
         {
             if (_useMock)
             {
-                yield return RunMockCreateCharacter(realmId, name, className, onSuccess, onError);
+                yield return RunMockCreateCharacter(realmId, name, bio, onSuccess, onError);
                 yield break;
             }
 
@@ -85,7 +119,7 @@ namespace Client
             {
                 realmId = realmId,
                 name = name,
-                className = className
+                bio = bio
             });
 
             using var request = new UnityWebRequest($"{_baseUrl}/characters", UnityWebRequest.kHttpVerbPOST);
@@ -98,8 +132,14 @@ namespace Client
 
             if (request.result == UnityWebRequest.Result.Success)
             {
-                var character = JsonUtility.FromJson<CharacterInfo>(request.downloadHandler.text);
-                onSuccess?.Invoke(character);
+                var response = JsonUtility.FromJson<CharacterResponse>(request.downloadHandler.text);
+                if (response?.character == null)
+                {
+                    onError?.Invoke(new ApiError(request.responseCode, "Character creation response was empty."));
+                    yield break;
+                }
+
+                onSuccess?.Invoke(response.character);
             }
             else
             {
@@ -143,18 +183,52 @@ namespace Client
             }
         }
 
-        private IEnumerator RunMockCharacters(string realmId, Action<IReadOnlyList<CharacterInfo>> onSuccess)
+        private IEnumerator RunMockCharacters(string realmId, Action<RealmCharactersResponse> onSuccess)
         {
             yield return null;
 
-            onSuccess?.Invoke(new[]
+            onSuccess?.Invoke(new RealmCharactersResponse
             {
-                new CharacterInfo { id = $"{realmId}-1", name = "Aeloria", realmId = realmId, className = "Mage", level = 5 },
-                new CharacterInfo { id = $"{realmId}-2", name = "Bram", realmId = realmId, className = "Warrior", level = 8 }
+                realm = new RealmDetails
+                {
+                    id = realmId,
+                    name = "Mock Realm",
+                    narrative = "A conjured world used for UI flows.",
+                    createdAt = DateTime.UtcNow.ToString("O")
+                },
+                membership = new RealmMembershipInfo
+                {
+                    id = Guid.NewGuid().ToString("N"),
+                    realmId = realmId,
+                    userId = Guid.NewGuid().ToString("N"),
+                    role = "player",
+                    createdAt = DateTime.UtcNow.ToString("O")
+                },
+                characters = new[]
+                {
+                    new CharacterInfo
+                    {
+                        id = $"{realmId}-1",
+                        realmId = realmId,
+                        userId = Guid.NewGuid().ToString("N"),
+                        name = "Aeloria",
+                        bio = "An arcane adept forged in testing.",
+                        createdAt = DateTime.UtcNow.ToString("O")
+                    },
+                    new CharacterInfo
+                    {
+                        id = $"{realmId}-2",
+                        realmId = realmId,
+                        userId = Guid.NewGuid().ToString("N"),
+                        name = "Bram",
+                        bio = "Warrior of the mock clans.",
+                        createdAt = DateTime.UtcNow.ToString("O")
+                    }
+                }
             });
         }
 
-        private IEnumerator RunMockCreateCharacter(string realmId, string name, string className, Action<CharacterInfo> onSuccess, Action<ApiError> onError)
+        private IEnumerator RunMockCreateCharacter(string realmId, string name, string bio, Action<CharacterInfo> onSuccess, Action<ApiError> onError)
         {
             yield return null;
 
@@ -167,10 +241,11 @@ namespace Client
             var character = new CharacterInfo
             {
                 id = Guid.NewGuid().ToString("N"),
+                userId = Guid.NewGuid().ToString("N"),
                 name = name,
                 realmId = realmId,
-                className = string.IsNullOrWhiteSpace(className) ? "Adventurer" : className,
-                level = 1
+                bio = string.IsNullOrWhiteSpace(bio) ? "" : bio,
+                createdAt = DateTime.UtcNow.ToString("O")
             };
 
             onSuccess?.Invoke(character);

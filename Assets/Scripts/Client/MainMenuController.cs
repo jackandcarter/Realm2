@@ -10,8 +10,10 @@ namespace Client
     public class MainMenuController : MonoBehaviour
     {
         [Header("API Settings")]
-        [SerializeField] private string baseApiUrl = "http://localhost:5000";
-        [SerializeField] private bool useMockServices = true;
+        [SerializeField] private ApiEnvironmentConfig environmentConfig;
+        [SerializeField] private string fallbackBaseApiUrl = "http://localhost:3000";
+        [SerializeField] private bool fallbackUseMockServicesInEditor = true;
+        [SerializeField] private bool fallbackUseMockServicesInPlayer = false;
         [SerializeField] private string worldSceneName = "SampleScene";
 
         private AuthService _authService;
@@ -19,7 +21,7 @@ namespace Client
         private CharacterService _characterService;
 
         private Canvas _loginCanvas;
-        private InputField _usernameInput;
+        private InputField _emailInput;
         private InputField _passwordInput;
         private Button _loginButton;
         private Text _loginMessage;
@@ -43,9 +45,17 @@ namespace Client
             EnsureEventSystem();
             EnsureUi();
 
-            _authService = new AuthService(baseApiUrl, useMockServices);
-            _realmService = new RealmService(baseApiUrl, useMockServices);
-            _characterService = new CharacterService(baseApiUrl, useMockServices);
+            var baseUrl = ResolveBaseApiUrl();
+            var useMocks = ResolveUseMockServices();
+
+            _authService = new AuthService(baseUrl, useMocks);
+            _realmService = new RealmService(baseUrl, useMocks);
+            _characterService = new CharacterService(baseUrl, useMocks);
+
+            if (environmentConfig != null)
+            {
+                Debug.Log($"MainMenuController using environment '{environmentConfig.EnvironmentName}' at {baseUrl} (mocks: {useMocks}).");
+            }
         }
 
         private void Start()
@@ -96,8 +106,8 @@ namespace Client
             layout.childForceExpandHeight = false;
             layout.childAlignment = TextAnchor.MiddleCenter;
 
-            _loginMessage = CreateMessageText(panel, "Enter your credentials to begin.");
-            _usernameInput = CreateInputField(panel, "UsernameInput", "Username");
+            _loginMessage = CreateMessageText(panel, "Enter the email tied to your Realm account.");
+            _emailInput = CreateInputField(panel, "EmailInput", "Email");
             _passwordInput = CreateInputField(panel, "PasswordInput", "Password", true);
             _loginButton = CreateButton(panel, "LoginButton", "Login");
             _loginButton.onClick.AddListener(OnLoginClicked);
@@ -291,7 +301,7 @@ namespace Client
         private IEnumerator LoginRoutine()
         {
             yield return _authService.Login(
-                _usernameInput.text,
+                _emailInput.text,
                 _passwordInput.text,
                 response =>
                 {
@@ -338,7 +348,14 @@ namespace Client
 
         private Button CreateRealmButton(RealmInfo realm)
         {
-            var button = CreateListButton(_realmListRoot, $"Realm_{realm.id}", $"{realm.name} (Pop: {realm.population})");
+            var membershipLabel = realm.isMember
+                ? string.IsNullOrWhiteSpace(realm.membershipRole) ? "Member" : $"Member: {realm.membershipRole}"
+                : "Joinable";
+            var button = CreateListButton(
+                _realmListRoot,
+                $"Realm_{realm.id}",
+                $"{realm.name} • {membershipLabel}"
+            );
             button.onClick.AddListener(() => OnRealmSelected(realm));
             return button;
         }
@@ -354,30 +371,45 @@ namespace Client
         private IEnumerator LoadCharacters(RealmInfo realm)
         {
             ClearList(_spawnedCharacterEntries);
+            _createCharacterButton.interactable = false;
 
             yield return _characterService.GetCharacters(
                 realm.id,
-                characters =>
+                roster =>
                 {
-                    if (characters.Count == 0)
+                    var characters = roster.characters ?? Array.Empty<CharacterInfo>();
+                    if (characters.Length == 0)
                     {
                         _characterMessage.text = "No characters found. Create a new hero.";
-                        return;
+                    }
+                    else
+                    {
+                        var roleLabel = string.IsNullOrWhiteSpace(roster.membership?.role)
+                            ? ""
+                            : $" ({roster.membership.role})";
+                        _characterMessage.text = $"Select a character for {realm.name}{roleLabel}:";
+                        foreach (var character in characters)
+                        {
+                            var entry = CreateCharacterButton(character);
+                            _spawnedCharacterEntries.Add(entry.gameObject);
+                        }
                     }
 
-                    _characterMessage.text = $"Select a character for {realm.name}:";
-                    foreach (var character in characters)
-                    {
-                        var entry = CreateCharacterButton(character);
-                        _spawnedCharacterEntries.Add(entry.gameObject);
-                    }
+                    _createCharacterButton.interactable = true;
                 },
-                error => { _characterMessage.text = error.Message; });
+                error =>
+                {
+                    _characterMessage.text = error.Message;
+                    _createCharacterButton.interactable = true;
+                });
         }
 
         private Button CreateCharacterButton(CharacterInfo character)
         {
-            var button = CreateListButton(_characterListRoot, $"Character_{character.id}", $"{character.name} - Lv {character.level} {character.className}");
+            var label = string.IsNullOrWhiteSpace(character.bio)
+                ? character.name
+                : $"{character.name} • {character.bio}";
+            var button = CreateListButton(_characterListRoot, $"Character_{character.id}", label);
             button.onClick.AddListener(() => OnCharacterSelected(character));
             return button;
         }
@@ -424,7 +456,7 @@ namespace Client
             yield return _characterService.CreateCharacter(
                 realmId,
                 name,
-                "Adventurer",
+                string.Empty,
                 character =>
                 {
                     _characterMessage.text = $"Created {character.name}. Select to enter the world.";
@@ -468,6 +500,34 @@ namespace Client
             _loginCanvas.gameObject.SetActive(canvasToShow == _loginCanvas);
             _realmCanvas.gameObject.SetActive(canvasToShow == _realmCanvas);
             _characterCanvas.gameObject.SetActive(canvasToShow == _characterCanvas);
+        }
+
+        private string ResolveBaseApiUrl()
+        {
+            var url = environmentConfig != null && !string.IsNullOrWhiteSpace(environmentConfig.BaseApiUrl)
+                ? environmentConfig.BaseApiUrl
+                : fallbackBaseApiUrl;
+
+            if (string.IsNullOrWhiteSpace(url))
+            {
+                return "http://localhost:3000";
+            }
+
+            return url.TrimEnd('/');
+        }
+
+        private bool ResolveUseMockServices()
+        {
+            if (environmentConfig != null)
+            {
+                return environmentConfig.UseMockServices;
+            }
+
+#if UNITY_EDITOR
+            return fallbackUseMockServicesInEditor;
+#else
+            return fallbackUseMockServicesInPlayer;
+#endif
         }
     }
 }
