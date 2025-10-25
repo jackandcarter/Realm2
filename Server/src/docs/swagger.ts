@@ -30,9 +30,10 @@ const options: swaggerJSDoc.Options = {
           properties: {
             id: { type: 'string', format: 'uuid' },
             email: { type: 'string', format: 'email' },
+            username: { type: 'string' },
             createdAt: { type: 'string', format: 'date-time' },
           },
-          required: ['id', 'email', 'createdAt'],
+          required: ['id', 'email', 'username', 'createdAt'],
         },
         AuthResponse: {
           type: 'object',

@@ -1,0 +1,41 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="portalGradient" x1="86" y1="64" x2="426" y2="448" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#8A7BFF" />
+      <stop offset="0.5" stop-color="#5D9BFF" />
+      <stop offset="1" stop-color="#2EF6D0" />
+    </linearGradient>
+    <radialGradient id="glow" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(256 256) rotate(90) scale(220)">
+      <stop stop-color="#FFFFFF" stop-opacity="0.65" />
+      <stop offset="1" stop-color="#080a1f" stop-opacity="0" />
+    </radialGradient>
+  </defs>
+  <rect width="512" height="512" rx="64" fill="#080A1F" />
+  <circle cx="256" cy="256" r="220" fill="url(#glow)" />
+  <circle cx="256" cy="256" r="168" stroke="url(#portalGradient)" stroke-width="14" stroke-dasharray="32 18" />
+  <circle cx="256" cy="256" r="118" stroke="#1D2144" stroke-width="6" stroke-dasharray="12 16" />
+  <circle cx="256" cy="256" r="86" fill="#0B0F2C" stroke="#5D9BFF" stroke-width="4" />
+  <path
+    d="M256 144L292 228L384 228L310 286L338 368L256 320L174 368L202 286L128 228L220 228L256 144Z"
+    fill="url(#portalGradient)"
+    opacity="0.9"
+  />
+  <circle cx="256" cy="256" r="28" fill="#FFFFFF" fill-opacity="0.85" />
+  <circle cx="256" cy="256" r="14" fill="#0B0F2C" />
+  <path
+    d="M176 132C202 112 232 102 256 102C280 102 310 112 336 132"
+    stroke="#2EF6D0"
+    stroke-width="6"
+    stroke-linecap="round"
+    stroke-dasharray="12 20"
+    opacity="0.7"
+  />
+  <path
+    d="M154 372C182 398 214 412 256 412C298 412 330 398 358 372"
+    stroke="#5D9BFF"
+    stroke-width="6"
+    stroke-linecap="round"
+    stroke-dasharray="14 22"
+    opacity="0.5"
+  />
+</svg>

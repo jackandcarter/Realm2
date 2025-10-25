@@ -19,9 +19,10 @@ interface CharacterSummary {
 }
 
 async function registerAndGetToken(email: string) {
+  const username = email.split('@')[0];
   const response = await request(app)
     .post('/auth/register')
-    .send({ email, password: 'Password123' })
+    .send({ email, username, password: 'Password123!' })
     .expect(201);
 
   return {

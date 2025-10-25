@@ -9,10 +9,35 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS users (
     id TEXT PRIMARY KEY,
     email TEXT NOT NULL UNIQUE,
+    username TEXT NOT NULL UNIQUE,
     password_hash TEXT NOT NULL,
     created_at TEXT NOT NULL
   );
 `);
+
+const userColumns = db.prepare("PRAGMA table_info(users)").all();
+const hasUsernameColumn = userColumns.some((column) => column.name === 'username');
+if (!hasUsernameColumn) {
+  db.exec("ALTER TABLE users ADD COLUMN username TEXT NOT NULL DEFAULT ''");
+
+  const users = db.prepare('SELECT id, email FROM users').all() as { id: string; email: string }[];
+  const updateStmt = db.prepare('UPDATE users SET username = @username WHERE id = @id');
+  const existingUsernames = new Set<string>();
+
+  for (const user of users) {
+    const base = user.email.split('@')[0] || 'adventurer';
+    let candidate = base;
+    let counter = 1;
+    while (existingUsernames.has(candidate)) {
+      candidate = `${base}${counter}`;
+      counter += 1;
+    }
+    existingUsernames.add(candidate);
+    updateStmt.run({ id: user.id, username: candidate });
+  }
+
+  db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username ON users(username)');
+}
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS realms (

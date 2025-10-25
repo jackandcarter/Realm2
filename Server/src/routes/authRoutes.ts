@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import { login, logout, refresh, register } from '../services/authService';
 
+const usernameRegex = /^[a-zA-Z0-9_\-]{3,20}$/;
+
 const router = Router();
 
 /**
@@ -16,14 +18,20 @@ const router = Router();
  *         application/json:
  *           schema:
  *             type: object
- *             required: [email, password]
+ *             required: [email, username, password]
  *             properties:
  *               email:
  *                 type: string
  *                 format: email
+ *               username:
+ *                 type: string
+ *                 minLength: 3
+ *                 maxLength: 20
+ *                 pattern: '^[a-zA-Z0-9_\\-]+$'
  *               password:
  *                 type: string
  *                 minLength: 8
+ *                 description: Must include uppercase, lowercase, number, and special character.
  *     responses:
  *       '201':
  *         description: Successful registration
@@ -35,13 +43,25 @@ const router = Router();
  *         description: Validation error
  */
 router.post('/register', async (req, res) => {
-  const { email, password } = req.body ?? {};
-  if (typeof email !== 'string' || typeof password !== 'string' || password.length < 8) {
-    return res.status(400).json({ message: 'Email and password (min 8 characters) are required.' });
+  const { email, username, password } = req.body ?? {};
+  if (typeof email !== 'string' || typeof username !== 'string' || typeof password !== 'string') {
+    return res.status(400).json({ message: 'Email, username, and password are required.' });
+  }
+
+  const trimmedUsername = username.trim();
+  if (!usernameRegex.test(trimmedUsername)) {
+    return res.status(400).json({ message: 'Username must be 3-20 characters using letters, numbers, hyphens, or underscores.' });
+  }
+
+  if (password.length < 8 || !/[A-Z]/.test(password) || !/[a-z]/.test(password) || !/[0-9]/.test(password) || !/[^A-Za-z0-9]/.test(password)) {
+    return res.status(400).json({
+      message:
+        'Password must be at least 8 characters and include uppercase, lowercase, number, and special character.',
+    });
   }
 
   try {
-    const result = await register(email, password);
+    const result = await register(email, trimmedUsername, password);
     res.status(201).json(result);
   } catch (error) {
     res.status(400).json({ message: (error as Error).message });

@@ -2,7 +2,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import { env } from '../config/env';
-import { createUser, findUserByEmail, findUserById } from '../db/userRepository';
+import { createUser, findUserByEmail, findUserById, findUserByUsername } from '../db/userRepository';
 import type { User } from '../db/userRepository';
 import {
   storeRefreshToken,
@@ -17,7 +17,7 @@ export interface AuthTokens {
 }
 
 export interface AuthResult {
-  user: Pick<User, 'id' | 'email' | 'createdAt'>;
+  user: Pick<User, 'id' | 'email' | 'username' | 'createdAt'>;
   tokens: AuthTokens;
 }
 
@@ -42,18 +42,23 @@ function createRefreshToken(): { raw: string; hashed: string; expiresAt: Date } 
   return { raw, hashed: hashRefreshToken(raw), expiresAt };
 }
 
-function toPublicUser(user: User): Pick<User, 'id' | 'email' | 'createdAt'> {
-  return { id: user.id, email: user.email, createdAt: user.createdAt };
+function toPublicUser(user: User): Pick<User, 'id' | 'email' | 'username' | 'createdAt'> {
+  return { id: user.id, email: user.email, username: user.username, createdAt: user.createdAt };
 }
 
-export async function register(email: string, password: string): Promise<AuthResult> {
+export async function register(email: string, username: string, password: string): Promise<AuthResult> {
   const existing = findUserByEmail(email);
   if (existing) {
     throw new Error('Email already registered');
   }
 
+  const existingUsername = findUserByUsername(username);
+  if (existingUsername) {
+    throw new Error('Username already taken');
+  }
+
   const passwordHash = await bcrypt.hash(password, 10);
-  const user = createUser(email, passwordHash);
+  const user = createUser(email, username, passwordHash);
   const tokens = await issueTokens(user);
   return { user: toPublicUser(user), tokens };
 }

@@ -59,4 +59,5 @@ Assets/**/AddressableAssetsData/*/obj*/
 # Other
 .DS_Store
 Thumbs.db
+Web/config.js
 EOF
