@@ -17,14 +17,14 @@ namespace Digger.Modules.Runtime.Sources.Editor
         {
             DiggerMasterEditor.SetupTerrains();
 
-            if (!FindObjectOfType<DiggerMasterRuntime>()) {
+            if (!FindFirstObjectByType<DiggerMasterRuntime>()) {
                 var goMaster = new GameObject("Digger Master Runtime");
                 goMaster.transform.localPosition = Vector3.zero;
                 goMaster.transform.localRotation = Quaternion.identity;
                 goMaster.transform.localScale = Vector3.one;
                 goMaster.AddComponent<DiggerMasterRuntime>();
 
-                var diggers = FindObjectsOfType<DiggerSystem>();
+                var diggers = FindObjectsByType<DiggerSystem>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
                 foreach (var digger in diggers) {
                     digger.UpdateStaticEditorFlags();
                 }
@@ -38,8 +38,8 @@ namespace Digger.Modules.Runtime.Sources.Editor
         {
             SetupRuntimeScripts();
 
-            if (!FindObjectOfType<DiggerNavMeshRuntime>()) {
-                var goMaster = FindObjectOfType<DiggerMasterRuntime>();
+            if (!FindFirstObjectByType<DiggerNavMeshRuntime>()) {
+                var goMaster = FindFirstObjectByType<DiggerMasterRuntime>();
                 goMaster.gameObject.AddComponent<DiggerNavMeshRuntime>();
             }
 

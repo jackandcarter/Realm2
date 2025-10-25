@@ -77,7 +77,7 @@ namespace Digger.Modules.Core.Sources
         {
 #if UNITY_EDITOR
 
-            var runtime = FindObjectOfType<ADiggerRuntimeMonoBehaviour>();
+            var runtime = FindFirstObjectByType<ADiggerRuntimeMonoBehaviour>();
             StaticEditorFlags flags = 0;
 
             if (!runtime)

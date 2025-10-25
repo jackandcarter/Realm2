@@ -39,7 +39,7 @@ namespace Digger.Modules.Core.Editor
 
         private static void OnBeforeSceneSave(Scene scene, string path)
         {
-            var diggerMaster = Object.FindObjectOfType<DiggerMaster>();
+            var diggerMaster = Object.FindFirstObjectByType<DiggerMaster>();
             if (diggerMaster && diggerMaster.AutoSaveMeshesAsAssets)
             {
                 DiggerMasterEditor.SaveMeshesAsAssets();

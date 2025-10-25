@@ -81,7 +81,11 @@ Shader "Digger/Terrain/URP/Lit"
             #pragma multi_compile_fragment _ _DBUFFER_MRT1 _DBUFFER_MRT2 _DBUFFER_MRT3
             #pragma multi_compile_fragment _ _LIGHT_LAYERS
             #pragma multi_compile_fragment _ _LIGHT_COOKIES
+#if defined(UNITY_6000_0_OR_NEWER)
+            #pragma multi_compile _ _CLUSTER_LIGHT_LOOP
+#else
             #pragma multi_compile _ _FORWARD_PLUS
+#endif
 #ifdef USING_URP_14_OR_ABOVE
             #include_with_pragmas "Packages/com.unity.render-pipelines.universal/ShaderLibrary/RenderingLayers.hlsl"
 #endif

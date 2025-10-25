@@ -26,7 +26,7 @@ namespace Digger.Modules.Core.Editor.Operations
 
         public void OnInspectorGUI()
         {
-            var diggerSystem = Object.FindObjectOfType<DiggerSystem>();
+            var diggerSystem = Object.FindFirstObjectByType<DiggerSystem>();
             if (!diggerSystem)
                 return;
 

@@ -155,7 +155,7 @@ namespace Digger.Modules.Core.Editor.Operations
 
         public void OnEnable()
         {
-            diggerSystems = Object.FindObjectsOfType<DiggerSystem>();
+            diggerSystems = Object.FindObjectsByType<DiggerSystem>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
         }
 
         public void OnDisable()

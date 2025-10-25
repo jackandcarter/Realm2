@@ -29,8 +29,8 @@ namespace Digger.Modules.Runtime.Sources
 
         private void Awake()
         {
-            diggerSystems = FindObjectsOfType<DiggerSystem>();
-            surfaces = FindObjectsOfType<NavMeshSurface>();
+            diggerSystems = FindObjectsByType<DiggerSystem>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+            surfaces = FindObjectsByType<NavMeshSurface>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
             initialNavMeshBuildSourcesPerSurface = new List<NavMeshBuildSource>[surfaces.Length];
             navMeshBuildSources = new List<NavMeshBuildSource>[surfaces.Length];
             initialBoundsPerSurface = new Bounds[surfaces.Length];
