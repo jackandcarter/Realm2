@@ -46,17 +46,25 @@ namespace Digger.Modules.Core.Sources
         public static Mesh CreateOrUpdateMeshAsset(Mesh asset, string path)
         {
             var existingAsset = AssetDatabase.LoadAssetAtPath<Mesh>(path);
-            if (!existingAsset)
-            {
-                AssetDatabase.CreateAsset(asset, path);
-                existingAsset = asset;
+
+            if (!existingAsset) {
+                if (AssetDatabase.Contains(asset)) {
+                    existingAsset = Object.Instantiate(asset);
+                    AssetDatabase.CreateAsset(existingAsset, path);
+                } else {
+                    AssetDatabase.CreateAsset(asset, path);
+                    existingAsset = asset;
+                }
+
+                return existingAsset;
             }
-            else if (existingAsset != asset || !AreMeshesEqual(existingAsset, asset))
-            {
-                AssetDatabase.DeleteAsset(path);
-                AssetDatabase.CreateAsset(asset, path);
-                existingAsset = asset;
+
+            if (existingAsset == asset || AreMeshesEqual(existingAsset, asset)) {
+                return existingAsset;
             }
+
+            EditorUtility.CopySerialized(asset, existingAsset);
+            EditorUtility.SetDirty(existingAsset);
 
             return existingAsset;
         }
