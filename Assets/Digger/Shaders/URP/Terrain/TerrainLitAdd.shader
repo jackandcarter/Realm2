@@ -77,7 +77,7 @@ Shader "Hidden/Digger/Terrain/URP/Lit (Add Pass)"
 #if defined(UNITY_6000_0_OR_NEWER)
             #pragma multi_compile _ _CLUSTER_LIGHT_LOOP
 #else
-            #pragma multi_compile _ _FORWARD_PLUS
+            #pragma multi_compile _ _CLUSTER_LIGHT_LOOP
 #endif
 
             // -------------------------------------
