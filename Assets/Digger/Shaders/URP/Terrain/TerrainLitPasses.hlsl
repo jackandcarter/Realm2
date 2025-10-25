@@ -8,6 +8,14 @@
 #else
 #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/UnityGBuffer.hlsl"
 #endif
+
+#if UNITY_VERSION >= 600000
+#define DGR_FRAGMENT_OUTPUT GBufferFragOutput
+#define DGR_BRDF_TO_GBUFFER PackGBuffersBRDFData
+#else
+#define DGR_FRAGMENT_OUTPUT FragmentOutput
+#define DGR_BRDF_TO_GBUFFER BRDFDataToGbuffer
+#endif
 #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DBuffer.hlsl"
 
 float _TerrainWidthInv;
@@ -344,7 +352,7 @@ void ComputeMasks(half4 splatControl, out half4 masks[4], half4 hasMask, Varying
 
 // Used in Standard Terrain shader
 #ifdef TERRAIN_GBUFFER
-FragmentOutput SplatmapFragment(Varyings IN)
+DGR_FRAGMENT_OUTPUT SplatmapFragment(Varyings IN)
 #else
 void SplatmapFragment(
     Varyings IN
@@ -444,7 +452,7 @@ void SplatmapFragment(
     inputData.normalWS = inputData.normalWS * alpha;
     smoothness *= alpha;
 
-    return BRDFDataToGbuffer(brdfData, inputData, smoothness, color.rgb, occlusion);
+    return DGR_BRDF_TO_GBUFFER(brdfData, inputData, smoothness, color.rgb, occlusion);
 
 #else
 
@@ -546,5 +554,12 @@ half4 DepthOnlyFragment(VaryingsLean IN) : SV_TARGET
 #endif
     return IN.clipPos.z;
 }
+
+#if defined(DGR_BRDF_TO_GBUFFER)
+#undef DGR_BRDF_TO_GBUFFER
+#endif
+#if defined(DGR_FRAGMENT_OUTPUT)
+#undef DGR_FRAGMENT_OUTPUT
+#endif
 
 #endif
