@@ -40,7 +40,7 @@ export function createCharacterForUser(
       name: trimmedName,
       bio: input.bio?.trim() || undefined,
     });
-  } catch (error) {
+  } catch (_error) {
     throw new HttpError(500, 'Unable to create character');
   }
 }

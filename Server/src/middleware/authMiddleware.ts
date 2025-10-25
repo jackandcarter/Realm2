@@ -11,18 +11,15 @@ export interface AuthPayload {
   exp?: number;
 }
 
-declare global {
-  namespace Express {
-    interface UserContext {
-      id: string;
-      email: string;
-      createdAt: string;
-    }
+export interface UserContext {
+  id: string;
+  email: string;
+  createdAt: string;
+}
 
-    // eslint-disable-next-line @typescript-eslint/no-empty-interface
-    interface Request {
-      user?: UserContext;
-    }
+declare module 'express-serve-static-core' {
+  interface Request {
+    user?: UserContext;
   }
 }
 

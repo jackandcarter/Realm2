@@ -1,0 +1,42 @@
+name: Unity Build Validation
+
+on:
+  pull_request:
+    paths:
+      - 'Assets/**'
+      - 'Packages/**'
+      - 'ProjectSettings/**'
+      - '.github/workflows/unity-ci.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'Assets/**'
+      - 'Packages/**'
+      - 'ProjectSettings/**'
+      - '.github/workflows/unity-ci.yml'
+
+jobs:
+  build:
+    name: Build project
+    runs-on: ubuntu-latest
+    env:
+      UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Unity - Builder
+        uses: game-ci/unity-builder@v4
+        with:
+          unityVersion: 6000.2.8f1
+          targetPlatform: StandaloneLinux64
+          buildName: Realm2
+          projectPath: .
+
+      - name: Upload build
+        uses: actions/upload-artifact@v4
+        with:
+          name: Realm2-Linux64
+          path: build/StandaloneLinux64
+          if-no-files-found: error

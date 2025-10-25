@@ -25,14 +25,12 @@ app.get('/health', (_req, res) => {
   res.json({ status: 'ok' });
 });
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
   if (isHttpError(err)) {
     res.status((err as HttpError).status).json({ message: (err as HttpError).message });
     return;
   }
   if (process.env.NODE_ENV !== 'test') {
-    // eslint-disable-next-line no-console
     console.error(err);
   }
   res.status(500).json({ message: 'Internal server error' });
