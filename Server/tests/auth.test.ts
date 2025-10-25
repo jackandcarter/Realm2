@@ -13,10 +13,11 @@ describe('Auth API', () => {
   it('registers a new user and returns tokens', async () => {
     const response = await request(app)
       .post('/auth/register')
-      .send({ email: 'user@example.com', password: 'Password123' })
+      .send({ email: 'user@example.com', username: 'realmrunner', password: 'Password123!' })
       .expect(201);
 
     expect(response.body.user.email).toBe('user@example.com');
+    expect(response.body.user.username).toBe('realmrunner');
     expect(response.body.tokens.accessToken).toBeDefined();
     expect(response.body.tokens.refreshToken).toBeDefined();
   });
@@ -24,26 +25,40 @@ describe('Auth API', () => {
   it('prevents registering with an existing email', async () => {
     await request(app)
       .post('/auth/register')
-      .send({ email: 'user@example.com', password: 'Password123' })
+      .send({ email: 'user@example.com', username: 'realmrunner', password: 'Password123!' })
       .expect(201);
 
     const response = await request(app)
       .post('/auth/register')
-      .send({ email: 'user@example.com', password: 'Password123' })
+      .send({ email: 'user@example.com', username: 'realmrunner2', password: 'Password123!' })
       .expect(400);
 
     expect(response.body.message).toMatch(/already registered/i);
   });
 
+  it('prevents registering with an existing username', async () => {
+    await request(app)
+      .post('/auth/register')
+      .send({ email: 'user@example.com', username: 'realmrunner', password: 'Password123!' })
+      .expect(201);
+
+    const response = await request(app)
+      .post('/auth/register')
+      .send({ email: 'another@example.com', username: 'realmrunner', password: 'Password123!' })
+      .expect(400);
+
+    expect(response.body.message).toMatch(/username already taken/i);
+  });
+
   it('authenticates an existing user', async () => {
     await request(app)
       .post('/auth/register')
-      .send({ email: 'user@example.com', password: 'Password123' })
+      .send({ email: 'user@example.com', username: 'realmrunner', password: 'Password123!' })
       .expect(201);
 
     const response = await request(app)
       .post('/auth/login')
-      .send({ email: 'user@example.com', password: 'Password123' })
+      .send({ email: 'user@example.com', password: 'Password123!' })
       .expect(200);
 
     expect(response.body.tokens.accessToken).toBeDefined();
@@ -53,7 +68,7 @@ describe('Auth API', () => {
   it('rejects invalid login attempts', async () => {
     await request(app)
       .post('/auth/register')
-      .send({ email: 'user@example.com', password: 'Password123' })
+      .send({ email: 'user@example.com', username: 'realmrunner', password: 'Password123!' })
       .expect(201);
 
     const response = await request(app)
@@ -67,7 +82,7 @@ describe('Auth API', () => {
   it('refreshes tokens using a valid refresh token', async () => {
     const registerResponse = await request(app)
       .post('/auth/register')
-      .send({ email: 'user@example.com', password: 'Password123' })
+      .send({ email: 'user@example.com', username: 'realmrunner', password: 'Password123!' })
       .expect(201);
 
     const refreshToken = registerResponse.body.tokens.refreshToken;
@@ -85,7 +100,7 @@ describe('Auth API', () => {
   it('invalidates refresh tokens after logout', async () => {
     const registerResponse = await request(app)
       .post('/auth/register')
-      .send({ email: 'user@example.com', password: 'Password123' })
+      .send({ email: 'user@example.com', username: 'realmrunner', password: 'Password123!' })
       .expect(201);
 
     const refreshToken = registerResponse.body.tokens.refreshToken;

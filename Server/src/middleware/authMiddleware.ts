@@ -14,6 +14,7 @@ export interface AuthPayload {
 export interface UserContext {
   id: string;
   email: string;
+  username: string;
   createdAt: string;
 }
 
@@ -47,7 +48,7 @@ export function requireAuth(
     if (!user) {
       throw new HttpError(401, 'Invalid access token');
     }
-    req.user = { id: user.id, email: user.email, createdAt: user.createdAt };
+    req.user = { id: user.id, email: user.email, username: user.username, createdAt: user.createdAt };
     next();
   } catch (error) {
     if (error instanceof HttpError) {
