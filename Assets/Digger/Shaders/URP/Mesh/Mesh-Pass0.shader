@@ -104,7 +104,7 @@ Shader "Digger/Mesh/URP/Lit-Pass0"
 #if defined(UNITY_6000_0_OR_NEWER)
             #pragma multi_compile _ _CLUSTER_LIGHT_LOOP
 #else
-            #pragma multi_compile _ _FORWARD_PLUS
+            #pragma multi_compile _ _CLUSTER_LIGHT_LOOP
 #endif
 #ifdef USING_URP_14_OR_ABOVE
             #include_with_pragmas "Packages/com.unity.render-pipelines.universal/ShaderLibrary/RenderingLayers.hlsl"

@@ -3,7 +3,7 @@
 #define UNIVERSAL_TERRAIN_LIT_PASSES_INCLUDED
 
 #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
-#if __has_include("Packages/com.unity.render-pipelines.universal/ShaderLibrary/GBufferOutput.hlsl")
+#if UNITY_VERSION >= 600000
 #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/GBufferOutput.hlsl"
 #else
 #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/UnityGBuffer.hlsl"
