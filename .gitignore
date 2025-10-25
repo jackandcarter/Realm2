@@ -1,0 +1,62 @@
+cat > .gitignore << 'EOF'
+# === Unity ===
+[Ll]ibrary/
+[Tt]emp/
+[Oo]bj/
+[Bb]uild/
+[Bb]uilds/
+[Ll]ogs/
+[Mm]emoryCaptures/
+[Pp]ackages/com.unity.package-manager-ui/
+[Pp]ackages/com.unity.testtools.codecoverage/
+[Ss]ysroot/
+UserSettings/
+.build/
+Assets/AssetStoreTools*
+
+# Cache
+Assets/**/Texture2D/*.dds
+*.pidb
+*.booproj
+*.user
+*.userprefs
+*.csproj
+*.sln
+*.suo
+*.svd
+*.pdb
+*.mdb
+
+# Rider / VSCode / Xcode
+.idea/
+.vscode/
+*.tmp
+*.unityproj
+*.tmproj
+*.VC.db
+
+# Crash/Reports
+sysinfo.txt
+
+# Addressables
+Assets/**/AddressableAssetsData/*/Bin*/
+Assets/**/AddressableAssetsData/*/obj*/
+
+# Collaborate
+.collabignore
+.collab/
+
+# Platform-specific
+*.apk
+*.aab
+*.app
+*.ipa
+*.xcworkspace/
+*.xcuserstate
+*.xcodeproj/project.xcworkspace/
+*.xcodeproj/xcuserdata/
+
+# Other
+.DS_Store
+Thumbs.db
+EOF
