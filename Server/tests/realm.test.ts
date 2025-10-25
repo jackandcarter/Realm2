@@ -6,6 +6,18 @@ import { app } from '../src/app';
 import { resetDatabase } from '../src/db/database';
 import { upsertMembership } from '../src/db/realmMembershipRepository';
 
+interface RealmSummary {
+  id: string;
+  isMember: boolean;
+  membershipRole?: string;
+  [key: string]: unknown;
+}
+
+interface CharacterSummary {
+  name: string;
+  [key: string]: unknown;
+}
+
 async function registerAndGetToken(email: string) {
   const response = await request(app)
     .post('/auth/register')
@@ -74,7 +86,9 @@ describe('Realm and character API', () => {
       .set('Authorization', `Bearer ${accessToken}`)
       .expect(200);
 
-    const updatedRealm = realmsAfter.body.realms.find((r: any) => r.id === targetRealm.id);
+    const updatedRealm = (realmsAfter.body.realms as RealmSummary[]).find(
+      (realm) => realm.id === targetRealm.id
+    );
     expect(updatedRealm.isMember).toBe(true);
     expect(updatedRealm.membershipRole).toBe('player');
   });
@@ -135,7 +149,7 @@ describe('Realm and character API', () => {
       .expect(200);
 
     expect(builderView.body.membership.role).toBe('builder');
-    const names = builderView.body.characters.map((c: any) => c.name);
+    const names = (builderView.body.characters as CharacterSummary[]).map((character) => character.name);
     expect(names).toEqual(expect.arrayContaining(['Elysium Scout', 'Arcane Ranger']));
     expect(builderView.body.characters).toHaveLength(2);
   });

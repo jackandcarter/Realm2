@@ -44,7 +44,8 @@ Create a `.env` file (see `.env.example`) to override defaults.
 | --- | --- | --- |
 | `PORT` | HTTP port | `3000` |
 | `JWT_SECRET` | Secret key for signing JWT access tokens | `dev-secret-change-me` |
-| `DB_PATH` | Path to SQLite database file | `./data/app.db` |
+| `DB_PATH` | Path to SQLite database file (takes precedence over `DATABASE_URL`) | `./data/app.db` |
+| `DATABASE_URL` | Alternate way to provide the SQLite database path (useful for CI secrets) | `./data/app.db` |
 | `ACCESS_TOKEN_TTL` | Access token lifetime in seconds | `900` (15 minutes) |
 | `REFRESH_TOKEN_TTL` | Refresh token lifetime in seconds | `604800` (7 days) |
 

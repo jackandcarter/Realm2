@@ -65,3 +65,65 @@ We welcome collaborators across disciplines—designers, engineers, artists, wri
 4. Share feedback regularly so we can refine the world together.
 
 REALM is built by fans of immersive MMOs who want to push the boundaries of player-driven storytelling and construction. If that resonates with you, we’d love your help forging the future of Elysium.
+
+## Development Setup
+
+### Backend API (Server/)
+
+The authentication and realm management API lives in the `Server/` directory.
+
+1. Install prerequisites: Node.js 18+ and npm 9+.
+2. Duplicate the sample environment file and customize values as needed:
+
+   ```bash
+   cd Server
+   cp .env.example .env
+   ```
+
+3. Start the service locally:
+
+   ```bash
+   npm install
+   npm run dev
+   ```
+
+   The API listens on <http://localhost:3000>. Swagger docs are served from `/docs` once the server is running.
+
+4. To run the backend inside Docker (useful for parity with CI):
+
+   ```bash
+   docker compose up --build
+   ```
+
+5. Execute quality checks before opening a pull request:
+
+   ```bash
+   npm run lint
+   npm test
+   ```
+
+### Unity Client
+
+1. Install the Unity Editor version **6000.2.8f1** via Unity Hub.
+2. Add the project by selecting the root of this repository (the directory containing `Assets/`, `Packages/`, and `ProjectSettings/`).
+3. Open the project and allow Unity to import packages. Any missing package errors can typically be resolved by opening the Package Manager and clicking **Refresh**.
+4. When developing gameplay features, keep scenes and assets grouped logically under `Assets/` to keep automated build validation fast.
+
+## Continuous Integration
+
+Automated checks run for every push to `main` and on pull requests that modify backend or Unity content.
+
+- **Backend CI** installs dependencies, runs ESLint, and executes the Jest unit tests.
+- **Unity Build Validation** performs a headless Linux build using the Unity Builder action and uploads the resulting artifact.
+
+### Required GitHub Secrets
+
+Add the following repository secrets so the workflows can authenticate and connect to required services:
+
+| Secret | Used By | Description |
+| --- | --- | --- |
+| `BACKEND_DATABASE_URL` | Backend CI | File path or connection string for the SQLite database used during automated tests. A value such as `./data/app.db` is sufficient for CI runs. |
+| `BACKEND_JWT_SECRET` | Backend CI | Secret used to sign JWTs when the backend test suite runs. |
+| `UNITY_LICENSE` | Unity Build Validation | Serialized Unity license (ULF) for the Unity Builder action. Generate this through the [GameCI licensing guide](https://game.ci/docs/github/activation). |
+
+Enable branch protection on `main` so that pull requests require both workflows to succeed before merging. This guarantees that new features do not regress backend behavior or break Unity builds.

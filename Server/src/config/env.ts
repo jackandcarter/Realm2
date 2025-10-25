@@ -17,5 +17,5 @@ export const env = {
   jwtSecret: process.env.JWT_SECRET ?? 'dev-secret-change-me',
   accessTokenTtlSeconds: parseInt(process.env.ACCESS_TOKEN_TTL ?? '900', 10), // 15 minutes
   refreshTokenTtlSeconds: parseInt(process.env.REFRESH_TOKEN_TTL ?? '604800', 10), // 7 days
-  databasePath: process.env.DB_PATH ?? path.join(dataDir, 'app.db'),
+  databasePath: process.env.DB_PATH ?? process.env.DATABASE_URL ?? path.join(dataDir, 'app.db'),
 };
