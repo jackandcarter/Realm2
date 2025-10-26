@@ -12,6 +12,7 @@ import {
 import { VersionConflictError } from '../db/progressionRepository';
 import { CharacterClassState } from '../types/classUnlocks';
 import { HttpError, isHttpError } from '../utils/errors';
+import { JsonValue } from '../types/characterCustomization';
 
 export const characterRouter = Router();
 
@@ -213,7 +214,8 @@ function toProgressionUpdateInput(body: unknown): ProgressionUpdateInput {
         if (metadata !== undefined && !isJsonValue(metadata)) {
           throw new HttpError(400, `inventory.items[${index}].metadata must be JSON-serializable`);
         }
-        return { itemId, quantity, metadata };
+        const normalizedMetadata = metadata as JsonValue | undefined;
+        return { itemId, quantity, metadata: normalizedMetadata };
       });
       result.inventory = { expectedVersion, items };
     }
@@ -251,7 +253,8 @@ function toProgressionUpdateInput(body: unknown): ProgressionUpdateInput {
         if (progress !== undefined && !isJsonValue(progress)) {
           throw new HttpError(400, `quests.quests[${index}].progress must be JSON-serializable`);
         }
-        return { questId, status, progress };
+        const normalizedProgress = progress as JsonValue | undefined;
+        return { questId, status, progress: normalizedProgress };
       });
       result.quests = { expectedVersion, quests };
     }

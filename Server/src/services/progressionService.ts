@@ -1,6 +1,7 @@
 import { IncomingMessage } from 'http';
 import jwt from 'jsonwebtoken';
 import { WebSocket, WebSocketServer } from 'ws';
+import type { RawData } from 'ws';
 import { env } from '../config/env';
 import { findCharacterById } from '../db/characterRepository';
 import {
@@ -151,7 +152,7 @@ function handleSocketMessage(
   socket: WebSocket,
   userId: string,
   defaultCharacterId: string,
-  raw: WebSocket.RawData
+  raw: RawData
 ): void {
   let message: ProgressionSocketMessage;
   try {

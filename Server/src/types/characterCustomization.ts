@@ -7,7 +7,8 @@ export interface CharacterAppearance {
   hairColor?: string;
   eyeColor?: string;
   skinTone?: string;
-  height?: string;
+  height?: number;
+  build?: number;
   bodyType?: string;
   accessories?: JsonValue;
   markings?: JsonValue;

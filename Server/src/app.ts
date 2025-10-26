@@ -8,6 +8,8 @@ import { characterRouter } from './routes/characterRoutes';
 import { realmChunkRouter } from './routes/chunkRoutes';
 import { swaggerSpec } from './docs/swagger';
 import { HttpError, isHttpError } from './utils/errors';
+import { metricsRegistry } from './observability/metrics';
+import { logger } from './observability/logger';
 
 const app = express();
 
@@ -27,13 +29,22 @@ app.get('/health', (_req, res) => {
   res.json({ status: 'ok' });
 });
 
+app.get('/metrics', async (_req, res, next) => {
+  try {
+    res.set('Content-Type', metricsRegistry.contentType);
+    res.send(await metricsRegistry.metrics());
+  } catch (error) {
+    next(error);
+  }
+});
+
 app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
   if (isHttpError(err)) {
     res.status((err as HttpError).status).json({ message: (err as HttpError).message });
     return;
   }
   if (process.env.NODE_ENV !== 'test') {
-    console.error(err);
+    logger.error({ err }, 'Unhandled application error');
   }
   res.status(500).json({ message: 'Internal server error' });
 });

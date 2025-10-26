@@ -10,6 +10,8 @@ services:
       PORT: 3000
       JWT_SECRET: change-me
       DB_PATH: /data/app.db
+      DB_BACKUP_DIR: /data/backups
+      DB_BACKUP_INTERVAL_MINUTES: 60
     volumes:
       - .:/app
       - ./data:/data

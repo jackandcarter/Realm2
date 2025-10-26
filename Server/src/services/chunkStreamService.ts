@@ -1,4 +1,5 @@
 import { ChunkChangeDTO } from '../types/chunk';
+import { logger } from '../observability/logger';
 
 type ChunkListener = (change: ChunkChangeDTO) => void;
 
@@ -34,7 +35,7 @@ export function publishChunkChange(change: ChunkChangeDTO): void {
       listener(change);
     } catch (error) {
       if (process.env.NODE_ENV !== 'test') {
-        console.warn('Failed to notify chunk listener', error);
+        logger.warn({ err: error, realmId: change.realmId }, 'Failed to notify chunk listener');
       }
     }
   }
