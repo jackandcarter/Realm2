@@ -1,4 +1,7 @@
 using UnityEngine;
+#if ENABLE_INPUT_SYSTEM
+using UnityEngine.InputSystem;
+#endif
 
 namespace Building
 {
@@ -43,6 +46,43 @@ namespace Building
             transform.rotation = Quaternion.identity;
 
             var translation = Vector3.zero;
+#if ENABLE_INPUT_SYSTEM
+            var keyboard = Keyboard.current;
+            if (keyboard == null)
+            {
+                return;
+            }
+
+            if (keyboard.wKey.isPressed || keyboard.upArrowKey.isPressed)
+            {
+                translation += Vector3.forward;
+            }
+
+            if (keyboard.sKey.isPressed || keyboard.downArrowKey.isPressed)
+            {
+                translation += Vector3.back;
+            }
+
+            if (keyboard.aKey.isPressed || keyboard.leftArrowKey.isPressed)
+            {
+                translation += Vector3.left;
+            }
+
+            if (keyboard.dKey.isPressed || keyboard.rightArrowKey.isPressed)
+            {
+                translation += Vector3.right;
+            }
+
+            if (keyboard.eKey.isPressed)
+            {
+                translation += Vector3.up;
+            }
+
+            if (keyboard.qKey.isPressed)
+            {
+                translation += Vector3.down;
+            }
+#else
             if (Input.GetKey(KeyCode.W) || Input.GetKey(KeyCode.UpArrow))
             {
                 translation += Vector3.forward;
@@ -72,6 +112,7 @@ namespace Building
             {
                 translation += Vector3.down;
             }
+#endif
 
             if (translation.sqrMagnitude > 0f)
             {
@@ -82,6 +123,17 @@ namespace Building
             }
 
             var rotation = 0f;
+#if ENABLE_INPUT_SYSTEM
+            if (keyboard.zKey.isPressed)
+            {
+                rotation -= 1f;
+            }
+
+            if (keyboard.cKey.isPressed)
+            {
+                rotation += 1f;
+            }
+#else
             if (Input.GetKey(KeyCode.Z))
             {
                 rotation -= 1f;
@@ -91,6 +143,7 @@ namespace Building
             {
                 rotation += 1f;
             }
+#endif
 
             if (Mathf.Abs(rotation) > 0.01f)
             {
