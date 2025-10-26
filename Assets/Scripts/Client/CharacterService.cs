@@ -2,11 +2,19 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Text;
+using Client.CharacterCreation;
 using UnityEngine;
 using UnityEngine.Networking;
 
 namespace Client
 {
+    [Serializable]
+    public class CharacterAppearanceInfo
+    {
+        public float height;
+        public float build;
+    }
+
     [Serializable]
     public class CharacterInfo
     {
@@ -15,6 +23,8 @@ namespace Client
         public string realmId;
         public string name;
         public string bio;
+        public string raceId;
+        public CharacterAppearanceInfo appearance = new CharacterAppearanceInfo();
         public string createdAt;
     }
 
@@ -24,6 +34,15 @@ namespace Client
         public string realmId;
         public string name;
         public string bio;
+        public string raceId;
+        public CharacterAppearanceRequest appearance;
+    }
+
+    [Serializable]
+    internal class CharacterAppearanceRequest
+    {
+        public float height;
+        public float build;
     }
 
     [Serializable]
@@ -107,11 +126,11 @@ namespace Client
             }
         }
 
-        public IEnumerator CreateCharacter(string realmId, string name, string bio, Action<CharacterInfo> onSuccess, Action<ApiError> onError)
+        public IEnumerator CreateCharacter(string realmId, string name, string bio, Action<CharacterInfo> onSuccess, Action<ApiError> onError, CharacterCreationSelection? selection = null)
         {
             if (_useMock)
             {
-                yield return RunMockCreateCharacter(realmId, name, bio, onSuccess, onError);
+                yield return RunMockCreateCharacter(realmId, name, bio, onSuccess, onError, selection);
                 yield break;
             }
 
@@ -119,7 +138,9 @@ namespace Client
             {
                 realmId = realmId,
                 name = name,
-                bio = bio
+                bio = bio,
+                raceId = selection.HasValue && selection.Value.Race != null ? selection.Value.Race.Id : null,
+                appearance = BuildAppearancePayload(selection)
             });
 
             using var request = new UnityWebRequest($"{_baseUrl}/characters", UnityWebRequest.kHttpVerbPOST);
@@ -213,6 +234,12 @@ namespace Client
                         userId = Guid.NewGuid().ToString("N"),
                         name = "Aeloria",
                         bio = "An arcane adept forged in testing.",
+                        raceId = "felarian",
+                        appearance = new CharacterAppearanceInfo
+                        {
+                            height = 1.72f,
+                            build = 0.48f
+                        },
                         createdAt = DateTime.UtcNow.ToString("O")
                     },
                     new CharacterInfo
@@ -222,13 +249,33 @@ namespace Client
                         userId = Guid.NewGuid().ToString("N"),
                         name = "Bram",
                         bio = "Warrior of the mock clans.",
+                        raceId = "human",
+                        appearance = new CharacterAppearanceInfo
+                        {
+                            height = 1.85f,
+                            build = 0.62f
+                        },
                         createdAt = DateTime.UtcNow.ToString("O")
                     }
                 }
             });
         }
 
-        private IEnumerator RunMockCreateCharacter(string realmId, string name, string bio, Action<CharacterInfo> onSuccess, Action<ApiError> onError)
+        private static CharacterAppearanceRequest BuildAppearancePayload(CharacterCreationSelection? selection)
+        {
+            if (!selection.HasValue || selection.Value.Race == null)
+            {
+                return null;
+            }
+
+            return new CharacterAppearanceRequest
+            {
+                height = selection.Value.Height,
+                build = selection.Value.Build
+            };
+        }
+
+        private IEnumerator RunMockCreateCharacter(string realmId, string name, string bio, Action<CharacterInfo> onSuccess, Action<ApiError> onError, CharacterCreationSelection? selection)
         {
             yield return null;
 
@@ -245,6 +292,18 @@ namespace Client
                 name = name,
                 realmId = realmId,
                 bio = string.IsNullOrWhiteSpace(bio) ? "" : bio,
+                raceId = selection.HasValue && selection.Value.Race != null ? selection.Value.Race.Id : "human",
+                appearance = selection.HasValue
+                    ? new CharacterAppearanceInfo
+                    {
+                        height = selection.Value.Height,
+                        build = selection.Value.Build
+                    }
+                    : new CharacterAppearanceInfo
+                    {
+                        height = 1.75f,
+                        build = 0.5f
+                    },
                 createdAt = DateTime.UtcNow.ToString("O")
             };
 

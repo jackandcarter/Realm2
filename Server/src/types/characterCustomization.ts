@@ -38,7 +38,7 @@ export function deserializeAppearance(json: string | null | undefined): Characte
   return {};
 }
 
-function isCharacterAppearance(value: unknown): value is CharacterAppearance {
+export function isCharacterAppearance(value: unknown): value is CharacterAppearance {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     return false;
   }

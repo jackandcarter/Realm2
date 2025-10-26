@@ -586,7 +586,8 @@ namespace Client
                 {
                     _characterMessage.text = error.Message;
                     _createCharacterButton.interactable = true;
-                });
+                },
+                selection);
         }
 
         private void EnsureCharacterCreationPanelInstance()

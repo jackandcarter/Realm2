@@ -58,12 +58,15 @@ namespace Client.CharacterCreation
             if (confirmButton != null)
             {
                 confirmButton.onClick.AddListener(NotifyConfirmed);
+                confirmButton.interactable = false;
             }
 
             if (cancelButton != null)
             {
                 cancelButton.onClick.AddListener(NotifyCancelled);
             }
+
+            UpdateConfirmButtonState();
         }
 
         private void OnEnable()
@@ -156,6 +159,7 @@ namespace Client.CharacterCreation
 
             _spawnedRaceButtons.Clear();
             _selectedRace = null;
+            UpdateConfirmButtonState();
         }
 
         private void SelectRace(RaceDefinition race)
@@ -176,6 +180,7 @@ namespace Client.CharacterCreation
             ConfigureSlider(buildSlider, buildValueLabel, race?.Customization?.Build, 0.01f);
             PopulateFeatureList(race?.Customization?.AdjustableFeatures);
 
+            UpdateConfirmButtonState();
             RaceSelected?.Invoke(race);
         }
 
@@ -249,6 +254,51 @@ namespace Client.CharacterCreation
             }
 
             UpdateSliderLabel(slider, label);
+            UpdateConfirmButtonState();
+        }
+
+        private void UpdateConfirmButtonState()
+        {
+            if (confirmButton == null)
+            {
+                return;
+            }
+
+            var hasRace = _selectedRace != null;
+            var heightValid = !hasRace || heightSlider == null || IsValueWithinRange(_selectedRace?.Customization?.Height, SelectedHeight);
+            var buildValid = !hasRace || buildSlider == null || IsValueWithinRange(_selectedRace?.Customization?.Build, SelectedBuild);
+
+            confirmButton.interactable = hasRace && heightValid && buildValid;
+        }
+
+        private bool IsCurrentSelectionValid()
+        {
+            if (_selectedRace == null)
+            {
+                return false;
+            }
+
+            if (heightSlider != null && !IsValueWithinRange(_selectedRace.Customization?.Height, SelectedHeight))
+            {
+                return false;
+            }
+
+            if (buildSlider != null && !IsValueWithinRange(_selectedRace.Customization?.Build, SelectedBuild))
+            {
+                return false;
+            }
+
+            return true;
+        }
+
+        private static bool IsValueWithinRange(FloatRange? range, float value)
+        {
+            if (!range.HasValue)
+            {
+                return true;
+            }
+
+            return value >= range.Value.Min - Mathf.Epsilon && value <= range.Value.Max + Mathf.Epsilon;
         }
 
         private void PopulateFeatureList(IReadOnlyCollection<string> features)
@@ -295,16 +345,18 @@ namespace Client.CharacterCreation
         private void OnHeightSliderChanged(float _)
         {
             UpdateSliderLabel(heightSlider, heightValueLabel);
+            UpdateConfirmButtonState();
         }
 
         private void OnBuildSliderChanged(float _)
         {
             UpdateSliderLabel(buildSlider, buildValueLabel);
+            UpdateConfirmButtonState();
         }
 
         private void NotifyConfirmed()
         {
-            if (_selectedRace == null)
+            if (!IsCurrentSelectionValid())
             {
                 return;
             }

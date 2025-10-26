@@ -77,10 +77,18 @@ describe('Realm and character API', () => {
     const createResponse = await request(app)
       .post('/characters')
       .set('Authorization', `Bearer ${accessToken}`)
-      .send({ realmId: targetRealm.id, name: 'Chrono Seeker' })
+      .send({
+        realmId: targetRealm.id,
+        name: 'Chrono Seeker',
+        raceId: 'felarian',
+        appearance: { height: 1.7, build: 0.5 },
+      })
       .expect(201);
 
     expect(createResponse.body.character.name).toBe('Chrono Seeker');
+    expect(createResponse.body.character.raceId).toBe('felarian');
+    expect(createResponse.body.character.appearance.height).toBeCloseTo(1.7);
+    expect(createResponse.body.character.appearance.build).toBeCloseTo(0.5);
 
     const realmsAfter = await request(app)
       .get('/realms')
@@ -153,5 +161,44 @@ describe('Realm and character API', () => {
     const names = (builderView.body.characters as CharacterSummary[]).map((character) => character.name);
     expect(names).toEqual(expect.arrayContaining(['Elysium Scout', 'Arcane Ranger']));
     expect(builderView.body.characters).toHaveLength(2);
+  });
+
+  it('rejects invalid race selections', async () => {
+    const { accessToken } = await registerAndGetToken('invalid-race@example.com');
+
+    const realmsResponse = await request(app)
+      .get('/realms')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .expect(200);
+
+    const targetRealm = realmsResponse.body.realms[0];
+
+    await request(app)
+      .post('/characters')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({ realmId: targetRealm.id, name: 'Outsider', raceId: 'unknown-race' })
+      .expect(400);
+  });
+
+  it('validates appearance ranges for the selected race', async () => {
+    const { accessToken } = await registerAndGetToken('invalid-appearance@example.com');
+
+    const realmsResponse = await request(app)
+      .get('/realms')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .expect(200);
+
+    const targetRealm = realmsResponse.body.realms[0];
+
+    await request(app)
+      .post('/characters')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({
+        realmId: targetRealm.id,
+        name: 'Too Tall Gearling',
+        raceId: 'gearling',
+        appearance: { height: 2.5 },
+      })
+      .expect(400);
   });
 });
