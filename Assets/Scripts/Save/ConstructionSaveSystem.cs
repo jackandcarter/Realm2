@@ -54,7 +54,12 @@ namespace Client.Save
                 payload = LoadPayload(key);
             }
 
-            return payload?.Instances ?? Array.Empty<ConstructionInstance.SerializableConstructionState>();
+            if (payload?.Instances == null || payload.Instances.Count == 0)
+            {
+                return Array.Empty<ConstructionInstance.SerializableConstructionState>();
+            }
+
+            return payload.Instances;
         }
 
         private static ConstructionSavePayload LoadPayload(string key)

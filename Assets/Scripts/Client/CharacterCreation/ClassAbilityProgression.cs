@@ -104,12 +104,12 @@ namespace Client.CharacterCreation
             }
 
             var entry = levels.FirstOrDefault(l => l.Level == level);
-            if (entry == null)
+            if (entry == null || entry.Abilities == null || entry.Abilities.Count == 0)
             {
                 return Array.Empty<ClassAbilityDefinition>();
             }
 
-            return entry.Abilities?.Select(a => a.Clone()).ToList() ?? Array.Empty<ClassAbilityDefinition>();
+            return entry.Abilities.Select(a => a.Clone()).ToList();
         }
 
         [Serializable]
