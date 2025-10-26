@@ -569,14 +569,30 @@ namespace Client
                     var raceLabel = selection.HasValue && selection.Value.Race != null
                         ? selection.Value.Race.DisplayName
                         : null;
-                    if (string.IsNullOrWhiteSpace(raceLabel))
+                    var classLabel = selection.HasValue && selection.Value.Class != null
+                        ? selection.Value.Class.DisplayName
+                        : null;
+                    if (string.IsNullOrWhiteSpace(classLabel) && !string.IsNullOrWhiteSpace(character.classId))
                     {
-                        _characterMessage.text = $"Created {character.name}. Select to enter the world.";
+                        if (ClassCatalog.TryGetClass(character.classId, out var classDefinition))
+                        {
+                            classLabel = classDefinition.DisplayName;
+                        }
                     }
-                    else
+
+                    var descriptors = new List<string>();
+                    if (!string.IsNullOrWhiteSpace(raceLabel))
                     {
-                        _characterMessage.text = $"Created {raceLabel} {character.name}. Select to enter the world.";
+                        descriptors.Add(raceLabel);
                     }
+
+                    if (!string.IsNullOrWhiteSpace(classLabel))
+                    {
+                        descriptors.Add(classLabel);
+                    }
+
+                    var descriptorText = descriptors.Count > 0 ? string.Join(" ", descriptors) + " " : string.Empty;
+                    _characterMessage.text = $"Created {descriptorText}{character.name}. Select to enter the world.";
                     _characterNameInput.text = string.Empty;
                     var entry = CreateCharacterButton(character);
                     _spawnedCharacterEntries.Add(entry.gameObject);
@@ -628,6 +644,7 @@ namespace Client
             }
 
             panel.RaceSelected += OnCharacterCreationRaceSelected;
+            panel.ClassSelected += OnCharacterCreationClassSelected;
             panel.Confirmed += OnCharacterCreationConfirmed;
             panel.Cancelled += OnCharacterCreationCancelled;
             _characterCreationPanelHooked = true;
@@ -645,7 +662,15 @@ namespace Client
         {
             if (race?.Definition != null)
             {
-                _characterMessage.text = $"Customizing {race.Definition.DisplayName}.";
+                _characterMessage.text = $"Customizing {race.Definition.DisplayName}. Choose a starting class.";
+            }
+        }
+
+        private void OnCharacterCreationClassSelected(CharacterClassDefinition classDefinition)
+        {
+            if (classDefinition != null)
+            {
+                _characterMessage.text = $"Starting class set to {classDefinition.DisplayName}.";
             }
         }
 
@@ -666,6 +691,12 @@ namespace Client
             if (selection.Race == null)
             {
                 _characterMessage.text = "Select a race to continue.";
+                return;
+            }
+
+            if (selection.Class == null)
+            {
+                _characterMessage.text = "Select a starting class to continue.";
                 return;
             }
 
@@ -709,6 +740,7 @@ namespace Client
             if (_characterCreationPanelInstance != null)
             {
                 _characterCreationPanelInstance.RaceSelected -= OnCharacterCreationRaceSelected;
+                _characterCreationPanelInstance.ClassSelected -= OnCharacterCreationClassSelected;
                 _characterCreationPanelInstance.Confirmed -= OnCharacterCreationConfirmed;
                 _characterCreationPanelInstance.Cancelled -= OnCharacterCreationCancelled;
             }
