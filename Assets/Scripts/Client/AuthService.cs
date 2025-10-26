@@ -7,7 +7,6 @@ using UnityEngine.Networking;
 namespace Client
 {
     [Serializable]
-    [Serializable]
     public class AuthTokens
     {
         public string accessToken;
