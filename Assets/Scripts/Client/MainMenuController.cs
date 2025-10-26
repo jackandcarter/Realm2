@@ -4,9 +4,14 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
+using UnityEngine.EventSystems;
+#if ENABLE_INPUT_SYSTEM
+using UnityEngine.InputSystem.UI;
+#endif
 
 namespace Client
 {
+    [ExecuteAlways]
     public class MainMenuController : MonoBehaviour
     {
         [Header("API Settings")]
@@ -45,6 +50,11 @@ namespace Client
             EnsureEventSystem();
             EnsureUi();
 
+            if (!Application.isPlaying)
+            {
+                return;
+            }
+
             var baseUrl = ResolveBaseApiUrl();
             var useMocks = ResolveUseMockServices();
 
@@ -60,6 +70,12 @@ namespace Client
 
         private void Start()
         {
+            if (!Application.isPlaying)
+            {
+                ShowCanvas(_loginCanvas);
+                return;
+            }
+
             ShowCanvas(_loginCanvas);
         }
 
@@ -67,32 +83,70 @@ namespace Client
         {
             if (_loginCanvas == null)
             {
-                _loginCanvas = CreateLoginCanvas();
+                _loginCanvas = FindCanvas("LoginCanvas") ?? CreateLoginCanvas();
             }
 
             if (_realmCanvas == null)
             {
-                _realmCanvas = CreateRealmCanvas();
-                _realmCanvas.gameObject.SetActive(false);
+                _realmCanvas = FindCanvas("RealmCanvas") ?? CreateRealmCanvas();
             }
 
             if (_characterCanvas == null)
             {
-                _characterCanvas = CreateCharacterCanvas();
+                _characterCanvas = FindCanvas("CharacterCanvas") ?? CreateCharacterCanvas();
+            }
+
+            if (_realmCanvas != null)
+            {
+                _realmCanvas.gameObject.SetActive(false);
+            }
+
+            if (_characterCanvas != null)
+            {
                 _characterCanvas.gameObject.SetActive(false);
+            }
+
+            if (_loginCanvas != null && !Application.isPlaying)
+            {
+                _loginCanvas.gameObject.SetActive(true);
             }
         }
 
         private void EnsureEventSystem()
         {
-            if (UnityEngine.Object.FindFirstObjectByType<UnityEngine.EventSystems.EventSystem>() != null)
+            var existing = UnityEngine.Object.FindFirstObjectByType<EventSystem>();
+            if (existing == null)
             {
+                var eventSystemGo = new GameObject("EventSystem");
+                eventSystemGo.transform.SetParent(transform, false);
+                eventSystemGo.AddComponent<EventSystem>();
+#if ENABLE_INPUT_SYSTEM
+                eventSystemGo.AddComponent<InputSystemUIInputModule>();
+#else
+                eventSystemGo.AddComponent<StandaloneInputModule>();
+#endif
                 return;
             }
 
-            var eventSystem = new GameObject("EventSystem");
-            eventSystem.AddComponent<UnityEngine.EventSystems.EventSystem>();
-            eventSystem.AddComponent<UnityEngine.EventSystems.StandaloneInputModule>();
+#if ENABLE_INPUT_SYSTEM
+            if (existing.GetComponent<InputSystemUIInputModule>() == null)
+            {
+                existing.gameObject.AddComponent<InputSystemUIInputModule>();
+            }
+
+            var legacyModule = existing.GetComponent<StandaloneInputModule>();
+            if (legacyModule != null)
+            {
+                if (Application.isPlaying)
+                {
+                    Destroy(legacyModule);
+                }
+                else
+                {
+                    DestroyImmediate(legacyModule);
+                }
+            }
+#endif
         }
 
         private Canvas CreateLoginCanvas()
@@ -191,7 +245,7 @@ namespace Client
             var rect = (RectTransform)textGo.transform;
             rect.sizeDelta = new Vector2(0, 60);
             var text = textGo.GetComponent<Text>();
-            text.font = Resources.GetBuiltinResource<Font>("Arial.ttf");
+            text.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             text.text = defaultText;
             text.alignment = TextAnchor.MiddleCenter;
             text.color = Color.white;
@@ -216,7 +270,7 @@ namespace Client
             textGo.transform.SetParent(inputGo.transform, false);
             ConfigureTextRect((RectTransform)textGo.transform);
             var textComponent = textGo.GetComponent<Text>();
-            textComponent.font = Resources.GetBuiltinResource<Font>("Arial.ttf");
+            textComponent.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             textComponent.text = string.Empty;
             textComponent.color = Color.black;
             textComponent.alignment = TextAnchor.MiddleLeft;
@@ -225,7 +279,7 @@ namespace Client
             placeholderGo.transform.SetParent(inputGo.transform, false);
             ConfigureTextRect((RectTransform)placeholderGo.transform);
             var placeholderText = placeholderGo.GetComponent<Text>();
-            placeholderText.font = Resources.GetBuiltinResource<Font>("Arial.ttf");
+            placeholderText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             placeholderText.text = placeholder;
             placeholderText.color = new Color(0.6f, 0.6f, 0.6f, 0.75f);
             placeholderText.alignment = TextAnchor.MiddleLeft;
@@ -255,7 +309,7 @@ namespace Client
             textGo.transform.SetParent(buttonGo.transform, false);
             ConfigureTextRect((RectTransform)textGo.transform);
             var text = textGo.GetComponent<Text>();
-            text.font = Resources.GetBuiltinResource<Font>("Arial.ttf");
+            text.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             text.text = label;
             text.color = Color.black;
             text.alignment = TextAnchor.MiddleCenter;
@@ -497,9 +551,20 @@ namespace Client
 
         private void ShowCanvas(Canvas canvasToShow)
         {
-            _loginCanvas.gameObject.SetActive(canvasToShow == _loginCanvas);
-            _realmCanvas.gameObject.SetActive(canvasToShow == _realmCanvas);
-            _characterCanvas.gameObject.SetActive(canvasToShow == _characterCanvas);
+            if (_loginCanvas != null)
+            {
+                _loginCanvas.gameObject.SetActive(canvasToShow == _loginCanvas);
+            }
+
+            if (_realmCanvas != null)
+            {
+                _realmCanvas.gameObject.SetActive(canvasToShow == _realmCanvas);
+            }
+
+            if (_characterCanvas != null)
+            {
+                _characterCanvas.gameObject.SetActive(canvasToShow == _characterCanvas);
+            }
         }
 
         private string ResolveBaseApiUrl()
@@ -526,6 +591,12 @@ namespace Client
             return Application.isEditor
                 ? fallbackUseMockServicesInEditor
                 : fallbackUseMockServicesInPlayer;
+        }
+
+        private Canvas FindCanvas(string childName)
+        {
+            var child = transform.Find(childName);
+            return child != null ? child.GetComponent<Canvas>() : null;
         }
     }
 }
