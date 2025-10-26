@@ -122,6 +122,13 @@ namespace Client
                 }
 
                 response.characters ??= Array.Empty<CharacterInfo>();
+                foreach (var character in response.characters)
+                {
+                    if (character != null)
+                    {
+                        character.classStates = ClassUnlockUtility.SanitizeStates(character.classStates);
+                    }
+                }
                 onSuccess?.Invoke(response);
             }
             else
@@ -289,7 +296,7 @@ namespace Client
         {
             if (!selection.HasValue || selection.Value.ClassStates == null)
             {
-                return null;
+                return ClassUnlockUtility.SanitizeStates(null);
             }
 
             var sourceStates = selection.Value.ClassStates;
@@ -308,7 +315,7 @@ namespace Client
                 });
             }
 
-            return results.Count > 0 ? results.ToArray() : null;
+            return ClassUnlockUtility.SanitizeStates(results.Count > 0 ? results.ToArray() : null);
         }
 
         private static ClassUnlockState[] BuildDefaultClassStates(string raceId, string activeClassId)
@@ -335,7 +342,7 @@ namespace Client
                 });
             }
 
-            return states.ToArray();
+            return ClassUnlockUtility.SanitizeStates(states.ToArray());
         }
 
         private static string GetDefaultClassForRace(string raceId)
@@ -376,6 +383,8 @@ namespace Client
             var classStates = selection.HasValue
                 ? (BuildClassStatePayload(selection) ?? BuildDefaultClassStates(raceId, selectedClassId))
                 : BuildDefaultClassStates(raceId, selectedClassId);
+
+            classStates = ClassUnlockUtility.SanitizeStates(classStates);
 
             var character = new CharacterInfo
             {

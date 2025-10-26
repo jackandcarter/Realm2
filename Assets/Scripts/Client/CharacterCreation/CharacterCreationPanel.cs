@@ -31,10 +31,12 @@ namespace Client.CharacterCreation
         private readonly List<RaceViewModel> _raceViewModels = new();
         private readonly List<Button> _spawnedClassButtons = new();
         private readonly List<CharacterClassDefinition> _availableClassDefinitions = new();
+        private readonly Dictionary<string, ClassUnlockState> _classStatesById = new(StringComparer.OrdinalIgnoreCase);
         private RaceDefinition _selectedRace;
         private RaceViewModel _selectedRaceViewModel;
         private CharacterClassDefinition _selectedClass;
         private GameObject _activePreviewInstance;
+        private string _boundCharacterId;
 
         public event Action<RaceViewModel> RaceSelected;
         public event Action<CharacterClassDefinition> ClassSelected;
@@ -85,6 +87,7 @@ namespace Client.CharacterCreation
                 cancelButton.onClick.AddListener(NotifyCancelled);
             }
 
+            ApplyClassStates(null);
             UpdateConfirmButtonState();
         }
 
@@ -121,11 +124,104 @@ namespace Client.CharacterCreation
             }
 
             ClearPreviewInstance();
+
+            if (!string.IsNullOrEmpty(_boundCharacterId))
+            {
+                ClassUnlockRepository.ClassUnlockStatesChanged -= OnClassUnlockStatesChanged;
+            }
         }
 
         public void Refresh()
         {
             EnsureRaceButtons(true);
+        }
+
+        public void BindToCharacter(string characterId)
+        {
+            if (string.Equals(_boundCharacterId, characterId, StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            if (!string.IsNullOrEmpty(_boundCharacterId))
+            {
+                ClassUnlockRepository.ClassUnlockStatesChanged -= OnClassUnlockStatesChanged;
+            }
+
+            _boundCharacterId = characterId;
+
+            if (string.IsNullOrEmpty(characterId))
+            {
+                ApplyClassStates(null);
+            }
+            else
+            {
+                ApplyClassStates(ClassUnlockRepository.GetStates(characterId));
+                ClassUnlockRepository.ClassUnlockStatesChanged += OnClassUnlockStatesChanged;
+            }
+
+            EnsureRaceButtons(true);
+        }
+
+        private void ApplyClassStates(ClassUnlockState[] states)
+        {
+            _classStatesById.Clear();
+
+            var sanitized = ClassUnlockUtility.SanitizeStates(states);
+            foreach (var state in sanitized)
+            {
+                if (state == null || string.IsNullOrWhiteSpace(state.ClassId))
+                {
+                    continue;
+                }
+
+                _classStatesById[state.ClassId] = new ClassUnlockState
+                {
+                    ClassId = state.ClassId,
+                    Unlocked = state.Unlocked
+                };
+            }
+        }
+
+        private ClassUnlockState EnsureClassState(string classId)
+        {
+            if (string.IsNullOrWhiteSpace(classId))
+            {
+                return null;
+            }
+
+            var trimmed = classId.Trim();
+            if (_classStatesById.TryGetValue(trimmed, out var state))
+            {
+                return state;
+            }
+
+            var unlocked = !string.Equals(trimmed, ClassUnlockUtility.BuilderClassId, StringComparison.OrdinalIgnoreCase);
+            state = new ClassUnlockState
+            {
+                ClassId = trimmed,
+                Unlocked = unlocked
+            };
+            _classStatesById[trimmed] = state;
+            return state;
+        }
+
+        private bool IsClassUnlocked(string classId)
+        {
+            var state = EnsureClassState(classId);
+            return state != null && state.Unlocked;
+        }
+
+        private void OnClassUnlockStatesChanged(string characterId, ClassUnlockState[] states)
+        {
+            if (string.IsNullOrWhiteSpace(characterId) || !string.Equals(characterId, _boundCharacterId, StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+
+            ApplyClassStates(states);
+            PopulateClassButtons(_selectedRace);
+            UpdateConfirmButtonState();
         }
 
         private void EnsureRaceButtons(bool forceRefresh = false)
@@ -418,6 +514,7 @@ namespace Client.CharacterCreation
                 return;
             }
 
+            CharacterClassDefinition firstUnlocked = null;
             foreach (var classId in race.AllowedClassIds)
             {
                 if (!ClassCatalog.TryGetClass(classId, out var classDefinition))
@@ -426,6 +523,9 @@ namespace Client.CharacterCreation
                 }
 
                 _availableClassDefinitions.Add(classDefinition);
+
+                var state = EnsureClassState(classDefinition.Id);
+                var unlocked = state?.Unlocked ?? true;
 
                 if (classListRoot == null || classButtonTemplate == null)
                 {
@@ -439,17 +539,28 @@ namespace Client.CharacterCreation
                 var label = button.GetComponentInChildren<Text>();
                 if (label != null)
                 {
-                    label.text = classDefinition.DisplayName;
+                    label.text = unlocked
+                        ? classDefinition.DisplayName
+                        : $"{classDefinition.DisplayName} (Locked)";
                 }
 
-                var captured = classDefinition;
-                button.onClick.AddListener(() => SelectClass(captured));
+                button.interactable = unlocked;
+                if (unlocked)
+                {
+                    var captured = classDefinition;
+                    button.onClick.AddListener(() => SelectClass(captured));
+                    if (firstUnlocked == null)
+                    {
+                        firstUnlocked = classDefinition;
+                    }
+                }
+
                 _spawnedClassButtons.Add(button);
             }
 
-            if (_availableClassDefinitions.Count > 0)
+            if (firstUnlocked != null)
             {
-                SelectClass(_availableClassDefinitions[0]);
+                SelectClass(firstUnlocked);
             }
             else
             {
@@ -475,6 +586,11 @@ namespace Client.CharacterCreation
 
         private void SelectClass(CharacterClassDefinition classDefinition)
         {
+            if (classDefinition != null && !IsClassUnlocked(classDefinition.Id))
+            {
+                return;
+            }
+
             _selectedClass = classDefinition;
 
             for (var i = 0; i < _spawnedClassButtons.Count; i++)
@@ -486,7 +602,8 @@ namespace Client.CharacterCreation
                 }
 
                 var associatedClass = i < _availableClassDefinitions.Count ? _availableClassDefinitions[i] : null;
-                button.interactable = associatedClass != _selectedClass;
+                var unlocked = associatedClass != null && IsClassUnlocked(associatedClass.Id);
+                button.interactable = unlocked && associatedClass != _selectedClass;
             }
 
             UpdateClassSummary(_selectedClass);
@@ -550,12 +667,21 @@ namespace Client.CharacterCreation
                     continue;
                 }
 
-                var trimmedId = classId.Trim();
-                var unlocked = _selectedClass != null && string.Equals(trimmedId, _selectedClass.Id, StringComparison.OrdinalIgnoreCase);
+                var state = EnsureClassState(classId);
+                if (state == null)
+                {
+                    continue;
+                }
+
+                if (_selectedClass != null && string.Equals(state.ClassId, _selectedClass.Id, StringComparison.OrdinalIgnoreCase))
+                {
+                    state.Unlocked = true;
+                }
+
                 states.Add(new ClassUnlockState
                 {
-                    ClassId = trimmedId,
-                    Unlocked = unlocked
+                    ClassId = state.ClassId,
+                    Unlocked = state.Unlocked
                 });
             }
 
