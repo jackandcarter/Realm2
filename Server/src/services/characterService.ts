@@ -6,11 +6,14 @@ import {
   Character,
 } from '../db/characterRepository';
 import { HttpError } from '../utils/errors';
+import { CharacterAppearance } from '../types/characterCustomization';
 
 export interface CreateCharacterInput {
   realmId: string;
   name: string;
   bio?: string;
+  raceId?: string;
+  appearance?: CharacterAppearance;
 }
 
 export function createCharacterForUser(
@@ -39,6 +42,8 @@ export function createCharacterForUser(
       userId,
       name: trimmedName,
       bio: input.bio?.trim() || undefined,
+      raceId: input.raceId?.trim(),
+      appearance: input.appearance,
     });
   } catch (_error) {
     throw new HttpError(500, 'Unable to create character');

@@ -68,12 +68,27 @@ db.exec(`
     realm_id TEXT NOT NULL,
     name TEXT NOT NULL,
     bio TEXT,
+    race_id TEXT NOT NULL DEFAULT 'human',
+    appearance_json TEXT NOT NULL DEFAULT '{}',
     created_at TEXT NOT NULL,
     UNIQUE(user_id, realm_id, name),
     FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE,
     FOREIGN KEY(realm_id) REFERENCES realms(id) ON DELETE CASCADE
   );
 `);
+
+const characterColumns = db.prepare("PRAGMA table_info(characters)").all();
+const hasRaceIdColumn = characterColumns.some((column) => column.name === 'race_id');
+if (!hasRaceIdColumn) {
+  db.exec("ALTER TABLE characters ADD COLUMN race_id TEXT NOT NULL DEFAULT 'human'");
+}
+db.exec("UPDATE characters SET race_id = 'human' WHERE race_id IS NULL OR race_id = ''");
+
+const hasAppearanceColumn = characterColumns.some((column) => column.name === 'appearance_json');
+if (!hasAppearanceColumn) {
+  db.exec("ALTER TABLE characters ADD COLUMN appearance_json TEXT NOT NULL DEFAULT '{}'");
+}
+db.exec("UPDATE characters SET appearance_json = '{}' WHERE appearance_json IS NULL OR appearance_json = ''");
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS refresh_tokens (
