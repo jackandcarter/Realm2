@@ -310,7 +310,7 @@ namespace Client.Builder
                 Mathf.Max(0f, runtimeState.NextReadyTime - Time.unscaledTime)));
         }
 
-        private readonly struct AbilityRuntimeState
+        private struct AbilityRuntimeState
         {
             public readonly BuilderAbilityDefinition Definition;
             public readonly float Cooldown;
