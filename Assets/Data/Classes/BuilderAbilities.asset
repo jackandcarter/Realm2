@@ -1,0 +1,36 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 47eb930a2db24dc3ab479f1e9ab6e190, type: 3}
+  m_Name: BuilderAbilities
+  m_EditorClassIdentifier:
+  abilities:
+  - abilityId: builder_spawn_blueprint
+    displayName: Spawn Blueprint
+    description: Spawns the selected construction blueprint in front of the Builder and prepares it for placement.
+    iconResourcePath: 
+    cooldownSeconds: 2
+    abilityKind: 1
+    requiresBuilderClass: 1
+  - abilityId: builder_float_blueprint
+    displayName: Float
+    description: Reattach the transform handles to the currently selected construction so it can be repositioned.
+    iconResourcePath: 
+    cooldownSeconds: 0
+    abilityKind: 2
+    requiresBuilderClass: 1
+  - abilityId: builder_place_blueprint
+    displayName: Place
+    description: Finalize the construction at its current position, saving the transform and disabling float mode.
+    iconResourcePath: 
+    cooldownSeconds: 1
+    abilityKind: 3
+    requiresBuilderClass: 1
