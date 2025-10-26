@@ -13,7 +13,7 @@ namespace Client.Terrain
     {
         private const float DefaultPlotHeightPadding = 0.1f;
 
-        [SerializeField] private Terrain targetTerrain;
+        [SerializeField] private UnityEngine.Terrain targetTerrain;
         [SerializeField] private BuildZoneService buildZoneService;
         [SerializeField] private Transform plotRoot;
         [SerializeField] private Material defaultPlotMaterial;

@@ -247,7 +247,7 @@ namespace Client.Builder
                     continue;
                 }
 
-                ApplyStatus(binding, status, allowSilent: false, out messageApplied);
+                ApplyStatus(binding, status, allowSilent: false, ref messageApplied);
                 _buttons[i] = binding;
             }
 
@@ -255,11 +255,6 @@ namespace Client.Builder
             {
                 SetStatusMessage(string.Empty);
             }
-        }
-
-        private void ApplyStatus(ButtonBinding binding, BuilderAbilityRuntimeStatus status, bool allowSilent, out bool messageApplied)
-        {
-            ApplyStatus(binding, status, allowSilent, ref messageApplied);
         }
 
         private void ApplyStatus(ButtonBinding binding, BuilderAbilityRuntimeStatus status, bool allowSilent)
