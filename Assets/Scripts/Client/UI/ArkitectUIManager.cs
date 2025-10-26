@@ -25,6 +25,7 @@ namespace Client.UI
         [SerializeField] private GameObject materialsPanel;
         [SerializeField] private GameObject blueprintsPanel;
         [SerializeField] private GameObject commissionPanel;
+        [SerializeField] private ArkitectPlotPanelController plotPanelController;
 
         [Header("Styling")]
         [SerializeField] private Color activeTabColor = new Color(0.533f, 0.286f, 0.741f, 1f);
@@ -58,6 +59,7 @@ namespace Client.UI
             EnsureContainers();
             EnsureTabs();
             EnsurePanels();
+            EnsurePlotPanelController();
             WireTabs();
 
             if (_activePanel == null)
@@ -181,6 +183,14 @@ namespace Client.UI
                 "Unlock radiant designs that blend crystalline spires with luminous machinery.");
             EnsurePanel(ref commissionPanel, "CommissionsPanel",
                 "Review community commissions and collaborate on magitech megastructures for Elysium.");
+        }
+
+        private void EnsurePlotPanelController()
+        {
+            if (plotPanelController == null && plotsPanel != null)
+            {
+                plotPanelController = plotsPanel.GetComponentInChildren<ArkitectPlotPanelController>(true);
+            }
         }
 
         private void EnsurePanel(ref GameObject panelReference, string panelName, string description)
