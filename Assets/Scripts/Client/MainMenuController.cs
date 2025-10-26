@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Globalization;
 using Client.CharacterCreation;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -46,11 +47,17 @@ namespace Client
         private InputField _characterNameInput;
         private Button _createCharacterButton;
         private Text _characterMessage;
+        private Text _characterCreatedAtLabel;
+        private Text _characterRaceLabel;
+        private Text _characterClassLabel;
+        private Text _characterLocationLabel;
+        private Button _playCharacterButton;
 
         private readonly List<GameObject> _spawnedRealmEntries = new();
         private readonly List<GameObject> _spawnedCharacterEntries = new();
         private CharacterCreationPanel _characterCreationPanelInstance;
         private bool _characterCreationPanelHooked;
+        private CharacterInfo _selectedCharacter;
 
         private void Awake()
         {
@@ -223,6 +230,16 @@ namespace Client
             _characterMessage = CreateMessageText(panel, "Choose your hero or create a new one.");
             _characterListRoot = CreateListRoot(panel, "CharacterList");
 
+            var detailPanel = CreateDetailPanel(panel, "CharacterDetails");
+            _characterCreatedAtLabel = CreateDetailLabel(detailPanel, "CreatedAtLabel", "Created: —");
+            _characterRaceLabel = CreateDetailLabel(detailPanel, "RaceLabel", "Race: —");
+            _characterClassLabel = CreateDetailLabel(detailPanel, "ClassLabel", "Class: —");
+            _characterLocationLabel = CreateDetailLabel(detailPanel, "LocationLabel", "Last Known Location: —");
+
+            _playCharacterButton = CreateButton(panel, "EnterRealmButton", "Enter Realm");
+            _playCharacterButton.onClick.AddListener(OnPlaySelectedCharacter);
+            _playCharacterButton.interactable = false;
+
             _characterNameInput = CreateInputField(panel, "CharacterNameInput", "Character Name");
             _createCharacterButton = CreateButton(panel, "CreateCharacterButton", "Create Character");
             _createCharacterButton.onClick.AddListener(OnCreateCharacterClicked);
@@ -359,6 +376,51 @@ namespace Client
             return rect;
         }
 
+        private RectTransform CreateDetailPanel(Transform parent, string name)
+        {
+            var panelGo = new GameObject(name, typeof(RectTransform));
+            panelGo.transform.SetParent(parent, false);
+            var rect = (RectTransform)panelGo.transform;
+            rect.sizeDelta = new Vector2(0, 120);
+
+            var layout = panelGo.AddComponent<VerticalLayoutGroup>();
+            layout.spacing = 4f;
+            layout.childForceExpandHeight = false;
+            layout.childAlignment = TextAnchor.UpperLeft;
+
+            var fitter = panelGo.AddComponent<ContentSizeFitter>();
+            fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+            var layoutElement = panelGo.AddComponent<LayoutElement>();
+            layoutElement.preferredHeight = 120f;
+            layoutElement.minHeight = 100f;
+
+            return rect;
+        }
+
+        private Text CreateDetailLabel(Transform parent, string name, string defaultText)
+        {
+            var textGo = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(Text));
+            textGo.transform.SetParent(parent, false);
+            var rect = (RectTransform)textGo.transform;
+            rect.anchorMin = new Vector2(0, 1);
+            rect.anchorMax = new Vector2(1, 1);
+            rect.pivot = new Vector2(0, 1);
+            rect.sizeDelta = new Vector2(0, 24);
+
+            var text = textGo.GetComponent<Text>();
+            text.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            text.text = defaultText;
+            text.alignment = TextAnchor.MiddleLeft;
+            text.color = Color.white;
+
+            var layout = textGo.AddComponent<LayoutElement>();
+            layout.preferredHeight = 24f;
+            layout.flexibleWidth = 1f;
+
+            return text;
+        }
+
         private void ConfigureTextRect(RectTransform rect)
         {
             rect.anchorMin = Vector2.zero;
@@ -448,6 +510,7 @@ namespace Client
         {
             ClearList(_spawnedCharacterEntries);
             _createCharacterButton.interactable = false;
+            DisplayCharacterDetails(null);
 
             yield return _characterService.GetCharacters(
                 realm.id,
@@ -487,15 +550,154 @@ namespace Client
                 ? character.name
                 : $"{character.name} • {character.bio}";
             var button = CreateListButton(_characterListRoot, $"Character_{character.id}", label);
-            button.onClick.AddListener(() => OnCharacterSelected(character));
+            button.onClick.AddListener(() => OnCharacterEntryClicked(character));
             return button;
         }
 
-        private void OnCharacterSelected(CharacterInfo character)
+        private void BeginPlayForCharacter(CharacterInfo character)
         {
             _characterMessage.text = "Connecting to realm...";
             _createCharacterButton.interactable = false;
             StartCoroutine(SelectCharacterRoutine(character));
+        }
+
+        private void OnCharacterEntryClicked(CharacterInfo character)
+        {
+            DisplayCharacterDetails(character);
+
+            if (character == null)
+            {
+                _characterMessage.text = "Select a character to view their details.";
+                return;
+            }
+
+            var builderUnlocked = ClassUnlockRepository.IsClassUnlocked(character.id, ClassUnlockUtility.BuilderClassId);
+            _characterMessage.text = builderUnlocked
+                ? $"Ready to enter as {character.name}."
+                : $"{character.name} must unlock the Builder class before accessing Builder mode.";
+        }
+
+        private void OnPlaySelectedCharacter()
+        {
+            if (_selectedCharacter == null)
+            {
+                _characterMessage.text = "Select a character first.";
+                return;
+            }
+
+            BeginPlayForCharacter(_selectedCharacter);
+        }
+
+        private void DisplayCharacterDetails(CharacterInfo character)
+        {
+            _selectedCharacter = character;
+
+            if (_playCharacterButton != null)
+            {
+                _playCharacterButton.interactable = character != null;
+            }
+
+            if (character == null)
+            {
+                SetDetailLabel(_characterCreatedAtLabel, "Created: —");
+                SetDetailLabel(_characterRaceLabel, "Race: —");
+                SetDetailLabel(_characterClassLabel, "Class: —");
+                SetDetailLabel(_characterLocationLabel, "Last Known Location: —");
+                return;
+            }
+
+            var createdDisplay = FormatCreatedDate(character.createdAt);
+            var raceDisplay = ResolveRaceName(character.raceId);
+            var classDisplay = ResolveClassName(character.classId);
+            var unlockedSummary = BuildUnlockedClassesSummary(character.classStates);
+            var locationDisplay = string.IsNullOrWhiteSpace(character.lastKnownLocation)
+                ? "Unknown"
+                : character.lastKnownLocation.Trim();
+
+            SetDetailLabel(_characterCreatedAtLabel, $"Created: {createdDisplay}");
+            SetDetailLabel(_characterRaceLabel, $"Race: {raceDisplay}");
+            SetDetailLabel(_characterClassLabel, $"Class: {classDisplay} (Unlocked: {unlockedSummary})");
+            SetDetailLabel(_characterLocationLabel, $"Last Known Location: {locationDisplay}");
+        }
+
+        private static void SetDetailLabel(Text label, string value)
+        {
+            if (label != null)
+            {
+                label.text = value;
+            }
+        }
+
+        private static string FormatCreatedDate(string createdAt)
+        {
+            if (string.IsNullOrWhiteSpace(createdAt))
+            {
+                return "Unknown";
+            }
+
+            if (DateTime.TryParse(
+                    createdAt,
+                    CultureInfo.InvariantCulture,
+                    DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal,
+                    out var parsedUtc))
+            {
+                return parsedUtc.ToLocalTime().ToString("MMMM d, yyyy", CultureInfo.CurrentCulture);
+            }
+
+            if (DateTime.TryParse(createdAt, out var parsed))
+            {
+                return parsed.ToLocalTime().ToString("MMMM d, yyyy", CultureInfo.CurrentCulture);
+            }
+
+            return createdAt;
+        }
+
+        private static string ResolveRaceName(string raceId)
+        {
+            if (!string.IsNullOrWhiteSpace(raceId) && RaceCatalog.TryGetRace(raceId, out var race))
+            {
+                return race.DisplayName;
+            }
+
+            return string.IsNullOrWhiteSpace(raceId) ? "Unknown" : raceId.Trim();
+        }
+
+        private static string ResolveClassName(string classId)
+        {
+            if (!string.IsNullOrWhiteSpace(classId) && ClassCatalog.TryGetClass(classId, out var classDefinition))
+            {
+                return classDefinition.DisplayName;
+            }
+
+            return string.IsNullOrWhiteSpace(classId) ? "Unassigned" : classId.Trim();
+        }
+
+        private static string BuildUnlockedClassesSummary(ClassUnlockState[] states)
+        {
+            if (states == null || states.Length == 0)
+            {
+                return "None";
+            }
+
+            var unlockedNames = new List<string>();
+            foreach (var state in states)
+            {
+                if (state == null || !state.Unlocked)
+                {
+                    continue;
+                }
+
+                if (!string.IsNullOrWhiteSpace(state.ClassId) && ClassCatalog.TryGetClass(state.ClassId, out var definition))
+                {
+                    unlockedNames.Add(definition.DisplayName);
+                }
+                else if (!string.IsNullOrWhiteSpace(state?.ClassId))
+                {
+                    unlockedNames.Add(state.ClassId.Trim());
+                }
+            }
+
+            return unlockedNames.Count > 0 ? string.Join(", ", unlockedNames) : "None";
         }
 
         private IEnumerator SelectCharacterRoutine(CharacterInfo character)
@@ -598,6 +800,7 @@ namespace Client
                     ClassUnlockRepository.TrackCharacter(character);
                     var entry = CreateCharacterButton(character);
                     _spawnedCharacterEntries.Add(entry.gameObject);
+                    DisplayCharacterDetails(character);
                     _createCharacterButton.interactable = true;
                 },
                 error =>
