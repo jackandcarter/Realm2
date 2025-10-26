@@ -10,6 +10,8 @@ namespace Client.CharacterCreation
     {
         [SerializeField] private Transform raceListRoot;
         [SerializeField] private Button raceButtonTemplate;
+        [SerializeField] private Transform previewRoot;
+        [SerializeField] private RaceVisualConfig raceVisualConfig;
         [SerializeField] private Text previewTitle;
         [SerializeField] private Text previewSummary;
         [SerializeField] private Slider heightSlider;
@@ -23,13 +25,17 @@ namespace Client.CharacterCreation
 
         private readonly List<Button> _spawnedRaceButtons = new();
         private readonly List<Text> _spawnedFeatureEntries = new();
+        private readonly List<RaceViewModel> _raceViewModels = new();
         private RaceDefinition _selectedRace;
+        private RaceViewModel _selectedRaceViewModel;
+        private GameObject _activePreviewInstance;
 
-        public event Action<RaceDefinition> RaceSelected;
+        public event Action<RaceViewModel> RaceSelected;
         public event Action<CharacterCreationSelection> Confirmed;
         public event Action Cancelled;
 
         public RaceDefinition SelectedRace => _selectedRace;
+        public RaceViewModel SelectedRaceViewModel => _selectedRaceViewModel;
         public float SelectedHeight => heightSlider != null ? heightSlider.value : 0f;
         public float SelectedBuild => buildSlider != null ? buildSlider.value : 0f;
 
@@ -74,6 +80,11 @@ namespace Client.CharacterCreation
             EnsureRaceButtons();
         }
 
+        private void OnDisable()
+        {
+            ClearPreviewInstance();
+        }
+
         private void OnDestroy()
         {
             if (heightSlider != null)
@@ -95,6 +106,8 @@ namespace Client.CharacterCreation
             {
                 cancelButton.onClick.RemoveListener(NotifyCancelled);
             }
+
+            ClearPreviewInstance();
         }
 
         public void Refresh()
@@ -116,16 +129,22 @@ namespace Client.CharacterCreation
 
             if (_spawnedRaceButtons.Count > 0)
             {
-                if (_selectedRace == null && RaceCatalog.GetAllRaces().Count > 0)
+                if (_selectedRace == null && _raceViewModels.Count > 0)
                 {
-                    SelectRace(RaceCatalog.GetAllRaces()[0]);
+                    SelectRace(_raceViewModels[0]);
                 }
 
                 return;
             }
 
+            _raceViewModels.Clear();
+
             foreach (var race in RaceCatalog.GetAllRaces())
             {
+                raceVisualConfig?.TryGetVisualForRace(race.Id, out var visuals);
+                var viewModel = new RaceViewModel(race, visuals);
+                _raceViewModels.Add(viewModel);
+
                 var button = Instantiate(raceButtonTemplate, raceListRoot);
                 button.gameObject.SetActive(true);
                 button.name = $"Race_{race.Id}";
@@ -136,14 +155,14 @@ namespace Client.CharacterCreation
                     label.text = race.DisplayName;
                 }
 
-                var captured = race;
+                var captured = viewModel;
                 button.onClick.AddListener(() => SelectRace(captured));
                 _spawnedRaceButtons.Add(button);
             }
 
             if (_spawnedRaceButtons.Count > 0)
             {
-                SelectRace(RaceCatalog.GetAllRaces()[0]);
+                SelectRace(_raceViewModels[0]);
             }
         }
 
@@ -159,29 +178,64 @@ namespace Client.CharacterCreation
 
             _spawnedRaceButtons.Clear();
             _selectedRace = null;
+            _selectedRaceViewModel = null;
+            _raceViewModels.Clear();
+            ClearPreviewInstance();
             UpdateConfirmButtonState();
         }
 
-        private void SelectRace(RaceDefinition race)
+        private void SelectRace(RaceViewModel viewModel)
         {
-            _selectedRace = race;
+            _selectedRaceViewModel = viewModel;
+            _selectedRace = viewModel?.Definition;
 
             if (previewTitle != null)
             {
-                previewTitle.text = race?.DisplayName ?? string.Empty;
+                previewTitle.text = _selectedRace?.DisplayName ?? string.Empty;
             }
 
             if (previewSummary != null)
             {
-                previewSummary.text = BuildSummary(race);
+                previewSummary.text = BuildSummary(_selectedRace);
             }
 
-            ConfigureSlider(heightSlider, heightValueLabel, race?.Customization?.Height, 0.01f);
-            ConfigureSlider(buildSlider, buildValueLabel, race?.Customization?.Build, 0.01f);
-            PopulateFeatureList(race?.Customization?.AdjustableFeatures);
+            ConfigureSlider(heightSlider, heightValueLabel, _selectedRace?.Customization?.Height, 0.01f);
+            ConfigureSlider(buildSlider, buildValueLabel, _selectedRace?.Customization?.Build, 0.01f);
+            PopulateFeatureList(_selectedRace?.Customization?.AdjustableFeatures);
+            UpdateRacePreview(viewModel);
 
             UpdateConfirmButtonState();
-            RaceSelected?.Invoke(race);
+            RaceSelected?.Invoke(viewModel);
+        }
+
+        private void UpdateRacePreview(RaceViewModel viewModel)
+        {
+            ClearPreviewInstance();
+
+            if (previewRoot == null || viewModel?.PreviewPrefab == null)
+            {
+                return;
+            }
+
+            _activePreviewInstance = Instantiate(viewModel.PreviewPrefab, previewRoot);
+            if (_activePreviewInstance == null)
+            {
+                return;
+            }
+
+            _activePreviewInstance.transform.localPosition = Vector3.zero;
+            _activePreviewInstance.transform.localRotation = Quaternion.identity;
+            _activePreviewInstance.transform.localScale = Vector3.one;
+            viewModel.ApplyDefaultMaterials(_activePreviewInstance);
+        }
+
+        private void ClearPreviewInstance()
+        {
+            if (_activePreviewInstance != null)
+            {
+                Destroy(_activePreviewInstance);
+                _activePreviewInstance = null;
+            }
         }
 
         private static string BuildSummary(RaceDefinition race)
