@@ -11,9 +11,11 @@ using UnityEngine.InputSystem.UI;
 
 namespace Client
 {
-    [ExecuteAlways]
     public class MainMenuController : MonoBehaviour
     {
+        [Header("UI Setup")]
+        [SerializeField] private bool autoCreateUi = true;
+
         [Header("API Settings")]
         [SerializeField] private ApiEnvironmentConfig environmentConfig;
         [SerializeField] private string fallbackBaseApiUrl = "http://localhost:3000";
@@ -25,18 +27,18 @@ namespace Client
         private RealmService _realmService;
         private CharacterService _characterService;
 
-        private Canvas _loginCanvas;
+        [SerializeField] private Canvas _loginCanvas;
         private InputField _emailInput;
         private InputField _passwordInput;
         private Button _loginButton;
         private Text _loginMessage;
 
-        private Canvas _realmCanvas;
+        [SerializeField] private Canvas _realmCanvas;
         private RectTransform _realmListRoot;
         private Button _reloadRealmsButton;
         private Text _realmMessage;
 
-        private Canvas _characterCanvas;
+        [SerializeField] private Canvas _characterCanvas;
         private RectTransform _characterListRoot;
         private InputField _characterNameInput;
         private Button _createCharacterButton;
@@ -81,20 +83,9 @@ namespace Client
 
         private void EnsureUi()
         {
-            if (_loginCanvas == null)
-            {
-                _loginCanvas = FindCanvas("LoginCanvas") ?? CreateLoginCanvas();
-            }
-
-            if (_realmCanvas == null)
-            {
-                _realmCanvas = FindCanvas("RealmCanvas") ?? CreateRealmCanvas();
-            }
-
-            if (_characterCanvas == null)
-            {
-                _characterCanvas = FindCanvas("CharacterCanvas") ?? CreateCharacterCanvas();
-            }
+            EnsureCanvas(ref _loginCanvas, "LoginCanvas", CreateLoginCanvas);
+            EnsureCanvas(ref _realmCanvas, "RealmCanvas", CreateRealmCanvas);
+            EnsureCanvas(ref _characterCanvas, "CharacterCanvas", CreateCharacterCanvas);
 
             if (_realmCanvas != null)
             {
@@ -110,6 +101,27 @@ namespace Client
             {
                 _loginCanvas.gameObject.SetActive(true);
             }
+        }
+
+        private void EnsureCanvas(ref Canvas canvasField, string canvasName, Func<Canvas> factory)
+        {
+            if (canvasField == null)
+            {
+                canvasField = FindCanvas(canvasName);
+            }
+
+            if (canvasField != null || !Application.isPlaying && !autoCreateUi)
+            {
+                return;
+            }
+
+            if (!autoCreateUi)
+            {
+                Debug.LogWarning($"MainMenuController is missing a reference to '{canvasName}' and auto-create is disabled.");
+                return;
+            }
+
+            canvasField = factory();
         }
 
         private void EnsureEventSystem()
