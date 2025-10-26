@@ -29,7 +29,7 @@ function parseToken(authHeader: string | undefined): string {
     throw new HttpError(401, 'Missing authorization header');
   }
 
-  const [scheme, token] = authHeader.split(' ');
+  const [scheme = '', token] = authHeader.split(' ');
   if (!token || scheme.toLowerCase() !== 'bearer') {
     throw new HttpError(401, 'Authorization header must use Bearer scheme');
   }

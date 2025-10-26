@@ -19,7 +19,7 @@ RUN npm install --omit=dev
 COPY --from=build /app/dist ./dist
 COPY .env.example ./
 EXPOSE 3000
-CMD ["node", "dist/index.js"]
+CMD ["sh", "-c", "node dist/scripts/run-migrations.js && node dist/index.js"]
 
 FROM node:20-alpine AS dev
 WORKDIR /app

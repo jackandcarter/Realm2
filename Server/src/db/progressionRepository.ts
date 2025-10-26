@@ -1,6 +1,7 @@
 import { randomUUID } from 'crypto';
 import { db } from './database';
 import { JsonValue } from '../types/characterCustomization';
+import { recordVersionConflict } from '../observability/metrics';
 
 export interface CharacterProgressionState {
   level: number;
@@ -254,10 +255,12 @@ export function updateProgressionLevels(
     .get(characterId) as CharacterProgressionStateRow;
 
   if (typeof current?.version !== 'number') {
+    recordVersionConflict('progression');
     throw new VersionConflictError('progression', expectedVersion, 0);
   }
 
   if (current.version !== expectedVersion) {
+    recordVersionConflict('progression');
     throw new VersionConflictError('progression', expectedVersion, current.version);
   }
 
@@ -296,6 +299,7 @@ export function replaceClassUnlocks(
 
   const actualVersion = current?.version ?? 0;
   if (actualVersion !== expectedVersion) {
+    recordVersionConflict('classUnlocks');
     throw new VersionConflictError('classUnlocks', expectedVersion, actualVersion);
   }
 
@@ -358,6 +362,7 @@ export function replaceInventory(
 
   const actualVersion = current?.version ?? 0;
   if (actualVersion !== expectedVersion) {
+    recordVersionConflict('inventory');
     throw new VersionConflictError('inventory', expectedVersion, actualVersion);
   }
 
@@ -421,6 +426,7 @@ export function replaceQuestStates(
 
   const actualVersion = current?.version ?? 0;
   if (actualVersion !== expectedVersion) {
+    recordVersionConflict('quests');
     throw new VersionConflictError('quests', expectedVersion, actualVersion);
   }
 

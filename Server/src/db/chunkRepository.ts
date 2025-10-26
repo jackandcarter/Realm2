@@ -1,5 +1,6 @@
 import { randomUUID } from 'crypto';
 import { db } from './database';
+import { setReplicationQueueLength } from '../observability/metrics';
 
 export interface RealmChunkRecord {
   id: string;
@@ -121,6 +122,14 @@ function mapChangeRow(row: any): ChunkChangeRecord {
     payloadJson: row.payload_json,
     createdAt: row.created_at,
   };
+}
+
+function refreshReplicationGauge(realmId: string): void {
+  const row = db
+    .prepare('SELECT COUNT(*) as total FROM chunk_change_log WHERE realm_id = ?')
+    .get(realmId) as { total?: number } | undefined;
+  const total = typeof row?.total === 'number' ? row.total : 0;
+  setReplicationQueueLength(realmId, total);
 }
 
 export function findChunkById(id: string): RealmChunkRecord | undefined {
@@ -332,6 +341,7 @@ export function logChunkChange(
      VALUES (@id, @realmId, @chunkId, @changeType, @payloadJson, @createdAt)`
   );
   stmt.run(change);
+  refreshReplicationGauge(realmId);
   return change;
 }
 
@@ -365,4 +375,5 @@ export function deleteChunkChangeLogBefore(realmId: string, cutoff: string): voi
     `DELETE FROM chunk_change_log WHERE realm_id = ? AND created_at < ?`
   );
   stmt.run(realmId, cutoff);
+  refreshReplicationGauge(realmId);
 }

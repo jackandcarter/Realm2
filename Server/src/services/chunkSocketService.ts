@@ -1,6 +1,7 @@
 import { IncomingMessage } from 'http';
 import jwt from 'jsonwebtoken';
 import { WebSocket, WebSocketServer } from 'ws';
+import type { RawData } from 'ws';
 import { env } from '../config/env';
 import { findUserById } from '../db/userRepository';
 import { AuthPayload } from '../middleware/authMiddleware';
@@ -105,7 +106,7 @@ export function registerChunkSocketHandlers(server: WebSocketServer): void {
   });
 }
 
-function handleMessage(context: SocketContext, raw: WebSocket.RawData): void {
+function handleMessage(context: SocketContext, raw: RawData): void {
   let message: ClientMessage;
   try {
     const text = typeof raw === 'string' ? raw : raw.toString();
