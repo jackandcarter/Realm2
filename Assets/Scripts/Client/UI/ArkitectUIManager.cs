@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 using Client.CharacterCreation;
+using Client.Builder;
 using Client.UI.HUD;
 using UnityEngine;
 using UnityEngine.UI;
@@ -28,6 +29,7 @@ namespace Client.UI
         [SerializeField] private GameObject blueprintsPanel;
         [SerializeField] private GameObject commissionPanel;
         [SerializeField] private ArkitectPlotPanelController plotPanelController;
+        [SerializeField] private BuilderDockAbilityBinder dockAbilityBinder;
 
         [Header("Styling")]
         [SerializeField] private Color activeTabColor = new Color(0.533f, 0.286f, 0.741f, 1f);
@@ -60,16 +62,19 @@ namespace Client.UI
             gameObject.SetActive(true);
 
             InitializeUi();
+            dockAbilityBinder?.Mount(parent);
         }
 
         public void Unmount()
         {
             gameObject.SetActive(false);
+            dockAbilityBinder?.Unmount();
         }
 
         public void OnAbilityStateChanged(string abilityId, bool enabled)
         {
             ApplyPermissions(enabled);
+            dockAbilityBinder?.OnAbilityStateChanged(abilityId, enabled);
         }
 
         private void Awake()
