@@ -250,7 +250,8 @@ namespace Client.CharacterCreation
 
             foreach (var race in RaceCatalog.GetAllRaces())
             {
-                raceVisualConfig?.TryGetVisualForRace(race.Id, out var visuals);
+                RaceVisualEntry visuals = null;
+                raceVisualConfig?.TryGetVisualForRace(race.Id, out visuals);
                 var viewModel = new RaceViewModel(race, visuals);
                 _raceViewModels.Add(viewModel);
 
