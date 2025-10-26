@@ -1,0 +1,35 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 720c588bef2f4b1e87f408dea1deaca6, type: 3}
+  m_Name: ClassAbilityProgression
+  m_EditorClassIdentifier:
+  classAbilityTracks:
+  - ClassId: builder
+    Levels:
+    - Level: 1
+      Abilities:
+      - AbilityId: builder_arkitect_activation
+        DisplayName: Arkitect Interface Access
+        Description: Unlocks the Arkitect construction console, enabling structure planning and placement for Empires.
+        Tooltip: The Arkitect UI channels the Builder's Construction stat into holographic blueprints that guide every build phase.
+    - Level: 5
+      Abilities:
+      - AbilityId: builder_structural_insight
+        DisplayName: Structural Insight
+        Description: Construction stat bonuses grant +20% integrity to foundations and walls placed through Arkitect projects.
+        Tooltip: Arkitect diagnostics visualize load-bearing stress so Builders reinforce critical supports before work crews arrive.
+    - Level: 10
+      Abilities:
+      - AbilityId: builder_master_arkitect_ledger
+        DisplayName: Master Arkitect's Ledger
+        Description: Unlocks advanced Arkitect schematics and reduces material costs for community commissions by 15%.
+        Tooltip: Cross-referenced Arkitect ledgers harmonize supply lines across Empires, showcasing true Construction mastery.

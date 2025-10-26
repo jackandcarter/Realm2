@@ -649,6 +649,48 @@ namespace Client.CharacterCreation
                 sb.AppendLine(classDefinition.Description.Trim());
             }
 
+            var abilities = ClassAbilityCatalog.GetAbilityDisplayInfo(classDefinition.Id);
+            if (abilities != null && abilities.Count > 0)
+            {
+                if (sb.Length > 0)
+                {
+                    sb.AppendLine();
+                }
+
+                sb.AppendLine("Class Abilities:");
+                foreach (var ability in abilities)
+                {
+                    if (string.IsNullOrWhiteSpace(ability.DisplayName))
+                    {
+                        continue;
+                    }
+
+                    sb.Append(" • ");
+                    sb.Append(ability.DisplayName.Trim());
+
+                    if (ability.Level > 0)
+                    {
+                        sb.Append(" (Lvl ");
+                        sb.Append(ability.Level);
+                        sb.Append(')');
+                    }
+
+                    if (!string.IsNullOrWhiteSpace(ability.Description))
+                    {
+                        sb.Append(": ");
+                        sb.Append(ability.Description.Trim());
+                    }
+
+                    sb.AppendLine();
+
+                    if (!string.IsNullOrWhiteSpace(ability.Tooltip))
+                    {
+                        sb.Append("    ");
+                        sb.AppendLine(ability.Tooltip.Trim());
+                    }
+                }
+            }
+
             return sb.ToString().TrimEnd();
         }
 
