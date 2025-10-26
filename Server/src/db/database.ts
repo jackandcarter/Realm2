@@ -62,6 +62,87 @@ db.exec(`
 `);
 
 db.exec(`
+  CREATE TABLE IF NOT EXISTS realm_chunks (
+    id TEXT PRIMARY KEY,
+    realm_id TEXT NOT NULL,
+    chunk_x INTEGER NOT NULL,
+    chunk_z INTEGER NOT NULL,
+    payload_json TEXT NOT NULL DEFAULT '{}',
+    is_deleted INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    UNIQUE(realm_id, chunk_x, chunk_z),
+    FOREIGN KEY(realm_id) REFERENCES realms(id) ON DELETE CASCADE
+  );
+`);
+
+db.exec(`
+  CREATE INDEX IF NOT EXISTS idx_realm_chunks_realm_updated
+    ON realm_chunks(realm_id, updated_at DESC);
+`);
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS chunk_structures (
+    id TEXT PRIMARY KEY,
+    realm_id TEXT NOT NULL,
+    chunk_id TEXT NOT NULL,
+    structure_type TEXT NOT NULL,
+    data_json TEXT NOT NULL DEFAULT '{}',
+    is_deleted INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    FOREIGN KEY(realm_id) REFERENCES realms(id) ON DELETE CASCADE,
+    FOREIGN KEY(chunk_id) REFERENCES realm_chunks(id) ON DELETE CASCADE
+  );
+`);
+
+db.exec(`
+  CREATE INDEX IF NOT EXISTS idx_chunk_structures_chunk
+    ON chunk_structures(chunk_id, updated_at DESC);
+`);
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS chunk_plots (
+    id TEXT PRIMARY KEY,
+    realm_id TEXT NOT NULL,
+    chunk_id TEXT NOT NULL,
+    plot_identifier TEXT NOT NULL,
+    owner_user_id TEXT,
+    data_json TEXT NOT NULL DEFAULT '{}',
+    is_deleted INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    UNIQUE(chunk_id, plot_identifier),
+    FOREIGN KEY(realm_id) REFERENCES realms(id) ON DELETE CASCADE,
+    FOREIGN KEY(chunk_id) REFERENCES realm_chunks(id) ON DELETE CASCADE,
+    FOREIGN KEY(owner_user_id) REFERENCES users(id) ON DELETE SET NULL
+  );
+`);
+
+db.exec(`
+  CREATE INDEX IF NOT EXISTS idx_chunk_plots_chunk
+    ON chunk_plots(chunk_id, updated_at DESC);
+`);
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS chunk_change_log (
+    id TEXT PRIMARY KEY,
+    realm_id TEXT NOT NULL,
+    chunk_id TEXT NOT NULL,
+    change_type TEXT NOT NULL,
+    payload_json TEXT NOT NULL DEFAULT '{}',
+    created_at TEXT NOT NULL,
+    FOREIGN KEY(realm_id) REFERENCES realms(id) ON DELETE CASCADE,
+    FOREIGN KEY(chunk_id) REFERENCES realm_chunks(id) ON DELETE CASCADE
+  );
+`);
+
+db.exec(`
+  CREATE INDEX IF NOT EXISTS idx_chunk_change_log_realm
+    ON chunk_change_log(realm_id, created_at DESC);
+`);
+
+db.exec(`
   CREATE TABLE IF NOT EXISTS characters (
     id TEXT PRIMARY KEY,
     user_id TEXT NOT NULL,
