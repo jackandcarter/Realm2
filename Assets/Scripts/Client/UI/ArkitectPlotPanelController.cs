@@ -37,12 +37,12 @@ namespace Client.UI
         {
             if (plotManager == null)
             {
-                plotManager = FindObjectOfType<RuntimePlotManager>();
+                plotManager = FindFirstObjectByType<RuntimePlotManager>();
             }
 
             if (zoneVisualizer == null)
             {
-                zoneVisualizer = FindObjectOfType<BuildZoneVisualizer>(true);
+                zoneVisualizer = FindFirstObjectByType<BuildZoneVisualizer>(FindObjectsInactive.Include);
             }
         }
 

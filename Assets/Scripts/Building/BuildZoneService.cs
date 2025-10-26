@@ -32,7 +32,7 @@ namespace Building.Runtime
             {
                 if (_instance == null)
                 {
-                    var existing = FindObjectOfType<BuildZoneService>(true);
+                    var existing = FindFirstObjectByType<BuildZoneService>(FindObjectsInactive.Include);
                     if (existing != null)
                     {
                         _instance = existing;
@@ -86,7 +86,7 @@ namespace Building.Runtime
         {
             _activeZones.Clear();
             _chunkLookup.Clear();
-            _diggerSystem = FindObjectOfType<DiggerSystem>();
+            _diggerSystem = FindFirstObjectByType<DiggerSystem>();
             if (_diggerSystem != null)
             {
                 CacheChunks(_diggerSystem);
@@ -229,7 +229,7 @@ namespace Building.Runtime
 
             if (_diggerSystem == null)
             {
-                _diggerSystem = FindObjectOfType<DiggerSystem>();
+                _diggerSystem = FindFirstObjectByType<DiggerSystem>();
                 if (_diggerSystem != null && _chunkLookup.Count == 0)
                 {
                     CacheChunks(_diggerSystem);

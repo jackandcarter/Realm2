@@ -23,7 +23,13 @@ namespace Client.CharacterCreation
             }
 
             EnsureLookup();
-            return _lookup != null && _lookup.TryGetValue(raceId, out entry);
+            if (_lookup == null)
+            {
+                entry = null;
+                return false;
+            }
+
+            return _lookup.TryGetValue(raceId, out entry);
         }
 
         private void EnsureLookup()
@@ -93,7 +99,7 @@ namespace Client.CharacterCreation
             }
 
             var variant = GetVariant(variantIndex);
-            if (variant == null || variant.Materials == null || variant.Materials.Length == 0)
+            if (variant == null || variant.Materials == null || variant.Materials.Count == 0)
             {
                 return;
             }
@@ -120,7 +126,7 @@ namespace Client.CharacterCreation
                 var applied = new Material[original.Length];
                 for (var i = 0; i < applied.Length; i++)
                 {
-                    applied[i] = i < variant.Materials.Length && variant.Materials[i] != null
+                    applied[i] = i < variant.Materials.Count && variant.Materials[i] != null
                         ? variant.Materials[i]
                         : original[i];
                 }

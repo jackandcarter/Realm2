@@ -38,6 +38,7 @@ namespace Client.UI
 
         private readonly List<TabBinding> _tabs = new List<TabBinding>();
         private GameObject _activePanel;
+        private bool _hasPermissions = true;
 
         private const string PanelsRegistryId = "arkitect.ui.panels";
         private const string TabBarRegistryId = "arkitect.ui.tabbar";
@@ -85,6 +86,34 @@ namespace Client.UI
             dockAbilityBinder?.OnAbilityStateChanged(abilityId, enabled);
         }
 
+        private void ApplyPermissions(bool available)
+        {
+            _hasPermissions = available;
+
+            if (tabContainer != null)
+            {
+                tabContainer.gameObject.SetActive(available);
+            }
+
+            if (panelsContainer != null)
+            {
+                panelsContainer.gameObject.SetActive(available);
+            }
+
+            foreach (var tab in _tabs)
+            {
+                if (tab.Button != null)
+                {
+                    tab.Button.interactable = available;
+                }
+
+                if (tab.Panel != null)
+                {
+                    tab.Panel.SetActive(available && tab.Panel == _activePanel);
+                }
+            }
+        }
+
         private void Awake()
         {
             if (!Application.isPlaying)
@@ -116,6 +145,8 @@ namespace Client.UI
             {
                 ShowPanel(_activePanel);
             }
+
+            ApplyPermissions(_hasPermissions);
         }
 
         private void EnsureCanvasSetup()

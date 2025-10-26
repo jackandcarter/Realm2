@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Client;
+using Client.Save;
 using UnityEngine;
 
 namespace Building
@@ -284,7 +285,8 @@ namespace Building
 
         private static ConstructionInstance FindSceneInstance(string instanceId)
         {
-            var candidates = UnityEngine.Object.FindObjectsOfType<ConstructionInstance>(true);
+            var candidates = UnityEngine.Object.FindObjectsByType<ConstructionInstance>(
+                FindObjectsInactive.Include, FindObjectsSortMode.None);
             foreach (var candidate in candidates)
             {
                 if (candidate == null)
@@ -369,7 +371,8 @@ namespace Building
 
         private static void RefreshSceneConstructionCache()
         {
-            var instances = UnityEngine.Object.FindObjectsOfType<ConstructionInstance>(true);
+            var instances = UnityEngine.Object.FindObjectsByType<ConstructionInstance>(
+                FindObjectsInactive.Include, FindObjectsSortMode.None);
             foreach (var instance in instances)
             {
                 RegisterConstructionInstance(instance);

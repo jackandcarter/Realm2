@@ -35,12 +35,12 @@ namespace Client.Builder
         {
             if (blueprintSpawner == null)
             {
-                blueprintSpawner = FindObjectOfType<BlueprintSpawner>();
+                blueprintSpawner = FindFirstObjectByType<BlueprintSpawner>();
             }
 
             if (floatModeController == null)
             {
-                floatModeController = FindObjectOfType<FloatModeController>();
+                floatModeController = FindFirstObjectByType<FloatModeController>();
             }
 
             RebuildStateCache();
