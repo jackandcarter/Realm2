@@ -6,11 +6,22 @@ import {
   Character,
 } from '../db/characterRepository';
 import { HttpError } from '../utils/errors';
-import { CharacterAppearance } from '../types/characterCustomization';
+import {
+  CharacterAppearance,
+  isCharacterAppearance,
+  JsonValue,
+} from '../types/characterCustomization';
+import {
+  findRaceById,
+  getCanonicalRaceIds,
+  getDefaultRace,
+  RaceCustomizationOptions,
+  RaceDefinition,
+} from '../config/races';
 
 export interface CreateCharacterInput {
-  realmId: string;
-  name: string;
+  realmId?: string;
+  name?: string;
   bio?: string;
   raceId?: string;
   appearance?: CharacterAppearance;
@@ -36,16 +47,102 @@ export function createCharacterForUser(
     throw new HttpError(409, 'Character with that name already exists in this realm');
   }
 
+  const { raceId, race } = resolveRace(input.raceId);
+  const appearance = normalizeAppearanceForRace(input.appearance, race);
+
   try {
     return createCharacter({
       realmId: realm.id,
       userId,
       name: trimmedName,
       bio: input.bio?.trim() || undefined,
-      raceId: input.raceId?.trim(),
-      appearance: input.appearance,
+      raceId,
+      appearance,
     });
   } catch (_error) {
     throw new HttpError(500, 'Unable to create character');
   }
+}
+
+function resolveRace(rawRaceId: string | undefined) {
+  if (!rawRaceId) {
+    const fallback = getDefaultRace();
+    return { raceId: fallback.id, race: fallback };
+  }
+
+  const resolved = findRaceById(rawRaceId);
+  if (!resolved) {
+    throw new HttpError(
+      400,
+      `Invalid raceId. Allowed values: ${getCanonicalRaceIds().join(', ')}`
+    );
+  }
+
+  return { raceId: resolved.id, race: resolved };
+}
+
+function normalizeAppearanceForRace(
+  appearanceInput: CharacterAppearance | undefined,
+  race: RaceDefinition
+): CharacterAppearance | undefined {
+  if (!appearanceInput) {
+    return undefined;
+  }
+
+  if (!isCharacterAppearance(appearanceInput)) {
+    throw new HttpError(400, 'Invalid appearance payload');
+  }
+
+  const normalized: CharacterAppearance = {};
+  const record = appearanceInput as Record<string, JsonValue | undefined>;
+
+  if ('height' in record) {
+    normalized.height = validateDimension(
+      record.height,
+      race.customization,
+      'height',
+      race.id
+    );
+  }
+
+  if ('build' in record) {
+    normalized.build = validateDimension(
+      record.build,
+      race.customization,
+      'build',
+      race.id
+    );
+  }
+
+  for (const [key, value] of Object.entries(record)) {
+    if (key === 'height' || key === 'build' || typeof value === 'undefined') {
+      continue;
+    }
+    normalized[key] = value;
+  }
+
+  return Object.keys(normalized).length === 0 ? undefined : normalized;
+}
+
+function validateDimension(
+  value: JsonValue | undefined,
+  customization: RaceCustomizationOptions | undefined,
+  dimension: 'height' | 'build',
+  raceId: string
+): number {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    throw new HttpError(400, `Appearance.${dimension} must be a number`);
+  }
+
+  const range = customization?.[dimension];
+  if (range) {
+    if (value < range.min || value > range.max) {
+      throw new HttpError(
+        400,
+        `Appearance.${dimension} for race ${raceId} must be between ${range.min} and ${range.max}`
+      );
+    }
+  }
+
+  return value;
 }
