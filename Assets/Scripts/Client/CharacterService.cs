@@ -28,6 +28,7 @@ namespace Client
         public ClassUnlockState[] classStates;
         public CharacterAppearanceInfo appearance = new CharacterAppearanceInfo();
         public string createdAt;
+        public string lastKnownLocation;
     }
 
     [Serializable]
@@ -127,6 +128,14 @@ namespace Client
                     if (character != null)
                     {
                         character.classStates = ClassUnlockUtility.SanitizeStates(character.classStates);
+                        if (character.appearance == null)
+                        {
+                            character.appearance = new CharacterAppearanceInfo();
+                        }
+                        if (character.lastKnownLocation == null)
+                        {
+                            character.lastKnownLocation = string.Empty;
+                        }
                     }
                 }
                 onSuccess?.Invoke(response);
@@ -171,6 +180,19 @@ namespace Client
                 {
                     onError?.Invoke(new ApiError(request.responseCode, "Character creation response was empty."));
                     yield break;
+                }
+
+                if (response.character != null)
+                {
+                    response.character.classStates = ClassUnlockUtility.SanitizeStates(response.character.classStates);
+                    if (response.character.appearance == null)
+                    {
+                        response.character.appearance = new CharacterAppearanceInfo();
+                    }
+                    if (response.character.lastKnownLocation == null)
+                    {
+                        response.character.lastKnownLocation = string.Empty;
+                    }
                 }
 
                 onSuccess?.Invoke(response.character);
@@ -255,7 +277,8 @@ namespace Client
                             height = 1.72f,
                             build = 0.48f
                         },
-                        createdAt = DateTime.UtcNow.ToString("O")
+                        createdAt = DateTime.UtcNow.ToString("O"),
+                        lastKnownLocation = "Whispering Glade"
                     },
                     new CharacterInfo
                     {
@@ -272,7 +295,8 @@ namespace Client
                             height = 1.85f,
                             build = 0.62f
                         },
-                        createdAt = DateTime.UtcNow.ToString("O")
+                        createdAt = DateTime.UtcNow.ToString("O"),
+                        lastKnownLocation = "Stonewatch Keep"
                     }
                 }
             });
@@ -407,7 +431,8 @@ namespace Client
                         height = 1.75f,
                         build = 0.5f
                     },
-                createdAt = DateTime.UtcNow.ToString("O")
+                createdAt = DateTime.UtcNow.ToString("O"),
+                lastKnownLocation = "Hearthlight Outpost"
             };
 
             onSuccess?.Invoke(character);

@@ -5,6 +5,12 @@ import {
   deserializeAppearance,
   serializeAppearance,
 } from '../types/characterCustomization';
+import {
+  CharacterClassState,
+  deserializeClassStates,
+  sanitizeClassStates,
+  serializeClassStates,
+} from '../types/classUnlocks';
 
 export interface Character {
   id: string;
@@ -15,6 +21,9 @@ export interface Character {
   raceId: string;
   appearance: CharacterAppearance;
   createdAt: string;
+  classId: string | null;
+  classStates: CharacterClassState[];
+  lastKnownLocation: string | null;
 }
 
 export interface NewCharacter {
@@ -24,11 +33,17 @@ export interface NewCharacter {
   bio?: string;
   raceId?: string;
   appearance?: CharacterAppearance;
+  classId?: string;
+  classStates?: CharacterClassState[];
+  lastKnownLocation?: string;
 }
 
 export function createCharacter(input: NewCharacter): Character {
   const raceId = input.raceId?.trim() || 'human';
   const appearance = input.appearance ?? {};
+  const classId = input.classId?.trim() || null;
+  const classStates = sanitizeClassStates(input.classStates ?? []);
+  const lastKnownLocation = input.lastKnownLocation?.trim() || null;
   const character: Character = {
     id: randomUUID(),
     userId: input.userId,
@@ -38,11 +53,14 @@ export function createCharacter(input: NewCharacter): Character {
     raceId,
     appearance,
     createdAt: new Date().toISOString(),
+    classId,
+    classStates,
+    lastKnownLocation,
   };
 
   const stmt = db.prepare(
-    `INSERT INTO characters (id, user_id, realm_id, name, bio, race_id, appearance_json, created_at)
-     VALUES (@id, @userId, @realmId, @name, @bio, @raceId, @appearanceJson, @createdAt)`
+    `INSERT INTO characters (id, user_id, realm_id, name, bio, race_id, appearance_json, created_at, class_id, class_states_json, last_location)
+     VALUES (@id, @userId, @realmId, @name, @bio, @raceId, @appearanceJson, @createdAt, @classId, @classStatesJson, @lastKnownLocation)`
   );
   stmt.run({
     id: character.id,
@@ -53,6 +71,9 @@ export function createCharacter(input: NewCharacter): Character {
     raceId: character.raceId,
     appearanceJson: serializeAppearance(character.appearance),
     createdAt: character.createdAt,
+    classId: character.classId,
+    classStatesJson: serializeClassStates(character.classStates),
+    lastKnownLocation: character.lastKnownLocation,
   });
   return character;
 }
@@ -71,7 +92,10 @@ export function findCharacterByNameForUser(
        bio,
        race_id as raceId,
        appearance_json as appearanceJson,
-       created_at as createdAt
+       created_at as createdAt,
+       class_id as classId,
+       class_states_json as classStatesJson,
+       last_location as lastKnownLocation
      FROM characters
      WHERE user_id = ? AND realm_id = ? AND name = ?`
   );
@@ -89,7 +113,10 @@ export function listCharactersForRealm(realmId: string): Character[] {
        bio,
        race_id as raceId,
        appearance_json as appearanceJson,
-       created_at as createdAt
+       created_at as createdAt,
+       class_id as classId,
+       class_states_json as classStatesJson,
+       last_location as lastKnownLocation
      FROM characters
      WHERE realm_id = ?
      ORDER BY created_at ASC`
@@ -111,7 +138,10 @@ export function listCharactersForUserInRealm(
        bio,
        race_id as raceId,
        appearance_json as appearanceJson,
-       created_at as createdAt
+       created_at as createdAt,
+       class_id as classId,
+       class_states_json as classStatesJson,
+       last_location as lastKnownLocation
      FROM characters
      WHERE realm_id = ? AND user_id = ?
      ORDER BY created_at ASC`
@@ -129,6 +159,9 @@ interface CharacterRow {
   raceId: string;
   appearanceJson: string | null;
   createdAt: string;
+   classId: string | null;
+   classStatesJson: string | null;
+   lastKnownLocation: string | null;
 }
 
 function mapRowToCharacter(row: CharacterRow): Character {
@@ -141,5 +174,8 @@ function mapRowToCharacter(row: CharacterRow): Character {
     raceId: row.raceId || 'human',
     appearance: deserializeAppearance(row.appearanceJson),
     createdAt: row.createdAt,
+    classId: row.classId ?? null,
+    classStates: deserializeClassStates(row.classStatesJson),
+    lastKnownLocation: row.lastKnownLocation ?? null,
   };
 }

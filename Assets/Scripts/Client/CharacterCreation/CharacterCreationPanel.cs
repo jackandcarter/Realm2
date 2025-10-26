@@ -522,10 +522,16 @@ namespace Client.CharacterCreation
                     continue;
                 }
 
-                _availableClassDefinitions.Add(classDefinition);
-
                 var state = EnsureClassState(classDefinition.Id);
                 var unlocked = state?.Unlocked ?? true;
+
+                if (!unlocked && string.Equals(classDefinition.Id, ClassUnlockUtility.BuilderClassId, StringComparison.OrdinalIgnoreCase))
+                {
+                    // Hide the Builder option entirely until the character explicitly unlocks it.
+                    continue;
+                }
+
+                _availableClassDefinitions.Add(classDefinition);
 
                 if (classListRoot == null || classButtonTemplate == null)
                 {

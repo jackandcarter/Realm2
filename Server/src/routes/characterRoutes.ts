@@ -4,6 +4,7 @@ import {
   createCharacterForUser,
   CreateCharacterInput,
 } from '../services/characterService';
+import { CharacterClassState } from '../types/classUnlocks';
 import { HttpError, isHttpError } from '../utils/errors';
 
 export const characterRouter = Router();
@@ -66,5 +67,11 @@ function toCreateCharacterInput(body: unknown): CreateCharacterInput {
     bio: typeof value.bio === 'string' ? value.bio : undefined,
     raceId: typeof value.raceId === 'string' ? value.raceId : undefined,
     appearance: value.appearance as CreateCharacterInput['appearance'],
+    classId: typeof value.classId === 'string' ? value.classId : undefined,
+    classStates: Array.isArray(value.classStates)
+      ? (value.classStates as CharacterClassState[])
+      : undefined,
+    lastKnownLocation:
+      typeof value.lastKnownLocation === 'string' ? value.lastKnownLocation : undefined,
   };
 }

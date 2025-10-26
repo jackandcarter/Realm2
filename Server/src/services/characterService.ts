@@ -11,6 +11,7 @@ import {
   isCharacterAppearance,
   JsonValue,
 } from '../types/characterCustomization';
+import { CharacterClassState } from '../types/classUnlocks';
 import {
   findRaceById,
   getCanonicalRaceIds,
@@ -25,6 +26,9 @@ export interface CreateCharacterInput {
   bio?: string;
   raceId?: string;
   appearance?: CharacterAppearance;
+  classId?: string;
+  classStates?: CharacterClassState[];
+  lastKnownLocation?: string;
 }
 
 export function createCharacterForUser(
@@ -58,6 +62,9 @@ export function createCharacterForUser(
       bio: input.bio?.trim() || undefined,
       raceId,
       appearance,
+      classId: input.classId,
+      classStates: input.classStates,
+      lastKnownLocation: input.lastKnownLocation,
     });
   } catch (_error) {
     throw new HttpError(500, 'Unable to create character');

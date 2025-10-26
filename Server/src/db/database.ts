@@ -70,6 +70,9 @@ db.exec(`
     bio TEXT,
     race_id TEXT NOT NULL DEFAULT 'human',
     appearance_json TEXT NOT NULL DEFAULT '{}',
+    class_id TEXT,
+    class_states_json TEXT NOT NULL DEFAULT '[]',
+    last_location TEXT,
     created_at TEXT NOT NULL,
     UNIQUE(user_id, realm_id, name),
     FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE,
@@ -89,6 +92,22 @@ if (!hasAppearanceColumn) {
   db.exec("ALTER TABLE characters ADD COLUMN appearance_json TEXT NOT NULL DEFAULT '{}'");
 }
 db.exec("UPDATE characters SET appearance_json = '{}' WHERE appearance_json IS NULL OR appearance_json = ''");
+
+const hasClassIdColumn = characterColumns.some((column) => column.name === 'class_id');
+if (!hasClassIdColumn) {
+  db.exec('ALTER TABLE characters ADD COLUMN class_id TEXT');
+}
+
+const hasClassStatesColumn = characterColumns.some((column) => column.name === 'class_states_json');
+if (!hasClassStatesColumn) {
+  db.exec("ALTER TABLE characters ADD COLUMN class_states_json TEXT NOT NULL DEFAULT '[]'");
+}
+db.exec("UPDATE characters SET class_states_json = '[]' WHERE class_states_json IS NULL OR class_states_json = ''");
+
+const hasLastLocationColumn = characterColumns.some((column) => column.name === 'last_location');
+if (!hasLastLocationColumn) {
+  db.exec('ALTER TABLE characters ADD COLUMN last_location TEXT');
+}
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS refresh_tokens (

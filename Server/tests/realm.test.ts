@@ -15,6 +15,9 @@ interface RealmSummary {
 
 interface CharacterSummary {
   name: string;
+  classId?: string | null;
+  classStates?: unknown;
+  lastKnownLocation?: string | null;
   [key: string]: unknown;
 }
 
@@ -89,6 +92,10 @@ describe('Realm and character API', () => {
     expect(createResponse.body.character.raceId).toBe('felarian');
     expect(createResponse.body.character.appearance.height).toBeCloseTo(1.7);
     expect(createResponse.body.character.appearance.build).toBeCloseTo(0.5);
+    expect(Array.isArray(createResponse.body.character.classStates)).toBe(true);
+    expect(createResponse.body.character.classStates.length).toBeGreaterThan(0);
+    expect(createResponse.body.character.classStates[0]).toHaveProperty('classId');
+    expect(createResponse.body.character).toHaveProperty('lastKnownLocation');
 
     const realmsAfter = await request(app)
       .get('/realms')
@@ -149,6 +156,7 @@ describe('Realm and character API', () => {
     expect(playerView.body.membership.role).toBe('player');
     expect(playerView.body.characters).toHaveLength(1);
     expect(playerView.body.characters[0].name).toBe('Elysium Scout');
+    expect(Array.isArray(playerView.body.characters[0].classStates)).toBe(true);
 
     upsertMembership(playerOne.userId, realmId, 'builder');
 
@@ -161,6 +169,10 @@ describe('Realm and character API', () => {
     const names = (builderView.body.characters as CharacterSummary[]).map((character) => character.name);
     expect(names).toEqual(expect.arrayContaining(['Elysium Scout', 'Arcane Ranger']));
     expect(builderView.body.characters).toHaveLength(2);
+    builderView.body.characters.forEach((character: CharacterSummary) => {
+      expect(character).toHaveProperty('classStates');
+      expect(character).toHaveProperty('lastKnownLocation');
+    });
   });
 
   it('rejects invalid race selections', async () => {
