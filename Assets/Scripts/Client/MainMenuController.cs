@@ -641,11 +641,11 @@ namespace Client
             }
         }
 
-        private void OnCharacterCreationRaceSelected(RaceDefinition race)
+        private void OnCharacterCreationRaceSelected(RaceViewModel race)
         {
-            if (race != null)
+            if (race?.Definition != null)
             {
-                _characterMessage.text = $"Customizing {race.DisplayName}.";
+                _characterMessage.text = $"Customizing {race.Definition.DisplayName}.";
             }
         }
 
