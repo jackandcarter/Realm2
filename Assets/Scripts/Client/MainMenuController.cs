@@ -85,7 +85,7 @@ namespace Client
 
         private void EnsureEventSystem()
         {
-            if (FindObjectOfType<UnityEngine.EventSystems.EventSystem>() != null)
+            if (UnityEngine.Object.FindFirstObjectByType<UnityEngine.EventSystems.EventSystem>() != null)
             {
                 return;
             }
@@ -523,11 +523,9 @@ namespace Client
                 return environmentConfig.UseMockServices;
             }
 
-#if UNITY_EDITOR
-            return fallbackUseMockServicesInEditor;
-#else
-            return fallbackUseMockServicesInPlayer;
-#endif
+            return Application.isEditor
+                ? fallbackUseMockServicesInEditor
+                : fallbackUseMockServicesInPlayer;
         }
     }
 }

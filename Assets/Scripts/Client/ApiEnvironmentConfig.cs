@@ -13,16 +13,6 @@ namespace Client
         public string EnvironmentName => string.IsNullOrWhiteSpace(environmentName) ? "Unnamed" : environmentName;
         public string BaseApiUrl => string.IsNullOrWhiteSpace(baseApiUrl) ? "http://localhost:3000" : baseApiUrl.TrimEnd('/');
 
-        public bool UseMockServices
-        {
-            get
-            {
-#if UNITY_EDITOR
-                return useMockServicesInEditor;
-#else
-                return useMockServicesInPlayer;
-#endif
-            }
-        }
+        public bool UseMockServices => Application.isEditor ? useMockServicesInEditor : useMockServicesInPlayer;
     }
 }
