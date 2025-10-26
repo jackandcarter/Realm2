@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Globalization;
 using Client.CharacterCreation;
+using Client.Progression;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
@@ -28,6 +29,7 @@ namespace Client
         private AuthService _authService;
         private RealmService _realmService;
         private CharacterService _characterService;
+        private CharacterProgressionClient _progressionClient;
 
         [SerializeField] private Canvas _loginCanvas;
         private InputField _emailInput;
@@ -75,6 +77,8 @@ namespace Client
             _authService = new AuthService(baseUrl, useMocks);
             _realmService = new RealmService(baseUrl, useMocks);
             _characterService = new CharacterService(baseUrl, useMocks);
+            _progressionClient = new CharacterProgressionClient(baseUrl, useMocks);
+            ClassUnlockRepository.SetProgressionClient(_progressionClient);
 
             if (environmentConfig != null)
             {
@@ -530,6 +534,27 @@ namespace Client
                         foreach (var character in characters)
                         {
                             ClassUnlockRepository.TrackCharacter(character);
+                            if (_progressionClient != null)
+                            {
+                                StartCoroutine(
+                                    ClassUnlockRepository.SyncWithServer(
+                                        character.id,
+                                        snapshot =>
+                                        {
+                                            if (snapshot != null && character != null &&
+                                                string.Equals(character.id, _selectedCharacter?.id, StringComparison.Ordinal))
+                                            {
+                                                DisplayCharacterDetails(character);
+                                            }
+                                        },
+                                        error =>
+                                        {
+                                            if (error != null)
+                                            {
+                                                Debug.LogWarning($"Failed to sync progression for {character.name}: {error.Message}");
+                                            }
+                                        }));
+                            }
                             var entry = CreateCharacterButton(character);
                             _spawnedCharacterEntries.Add(entry.gameObject);
                         }

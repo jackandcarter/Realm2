@@ -1,5 +1,6 @@
 import { randomUUID } from 'crypto';
 import { db } from './database';
+import { initializeCharacterProgressionState } from './progressionRepository';
 import {
   CharacterAppearance,
   deserializeAppearance,
@@ -75,7 +76,30 @@ export function createCharacter(input: NewCharacter): Character {
     classStatesJson: serializeClassStates(character.classStates),
     lastKnownLocation: character.lastKnownLocation,
   });
+  initializeCharacterProgressionState(character.id);
   return character;
+}
+
+export function findCharacterById(id: string): Character | undefined {
+  const stmt = db.prepare(
+    `SELECT
+       id,
+       user_id as userId,
+       realm_id as realmId,
+       name,
+       bio,
+       race_id as raceId,
+       appearance_json as appearanceJson,
+       created_at as createdAt,
+       class_id as classId,
+       class_states_json as classStatesJson,
+       last_location as lastKnownLocation
+     FROM characters
+     WHERE id = ?`
+  );
+
+  const row = stmt.get(id) as CharacterRow | undefined;
+  return row ? mapRowToCharacter(row) : undefined;
 }
 
 export function findCharacterByNameForUser(

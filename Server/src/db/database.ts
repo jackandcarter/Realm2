@@ -80,6 +80,81 @@ db.exec(`
   );
 `);
 
+db.exec(`
+  CREATE TABLE IF NOT EXISTS character_progression (
+    character_id TEXT PRIMARY KEY,
+    level INTEGER NOT NULL DEFAULT 1,
+    xp INTEGER NOT NULL DEFAULT 0,
+    version INTEGER NOT NULL DEFAULT 0,
+    updated_at TEXT NOT NULL,
+    FOREIGN KEY(character_id) REFERENCES characters(id) ON DELETE CASCADE
+  );
+`);
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS character_class_unlocks (
+    id TEXT PRIMARY KEY,
+    character_id TEXT NOT NULL,
+    class_id TEXT NOT NULL,
+    unlocked INTEGER NOT NULL DEFAULT 0,
+    unlocked_at TEXT,
+    FOREIGN KEY(character_id) REFERENCES characters(id) ON DELETE CASCADE,
+    UNIQUE(character_id, class_id)
+  );
+`);
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS character_class_unlock_state (
+    character_id TEXT PRIMARY KEY,
+    version INTEGER NOT NULL DEFAULT 0,
+    updated_at TEXT NOT NULL,
+    FOREIGN KEY(character_id) REFERENCES characters(id) ON DELETE CASCADE
+  );
+`);
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS character_inventory_items (
+    id TEXT PRIMARY KEY,
+    character_id TEXT NOT NULL,
+    item_id TEXT NOT NULL,
+    quantity INTEGER NOT NULL DEFAULT 1,
+    metadata_json TEXT NOT NULL DEFAULT '{}',
+    FOREIGN KEY(character_id) REFERENCES characters(id) ON DELETE CASCADE,
+    UNIQUE(character_id, item_id)
+  );
+`);
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS character_inventory_state (
+    character_id TEXT PRIMARY KEY,
+    version INTEGER NOT NULL DEFAULT 0,
+    updated_at TEXT NOT NULL,
+    FOREIGN KEY(character_id) REFERENCES characters(id) ON DELETE CASCADE
+  );
+`);
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS character_quest_states (
+    id TEXT PRIMARY KEY,
+    character_id TEXT NOT NULL,
+    quest_id TEXT NOT NULL,
+    status TEXT NOT NULL,
+    progress_json TEXT NOT NULL DEFAULT '{}',
+    updated_at TEXT NOT NULL,
+    FOREIGN KEY(character_id) REFERENCES characters(id) ON DELETE CASCADE,
+    UNIQUE(character_id, quest_id)
+  );
+`);
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS character_quest_state_meta (
+    character_id TEXT PRIMARY KEY,
+    version INTEGER NOT NULL DEFAULT 0,
+    updated_at TEXT NOT NULL,
+    FOREIGN KEY(character_id) REFERENCES characters(id) ON DELETE CASCADE
+  );
+`);
+
 const characterColumns = db.prepare("PRAGMA table_info(characters)").all();
 const hasRaceIdColumn = characterColumns.some((column) => column.name === 'race_id');
 if (!hasRaceIdColumn) {

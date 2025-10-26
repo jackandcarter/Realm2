@@ -21,17 +21,32 @@ namespace Client.Quests
                 return;
             }
 
-            if (ClassUnlockRepository.UnlockClass(characterId, ClassUnlockUtility.BuilderClassId))
-            {
-                if (logUnlockEvents)
+            StartCoroutine(ClassUnlockRepository.UnlockClassAsync(
+                characterId,
+                ClassUnlockUtility.BuilderClassId,
+                success =>
                 {
-                    Debug.Log($"Builder class unlocked for character {characterId}.");
-                }
-            }
-            else if (logUnlockEvents)
-            {
-                Debug.Log($"Builder class was already unlocked for character {characterId}.");
-            }
+                    if (!logUnlockEvents)
+                    {
+                        return;
+                    }
+
+                    if (success)
+                    {
+                        Debug.Log($"Builder class unlocked for character {characterId}.");
+                    }
+                    else
+                    {
+                        Debug.Log($"Builder class was already unlocked for character {characterId}.");
+                    }
+                },
+                error =>
+                {
+                    if (logUnlockEvents)
+                    {
+                        Debug.LogWarning($"Failed to unlock Builder class for {characterId}: {error.Message}");
+                    }
+                }));
         }
     }
 }
