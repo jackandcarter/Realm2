@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
+using Building;
 using Client.CharacterCreation;
 using Client.Builder;
 using Client.UI.HUD;
@@ -37,6 +38,13 @@ namespace Client.UI
 
         private readonly List<TabBinding> _tabs = new List<TabBinding>();
         private GameObject _activePanel;
+
+        private const string PanelsRegistryId = "arkitect.ui.panels";
+        private const string TabBarRegistryId = "arkitect.ui.tabbar";
+        private const string PlotsPanelRegistryId = "arkitect.ui.panel.plots";
+        private const string MaterialsPanelRegistryId = "arkitect.ui.panel.materials";
+        private const string BlueprintsPanelRegistryId = "arkitect.ui.panel.blueprints";
+        private const string CommissionsPanelRegistryId = "arkitect.ui.panel.commissions";
 
         private struct TabBinding
         {
@@ -148,6 +156,11 @@ namespace Client.UI
 
         private void EnsureContainers()
         {
+            if (panelsContainer == null && ArkitectRegistry.TryGetUiPanel(PanelsRegistryId, out var trackedPanels))
+            {
+                panelsContainer = trackedPanels != null ? trackedPanels.GetComponent<RectTransform>() : null;
+            }
+
             if (panelsContainer == null)
             {
                 var existing = transform.Find("Panels");
@@ -163,6 +176,16 @@ namespace Client.UI
             }
 
             ConfigurePanelsContainer(panelsContainer);
+            if (panelsContainer != null)
+            {
+                ReparentIfNecessary(panelsContainer, transform as RectTransform);
+                ArkitectRegistry.RegisterUiPanel(PanelsRegistryId, panelsContainer.gameObject);
+            }
+
+            if (tabContainer == null && ArkitectRegistry.TryGetUiPanel(TabBarRegistryId, out var trackedTabBar))
+            {
+                tabContainer = trackedTabBar != null ? trackedTabBar.GetComponent<RectTransform>() : null;
+            }
 
             if (tabContainer == null)
             {
@@ -179,6 +202,11 @@ namespace Client.UI
             }
 
             ConfigureTabContainer(tabContainer);
+            if (tabContainer != null)
+            {
+                ReparentIfNecessary(tabContainer, transform as RectTransform);
+                ArkitectRegistry.RegisterUiPanel(TabBarRegistryId, tabContainer.gameObject);
+            }
         }
 
         private void EnsureTabs()
@@ -213,13 +241,17 @@ namespace Client.UI
         private void EnsurePanels()
         {
             EnsurePanel(ref plotsPanel, "PlotsPanel",
-                "Claim frontier plots and grow settlements to embody Realm's player-driven worldbuilding.");
+                "Claim frontier plots and grow settlements to embody Realm's player-driven worldbuilding.",
+                PlotsPanelRegistryId);
             EnsurePanel(ref materialsPanel, "MaterialsPanel",
-                "Curate arcane reagents and technomantic alloys that empower construction and crafting.");
+                "Curate arcane reagents and technomantic alloys that empower construction and crafting.",
+                MaterialsPanelRegistryId);
             EnsurePanel(ref blueprintsPanel, "BlueprintsPanel",
-                "Unlock radiant designs that blend crystalline spires with luminous machinery.");
+                "Unlock radiant designs that blend crystalline spires with luminous machinery.",
+                BlueprintsPanelRegistryId);
             EnsurePanel(ref commissionPanel, "CommissionsPanel",
-                "Review community commissions and collaborate on magitech megastructures for Elysium.");
+                "Review community commissions and collaborate on magitech megastructures for Elysium.",
+                CommissionsPanelRegistryId);
         }
 
         private void EnsurePlotPanelController()
@@ -230,8 +262,14 @@ namespace Client.UI
             }
         }
 
-        private void EnsurePanel(ref GameObject panelReference, string panelName, string description)
+        private void EnsurePanel(ref GameObject panelReference, string panelName, string description, string registryId)
         {
+            if (panelReference == null && !string.IsNullOrWhiteSpace(registryId) &&
+                ArkitectRegistry.TryGetUiPanel(registryId, out var trackedPanel) && trackedPanel != null)
+            {
+                panelReference = trackedPanel;
+            }
+
             if (panelReference == null && panelsContainer != null)
             {
                 var existing = panelsContainer.Find(panelName);
@@ -247,7 +285,13 @@ namespace Client.UI
             }
             else
             {
+                ReparentIfNecessary(panelReference.transform, panelsContainer);
                 RefreshPanelVisuals(panelReference.transform, description);
+            }
+
+            if (panelReference != null && !string.IsNullOrWhiteSpace(registryId))
+            {
+                ArkitectRegistry.RegisterUiPanel(registryId, panelReference);
             }
         }
 
@@ -495,6 +539,19 @@ namespace Client.UI
                 bodyText.fontStyle = FontStyle.Normal;
                 bodyText.fontSize = 20;
                 bodyText.alignment = TextAnchor.UpperLeft;
+            }
+        }
+
+        private static void ReparentIfNecessary(Transform target, Transform parent)
+        {
+            if (target == null || parent == null)
+            {
+                return;
+            }
+
+            if (target.parent != parent)
+            {
+                target.SetParent(parent, false);
             }
         }
 

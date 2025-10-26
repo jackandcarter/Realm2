@@ -10,12 +10,14 @@ namespace Building
         [SerializeField] private string instanceId;
         [SerializeField] private string blueprintId;
         [SerializeField] private bool isPlaced;
+        [SerializeField] private string prefabId;
 
         private Rigidbody _rigidbody;
 
         public string InstanceId => instanceId;
         public string BlueprintId => blueprintId;
         public bool IsPlaced => isPlaced;
+        public string PrefabId => prefabId;
 
         private void Awake()
         {
@@ -25,11 +27,27 @@ namespace Building
             }
         }
 
+        private void OnEnable()
+        {
+            EnsureInstanceId();
+            ArkitectRegistry.RegisterConstructionInstance(this);
+        }
+
+        private void OnDisable()
+        {
+            ArkitectRegistry.UnregisterConstructionInstance(this);
+        }
+
         public void Initialize(string blueprint, bool placed = false)
         {
             blueprintId = blueprint;
+            if (!string.IsNullOrWhiteSpace(blueprint))
+            {
+                prefabId = blueprint;
+            }
             isPlaced = placed;
             EnsureInstanceId();
+            ArkitectRegistry.RegisterConstructionInstance(this);
         }
 
         public void EnsureInstanceId()
@@ -76,11 +94,13 @@ namespace Building
 
         public SerializableConstructionState CaptureState()
         {
+            EnsureInstanceId();
             return new SerializableConstructionState
             {
                 InstanceId = instanceId,
                 BlueprintId = blueprintId,
                 IsPlaced = isPlaced,
+                PrefabId = string.IsNullOrWhiteSpace(prefabId) ? blueprintId : prefabId,
                 Position = transform.position,
                 Rotation = transform.rotation,
                 Scale = transform.localScale
@@ -92,8 +112,10 @@ namespace Building
             instanceId = state.InstanceId;
             blueprintId = state.BlueprintId;
             isPlaced = state.IsPlaced;
+            prefabId = string.IsNullOrWhiteSpace(state.PrefabId) ? state.BlueprintId : state.PrefabId;
             transform.SetPositionAndRotation(state.Position, state.Rotation);
             transform.localScale = state.Scale;
+            ArkitectRegistry.RegisterConstructionInstance(this);
         }
 
         [Serializable]
@@ -102,6 +124,7 @@ namespace Building
             public string InstanceId;
             public string BlueprintId;
             public bool IsPlaced;
+            public string PrefabId;
             public Vector3 Position;
             public Quaternion Rotation;
             public Vector3 Scale;
