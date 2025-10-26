@@ -24,6 +24,17 @@ namespace Client.CharacterCreation
             RaiseChanged(character.id);
         }
 
+        public static bool TryGetCharacter(string characterId, out CharacterInfo character)
+        {
+            if (string.IsNullOrWhiteSpace(characterId))
+            {
+                character = null;
+                return false;
+            }
+
+            return Characters.TryGetValue(characterId, out character);
+        }
+
         public static ClassUnlockState[] GetStates(string characterId)
         {
             if (string.IsNullOrWhiteSpace(characterId) || !StatesByCharacter.TryGetValue(characterId, out var states))
@@ -32,6 +43,22 @@ namespace Client.CharacterCreation
             }
 
             return ClassUnlockUtility.CloneStates(states);
+        }
+
+        public static bool IsClassUnlocked(string characterId, string classId)
+        {
+            if (string.IsNullOrWhiteSpace(classId))
+            {
+                return false;
+            }
+
+            var states = GetStates(characterId);
+            if (states == null || states.Length == 0)
+            {
+                return false;
+            }
+
+            return ClassUnlockUtility.TryGetState(states, classId, out var state) && state != null && state.Unlocked;
         }
 
         public static bool UnlockClass(string characterId, string classId)
