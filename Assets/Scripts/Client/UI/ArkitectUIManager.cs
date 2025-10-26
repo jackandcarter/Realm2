@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
+using Client.CharacterCreation;
+using Client.UI.HUD;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -8,7 +10,7 @@ namespace Client.UI
 {
     [ExecuteAlways]
     [DisallowMultipleComponent]
-    public class ArkitectUIManager : MonoBehaviour
+    public class ArkitectUIManager : MonoBehaviour, IClassUiModule
     {
         [Header("Containers")]
         [SerializeField] private RectTransform panelsContainer;
@@ -38,6 +40,36 @@ namespace Client.UI
         {
             public Button Button;
             public GameObject Panel;
+        }
+
+        public string ClassId => ClassUnlockUtility.BuilderClassId;
+
+        public void Mount(Transform parent)
+        {
+            if (parent == null)
+            {
+                return;
+            }
+
+            if (!TryGetComponent(out RectTransform rectTransform))
+            {
+                rectTransform = gameObject.AddComponent<RectTransform>();
+            }
+
+            rectTransform.SetParent(parent, false);
+            gameObject.SetActive(true);
+
+            InitializeUi();
+        }
+
+        public void Unmount()
+        {
+            gameObject.SetActive(false);
+        }
+
+        public void OnAbilityStateChanged(string abilityId, bool enabled)
+        {
+            ApplyPermissions(enabled);
         }
 
         private void Awake()
