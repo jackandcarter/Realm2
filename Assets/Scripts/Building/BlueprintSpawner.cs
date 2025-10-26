@@ -153,6 +153,7 @@ namespace Building
             _lookup.Clear();
             if (blueprints != null)
             {
+                var registeredBlueprint = false;
                 foreach (var blueprint in blueprints)
                 {
                     if (blueprint == null || string.IsNullOrWhiteSpace(blueprint.BlueprintId))
@@ -169,6 +170,16 @@ namespace Building
 
                     blueprint.CacheBounds();
                     _lookup[id] = blueprint;
+                    if (blueprint.Prefab != null)
+                    {
+                        ArkitectRegistry.RegisterBlueprintPrefab(id, blueprint.Prefab);
+                        registeredBlueprint = true;
+                    }
+                }
+
+                if (registeredBlueprint)
+                {
+                    ArkitectRegistry.ReconcileSavedConstructions();
                 }
             }
 
