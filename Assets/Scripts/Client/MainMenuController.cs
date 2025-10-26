@@ -466,6 +466,7 @@ namespace Client
                         _characterMessage.text = $"Select a character for {realm.name}{roleLabel}:";
                         foreach (var character in characters)
                         {
+                            ClassUnlockRepository.TrackCharacter(character);
                             var entry = CreateCharacterButton(character);
                             _spawnedCharacterEntries.Add(entry.gameObject);
                         }
@@ -594,6 +595,7 @@ namespace Client
                     var descriptorText = descriptors.Count > 0 ? string.Join(" ", descriptors) + " " : string.Empty;
                     _characterMessage.text = $"Created {descriptorText}{character.name}. Select to enter the world.";
                     _characterNameInput.text = string.Empty;
+                    ClassUnlockRepository.TrackCharacter(character);
                     var entry = CreateCharacterButton(character);
                     _spawnedCharacterEntries.Add(entry.gameObject);
                     _createCharacterButton.interactable = true;
@@ -647,6 +649,7 @@ namespace Client
             panel.ClassSelected += OnCharacterCreationClassSelected;
             panel.Confirmed += OnCharacterCreationConfirmed;
             panel.Cancelled += OnCharacterCreationCancelled;
+            panel.BindToCharacter(SessionManager.SelectedCharacterId);
             _characterCreationPanelHooked = true;
         }
 
