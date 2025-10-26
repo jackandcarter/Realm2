@@ -182,7 +182,13 @@ namespace Client.Terrain
 
     public class RealmChunkCache
     {
+        private const int MaxRecentAuthoritativeChanges = 128;
+
         private readonly Dictionary<string, RealmChunkState> _chunks = new Dictionary<string, RealmChunkState>(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<string, PredictionRecord> _pendingPredictions = new Dictionary<string, PredictionRecord>(StringComparer.OrdinalIgnoreCase);
+        private readonly List<string> _predictionOrder = new List<string>();
+        private readonly HashSet<string> _recentAuthoritativeChangeIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        private readonly Queue<string> _recentAuthoritativeChangeQueue = new Queue<string>();
 
         public event Action<RealmChunkState> ChunkUpdated;
         public event Action<string> ChunkRemoved;
@@ -260,14 +266,24 @@ namespace Client.Terrain
             }
         }
 
-        public void ApplyChange(RealmChunkChange change)
+        public void ApplyChange(RealmChunkChange change, bool isAuthoritative = true)
         {
             if (change == null || string.IsNullOrEmpty(change.chunkId))
             {
                 return;
             }
 
-            if (!string.IsNullOrEmpty(change.createdAt))
+            if (isAuthoritative && !string.IsNullOrEmpty(change.changeId))
+            {
+                if (_recentAuthoritativeChangeIds.Contains(change.changeId))
+                {
+                    return;
+                }
+
+                TrackAuthoritativeChange(change.changeId);
+            }
+
+            if (isAuthoritative && !string.IsNullOrEmpty(change.createdAt))
             {
                 LastServerTimestamp = change.createdAt;
             }
@@ -303,6 +319,89 @@ namespace Client.Terrain
             ChunkUpdated?.Invoke(state.Clone());
         }
 
+        public void ApplyPredictedChange(string requestId, RealmChunkChange predictedChange)
+        {
+            if (string.IsNullOrWhiteSpace(requestId) || predictedChange == null || string.IsNullOrEmpty(predictedChange.chunkId))
+            {
+                return;
+            }
+
+            if (_pendingPredictions.ContainsKey(requestId))
+            {
+                return;
+            }
+
+            RealmChunkSnapshot previousSnapshot = null;
+            if (_chunks.TryGetValue(predictedChange.chunkId, out var existing))
+            {
+                previousSnapshot = existing.ToSnapshot();
+            }
+
+            var record = new PredictionRecord
+            {
+                RequestId = requestId,
+                ChunkId = predictedChange.chunkId,
+                PreviousSnapshot = previousSnapshot,
+                PredictedChange = CloneChange(predictedChange)
+            };
+
+            _pendingPredictions[requestId] = record;
+            _predictionOrder.Add(requestId);
+
+            ApplyChange(predictedChange, isAuthoritative: false);
+        }
+
+        public void ConfirmPrediction(string requestId, RealmChunkChange authoritativeChange)
+        {
+            if (!string.IsNullOrWhiteSpace(requestId) && _pendingPredictions.Remove(requestId))
+            {
+                _predictionOrder.Remove(requestId);
+            }
+
+            if (authoritativeChange != null)
+            {
+                ApplyChange(authoritativeChange, isAuthoritative: true);
+            }
+        }
+
+        public void RejectPrediction(string requestId)
+        {
+            if (string.IsNullOrWhiteSpace(requestId))
+            {
+                return;
+            }
+
+            if (!_pendingPredictions.TryGetValue(requestId, out var rejected))
+            {
+                return;
+            }
+
+            var index = _predictionOrder.IndexOf(requestId);
+            var reapply = new List<PredictionRecord>();
+            if (index >= 0)
+            {
+                for (var i = index + 1; i < _predictionOrder.Count; i++)
+                {
+                    var id = _predictionOrder[i];
+                    if (_pendingPredictions.TryGetValue(id, out var pending))
+                    {
+                        reapply.Add(pending);
+                        _pendingPredictions.Remove(id);
+                    }
+                }
+
+                _predictionOrder.RemoveRange(index, _predictionOrder.Count - index);
+            }
+
+            _pendingPredictions.Remove(requestId);
+            RestoreState(rejected);
+
+            foreach (var pending in reapply)
+            {
+                ApplyPredictedChange(pending.RequestId, CloneChange(pending.PredictedChange));
+            }
+        }
+
         public IReadOnlyCollection<RealmChunkState> GetAllChunks()
         {
             var list = new List<RealmChunkState>(_chunks.Count);
@@ -329,7 +428,141 @@ namespace Client.Terrain
         public void Clear()
         {
             _chunks.Clear();
+            _pendingPredictions.Clear();
+            _predictionOrder.Clear();
+            _recentAuthoritativeChangeIds.Clear();
+            _recentAuthoritativeChangeQueue.Clear();
             LastServerTimestamp = null;
+        }
+
+        private void RestoreState(PredictionRecord record)
+        {
+            if (record == null)
+            {
+                return;
+            }
+
+            if (record.PreviousSnapshot == null)
+            {
+                if (_chunks.Remove(record.ChunkId))
+                {
+                    ChunkRemoved?.Invoke(record.ChunkId);
+                }
+
+                return;
+            }
+
+            var restored = new RealmChunkState(record.PreviousSnapshot);
+            _chunks[record.ChunkId] = restored;
+            ChunkUpdated?.Invoke(restored.Clone());
+        }
+
+        private void TrackAuthoritativeChange(string changeId)
+        {
+            if (string.IsNullOrEmpty(changeId))
+            {
+                return;
+            }
+
+            _recentAuthoritativeChangeIds.Add(changeId);
+            _recentAuthoritativeChangeQueue.Enqueue(changeId);
+
+            while (_recentAuthoritativeChangeQueue.Count > MaxRecentAuthoritativeChanges)
+            {
+                var expired = _recentAuthoritativeChangeQueue.Dequeue();
+                _recentAuthoritativeChangeIds.Remove(expired);
+            }
+        }
+
+        private static RealmChunkChange CloneChange(RealmChunkChange change)
+        {
+            if (change == null)
+            {
+                return null;
+            }
+
+            return new RealmChunkChange
+            {
+                changeId = change.changeId,
+                realmId = change.realmId,
+                chunkId = change.chunkId,
+                changeType = change.changeType,
+                createdAt = change.createdAt,
+                chunk = CloneSnapshot(change.chunk),
+                structures = change.structures != null ? Array.ConvertAll(change.structures, CloneStructure) : null,
+                plots = change.plots != null ? Array.ConvertAll(change.plots, ClonePlot) : null,
+            };
+        }
+
+        private static RealmChunkSnapshot CloneSnapshot(RealmChunkSnapshot snapshot)
+        {
+            if (snapshot == null)
+            {
+                return null;
+            }
+
+            return new RealmChunkSnapshot
+            {
+                chunkId = snapshot.chunkId,
+                realmId = snapshot.realmId,
+                chunkX = snapshot.chunkX,
+                chunkZ = snapshot.chunkZ,
+                payload = snapshot.payload,
+                isDeleted = snapshot.isDeleted,
+                createdAt = snapshot.createdAt,
+                updatedAt = snapshot.updatedAt,
+                structures = snapshot.structures != null ? Array.ConvertAll(snapshot.structures, CloneStructure) : null,
+                plots = snapshot.plots != null ? Array.ConvertAll(snapshot.plots, ClonePlot) : null,
+            };
+        }
+
+        private static RealmChunkStructure CloneStructure(RealmChunkStructure original)
+        {
+            if (original == null)
+            {
+                return null;
+            }
+
+            return new RealmChunkStructure
+            {
+                structureId = original.structureId,
+                realmId = original.realmId,
+                chunkId = original.chunkId,
+                structureType = original.structureType,
+                data = original.data,
+                isDeleted = original.isDeleted,
+                createdAt = original.createdAt,
+                updatedAt = original.updatedAt,
+            };
+        }
+
+        private static RealmChunkPlot ClonePlot(RealmChunkPlot original)
+        {
+            if (original == null)
+            {
+                return null;
+            }
+
+            return new RealmChunkPlot
+            {
+                plotId = original.plotId,
+                realmId = original.realmId,
+                chunkId = original.chunkId,
+                plotIdentifier = original.plotIdentifier,
+                ownerUserId = original.ownerUserId,
+                data = original.data,
+                isDeleted = original.isDeleted,
+                createdAt = original.createdAt,
+                updatedAt = original.updatedAt,
+            };
+        }
+
+        private sealed class PredictionRecord
+        {
+            public string RequestId;
+            public string ChunkId;
+            public RealmChunkSnapshot PreviousSnapshot;
+            public RealmChunkChange PredictedChange;
         }
     }
 }

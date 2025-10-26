@@ -37,21 +37,21 @@ export interface ChunkChangeEnvelope {
   changes: ChunkChangeDTO[];
 }
 
-interface ChunkUpdateInput {
+export interface ChunkUpdateInput {
   chunkX?: number;
   chunkZ?: number;
   payload?: unknown;
   isDeleted?: boolean;
 }
 
-interface StructureUpdateInput {
+export interface StructureUpdateInput {
   structureId?: string;
   structureType: string;
   data?: unknown;
   isDeleted?: boolean;
 }
 
-interface PlotUpdateInput {
+export interface PlotUpdateInput {
   plotId?: string;
   plotIdentifier?: string;
   ownerUserId?: string | null;
