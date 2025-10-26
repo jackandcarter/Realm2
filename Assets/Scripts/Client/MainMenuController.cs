@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using Client.CharacterCreation;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
@@ -39,6 +40,8 @@ namespace Client
         private Text _realmMessage;
 
         [SerializeField] private Canvas _characterCanvas;
+        [SerializeField] private CharacterCreationPanel _characterCreationPanelPrefab;
+        [SerializeField] private RectTransform _characterCreationPanelMount;
         private RectTransform _characterListRoot;
         private InputField _characterNameInput;
         private Button _createCharacterButton;
@@ -46,6 +49,8 @@ namespace Client
 
         private readonly List<GameObject> _spawnedRealmEntries = new();
         private readonly List<GameObject> _spawnedCharacterEntries = new();
+        private CharacterCreationPanel _characterCreationPanelInstance;
+        private bool _characterCreationPanelHooked;
 
         private void Awake()
         {
@@ -86,6 +91,11 @@ namespace Client
             EnsureCanvas(ref _loginCanvas, "LoginCanvas", CreateLoginCanvas);
             EnsureCanvas(ref _realmCanvas, "RealmCanvas", CreateRealmCanvas);
             EnsureCanvas(ref _characterCanvas, "CharacterCanvas", CreateCharacterCanvas);
+
+            if (_characterCreationPanelMount == null && _characterCanvas != null)
+            {
+                _characterCreationPanelMount = (RectTransform)_characterCanvas.transform;
+            }
 
             if (_realmCanvas != null)
             {
@@ -511,13 +521,44 @@ namespace Client
                 return;
             }
 
-            var name = _characterNameInput.text;
+            if (string.IsNullOrWhiteSpace(_characterNameInput?.text))
+            {
+                _characterMessage.text = "Enter a character name before creating.";
+                return;
+            }
+
+            if (_characterCreationPanelPrefab == null)
+            {
+                BeginImmediateCharacterCreation();
+                return;
+            }
+
+            EnsureCharacterCreationPanelInstance();
+
+            if (_characterCreationPanelInstance == null)
+            {
+                BeginImmediateCharacterCreation();
+                return;
+            }
+
+            if (!_characterCreationPanelInstance.gameObject.activeSelf)
+            {
+                _characterCreationPanelInstance.gameObject.SetActive(true);
+            }
+
+            _characterCreationPanelInstance.Refresh();
+            _characterMessage.text = "Choose a race to finalize your hero.";
+        }
+
+        private void BeginImmediateCharacterCreation()
+        {
+            var name = _characterNameInput != null ? _characterNameInput.text : string.Empty;
             _characterMessage.text = "Creating character...";
             _createCharacterButton.interactable = false;
             StartCoroutine(CreateCharacterRoutine(SessionManager.SelectedRealmId, name));
         }
 
-        private IEnumerator CreateCharacterRoutine(string realmId, string name)
+        private IEnumerator CreateCharacterRoutine(string realmId, string name, CharacterCreationSelection? selection = null)
         {
             yield return _characterService.CreateCharacter(
                 realmId,
@@ -525,7 +566,17 @@ namespace Client
                 string.Empty,
                 character =>
                 {
-                    _characterMessage.text = $"Created {character.name}. Select to enter the world.";
+                    var raceLabel = selection.HasValue && selection.Value.Race != null
+                        ? selection.Value.Race.DisplayName
+                        : null;
+                    if (string.IsNullOrWhiteSpace(raceLabel))
+                    {
+                        _characterMessage.text = $"Created {character.name}. Select to enter the world.";
+                    }
+                    else
+                    {
+                        _characterMessage.text = $"Created {raceLabel} {character.name}. Select to enter the world.";
+                    }
                     _characterNameInput.text = string.Empty;
                     var entry = CreateCharacterButton(character);
                     _spawnedCharacterEntries.Add(entry.gameObject);
@@ -536,6 +587,97 @@ namespace Client
                     _characterMessage.text = error.Message;
                     _createCharacterButton.interactable = true;
                 });
+        }
+
+        private void EnsureCharacterCreationPanelInstance()
+        {
+            if (_characterCreationPanelInstance != null)
+            {
+                HookCharacterCreationPanel(_characterCreationPanelInstance);
+                return;
+            }
+
+            if (_characterCreationPanelPrefab == null)
+            {
+                return;
+            }
+
+            Transform parentTransform = _characterCreationPanelMount != null
+                ? _characterCreationPanelMount
+                : _characterCanvas != null ? _characterCanvas.transform : transform;
+
+            var instance = Instantiate(_characterCreationPanelPrefab, parentTransform);
+            instance.gameObject.name = _characterCreationPanelPrefab.name + "(Instance)";
+            instance.gameObject.SetActive(false);
+            instance.transform.localScale = Vector3.one;
+            if (instance.transform is RectTransform rect)
+            {
+                rect.anchoredPosition = Vector2.zero;
+            }
+            instance.transform.SetAsLastSibling();
+            _characterCreationPanelInstance = instance;
+            HookCharacterCreationPanel(instance);
+        }
+
+        private void HookCharacterCreationPanel(CharacterCreationPanel panel)
+        {
+            if (panel == null || _characterCreationPanelHooked)
+            {
+                return;
+            }
+
+            panel.RaceSelected += OnCharacterCreationRaceSelected;
+            panel.Confirmed += OnCharacterCreationConfirmed;
+            panel.Cancelled += OnCharacterCreationCancelled;
+            _characterCreationPanelHooked = true;
+        }
+
+        private void HideCharacterCreationPanel()
+        {
+            if (_characterCreationPanelInstance != null)
+            {
+                _characterCreationPanelInstance.gameObject.SetActive(false);
+            }
+        }
+
+        private void OnCharacterCreationRaceSelected(RaceDefinition race)
+        {
+            if (race != null)
+            {
+                _characterMessage.text = $"Customizing {race.DisplayName}.";
+            }
+        }
+
+        private void OnCharacterCreationConfirmed(CharacterCreationSelection selection)
+        {
+            if (string.IsNullOrWhiteSpace(SessionManager.SelectedRealmId))
+            {
+                _characterMessage.text = "Please select a realm first.";
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(_characterNameInput?.text))
+            {
+                _characterMessage.text = "Enter a character name before confirming.";
+                return;
+            }
+
+            if (selection.Race == null)
+            {
+                _characterMessage.text = "Select a race to continue.";
+                return;
+            }
+
+            HideCharacterCreationPanel();
+            _characterMessage.text = $"Creating {selection.Race.DisplayName}...";
+            _createCharacterButton.interactable = false;
+            StartCoroutine(CreateCharacterRoutine(SessionManager.SelectedRealmId, _characterNameInput.text, selection));
+        }
+
+        private void OnCharacterCreationCancelled()
+        {
+            HideCharacterCreationPanel();
+            _characterMessage.text = "Character creation cancelled.";
         }
 
         private Button CreateListButton(RectTransform parent, string name, string label)
@@ -559,6 +701,16 @@ namespace Client
             }
 
             entries.Clear();
+        }
+
+        private void OnDestroy()
+        {
+            if (_characterCreationPanelInstance != null)
+            {
+                _characterCreationPanelInstance.RaceSelected -= OnCharacterCreationRaceSelected;
+                _characterCreationPanelInstance.Confirmed -= OnCharacterCreationConfirmed;
+                _characterCreationPanelInstance.Cancelled -= OnCharacterCreationCancelled;
+            }
         }
 
         private void ShowCanvas(Canvas canvasToShow)
