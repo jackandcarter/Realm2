@@ -11,6 +11,7 @@ namespace Client.UI
     {
         [Header("Dependencies")]
         [SerializeField] private RuntimePlotManager plotManager;
+        [SerializeField] private BuildZoneVisualizer zoneVisualizer;
 
         [Header("Plot Inputs")]
         [SerializeField] private InputField plotIdField;
@@ -26,14 +27,22 @@ namespace Client.UI
         [SerializeField] private Button createPlotButton;
         [SerializeField] private Button modifyElevationButton;
         [SerializeField] private Button paintMaterialButton;
+        [SerializeField] private Text feedbackText;
 
         private readonly List<BuildPlotDefinition> _cachedPlots = new();
+        private Color _defaultFeedbackColor = Color.white;
+        private bool _feedbackColorInitialized;
 
         private void Awake()
         {
             if (plotManager == null)
             {
                 plotManager = FindObjectOfType<RuntimePlotManager>();
+            }
+
+            if (zoneVisualizer == null)
+            {
+                zoneVisualizer = FindObjectOfType<BuildZoneVisualizer>(true);
             }
         }
 
@@ -49,6 +58,7 @@ namespace Client.UI
 
             RefreshPlots();
             ApplyPermissions(PlayerClassStateManager.IsArkitectAvailable);
+            SetFeedback(string.Empty, false);
         }
 
         private void OnDisable()
@@ -60,6 +70,10 @@ namespace Client.UI
 
             PlayerClassStateManager.ArkitectAvailabilityChanged -= OnArkitectAvailabilityChanged;
             WireButtons(false);
+            if (zoneVisualizer != null)
+            {
+                zoneVisualizer.HideZones();
+            }
         }
 
         private void WireButtons(bool subscribe)
@@ -133,6 +147,8 @@ namespace Client.UI
             {
                 paintMaterialButton.interactable = available;
             }
+
+            UpdateZoneVisualization(available);
         }
 
         private void RefreshPlots()
@@ -189,9 +205,15 @@ namespace Client.UI
             var plotId = string.IsNullOrWhiteSpace(plotIdField?.text) ? Guid.NewGuid().ToString("N") : plotIdField.text.Trim();
 
             var definition = new BuildPlotDefinition(plotId, bounds, elevation, materialIndex);
-            if (plotManager.TryCreatePlot(definition))
+            if (plotManager.TryCreatePlot(definition, out var failureReason))
             {
                 RefreshPlots();
+                SetFeedback($"Created plot '{plotId}'.", false);
+                zoneVisualizer?.Refresh();
+            }
+            else
+            {
+                SetFeedback(string.IsNullOrWhiteSpace(failureReason) ? "Unable to create plot." : failureReason, true);
             }
         }
 
@@ -256,6 +278,40 @@ namespace Client.UI
             var center = new Vector3(ParseFloat(centerXField, 0f), 0f, ParseFloat(centerZField, 0f));
             var size = new Vector3(Mathf.Max(1f, ParseFloat(widthField, 5f)), DefaultPlotDepth(), Mathf.Max(1f, ParseFloat(lengthField, 5f)));
             return new Bounds(center, size);
+        }
+
+        private void UpdateZoneVisualization(bool available)
+        {
+            if (zoneVisualizer == null)
+            {
+                return;
+            }
+
+            if (available && isActiveAndEnabled)
+            {
+                zoneVisualizer.ShowZones();
+            }
+            else
+            {
+                zoneVisualizer.HideZones();
+            }
+        }
+
+        private void SetFeedback(string message, bool isError)
+        {
+            if (feedbackText == null)
+            {
+                return;
+            }
+
+            if (!_feedbackColorInitialized)
+            {
+                _defaultFeedbackColor = feedbackText.color;
+                _feedbackColorInitialized = true;
+            }
+
+            feedbackText.text = message ?? string.Empty;
+            feedbackText.color = isError ? Color.red : _defaultFeedbackColor;
         }
 
         private static float DefaultPlotDepth()

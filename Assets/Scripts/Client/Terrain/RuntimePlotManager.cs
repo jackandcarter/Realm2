@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Building.Runtime;
 using Client.Player;
 using Client.Save;
 using UnityEngine;
@@ -13,6 +14,7 @@ namespace Client.Terrain
         private const float DefaultPlotHeightPadding = 0.1f;
 
         [SerializeField] private Terrain targetTerrain;
+        [SerializeField] private BuildZoneService buildZoneService;
         [SerializeField] private Transform plotRoot;
         [SerializeField] private Material defaultPlotMaterial;
         [SerializeField] private float minimumPlotSize = 1f;
@@ -45,6 +47,11 @@ namespace Client.Terrain
                 plotRoot = transform;
             }
 
+            if (buildZoneService == null)
+            {
+                buildZoneService = BuildZoneService.Instance;
+            }
+
             ReloadFromSave();
         }
 
@@ -67,39 +74,58 @@ namespace Client.Terrain
 
         public bool TryCreatePlot(BuildPlotDefinition definition, bool persist = true, bool ignorePermissions = false)
         {
+            return TryCreatePlot(definition, out _, persist, ignorePermissions);
+        }
+
+        public bool TryCreatePlot(BuildPlotDefinition definition, out string failureReason, bool persist = true, bool ignorePermissions = false)
+        {
+            failureReason = null;
             if (!ignorePermissions && !PlayerClassStateManager.IsArkitectAvailable)
             {
-                Debug.LogWarning("Only builders can place plots at runtime.");
+                failureReason = "Only builders can place plots at runtime.";
+                Debug.LogWarning(failureReason);
                 return false;
             }
 
             if (definition == null)
             {
-                Debug.LogWarning("Cannot create a null plot definition.");
+                failureReason = "Cannot create a null plot definition.";
+                Debug.LogWarning(failureReason);
                 return false;
             }
 
             if (definition.Bounds.size.x < minimumPlotSize || definition.Bounds.size.z < minimumPlotSize)
             {
-                Debug.LogWarning("Plot size is too small to be created.");
+                failureReason = "Plot size is too small to be created.";
+                Debug.LogWarning(failureReason);
                 return false;
             }
 
             if (_plots.ContainsKey(definition.PlotId))
             {
-                Debug.LogWarning($"A plot with id '{definition.PlotId}' already exists.");
+                failureReason = $"A plot with id '{definition.PlotId}' already exists.";
+                Debug.LogWarning(failureReason);
                 return false;
             }
 
             if (IntersectsExisting(definition.Bounds))
             {
-                Debug.LogWarning($"Cannot create plot '{definition.PlotId}' because it intersects an existing plot.");
+                failureReason = $"Cannot create plot '{definition.PlotId}' because it intersects an existing plot.";
+                Debug.LogWarning(failureReason);
+                return false;
+            }
+
+            if (!ignorePermissions && !ValidateAgainstZones(definition.Bounds, out var zoneFailure))
+            {
+                failureReason = zoneFailure;
+                Debug.LogWarning(zoneFailure);
                 return false;
             }
 
             var instance = CreateRuntimeInstance(definition);
             if (instance.PlotObject == null)
             {
+                failureReason = "Unable to create plot visuals.";
                 return false;
             }
 
@@ -428,6 +454,23 @@ namespace Client.Terrain
         private List<BuildPlotDefinition> CreateSnapshot()
         {
             return _plots.Values.Select(p => new BuildPlotDefinition(p.Definition)).ToList();
+        }
+
+        private bool ValidateAgainstZones(Bounds bounds, out string failureReason)
+        {
+            failureReason = null;
+
+            if (buildZoneService == null)
+            {
+                buildZoneService = BuildZoneService.Instance;
+            }
+
+            if (buildZoneService == null)
+            {
+                return true;
+            }
+
+            return buildZoneService.ValidatePlacement(bounds, out failureReason);
         }
     }
 }
