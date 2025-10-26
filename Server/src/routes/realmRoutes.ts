@@ -16,7 +16,7 @@ realmRouter.get('/', requireAuth, (req, res, next) => {
 
 realmRouter.get('/:realmId/characters', requireAuth, (req, res, next) => {
   try {
-    const { realmId } = req.params;
+    const { realmId } = req.params as { realmId: string };
     const result = getRealmCharacters(req.user!.id, realmId);
     res.json({
       realm: {
