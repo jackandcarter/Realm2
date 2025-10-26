@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 
 namespace Client.CharacterCreation
@@ -17,6 +18,16 @@ namespace Client.CharacterCreation
                     "Spiritstep Reflexes",
                     "Forest Whisper",
                     "Temporal Pounce"
+                },
+                AllowedClassIds = new[]
+                {
+                    "warrior",
+                    "wizard",
+                    "time-mage",
+                    "sage",
+                    "rogue",
+                    "ranger",
+                    "builder"
                 },
                 Customization = new RaceCustomizationOptions
                 {
@@ -44,6 +55,15 @@ namespace Client.CharacterCreation
                     "Diplomat's Insight",
                     "Second Wind"
                 },
+                AllowedClassIds = new[]
+                {
+                    "warrior",
+                    "wizard",
+                    "time-mage",
+                    "sage",
+                    "rogue",
+                    "builder"
+                },
                 Customization = new RaceCustomizationOptions
                 {
                     Height = new FloatRange(1.5f, 2.05f),
@@ -69,6 +89,15 @@ namespace Client.CharacterCreation
                     "Prismatic Bulwark",
                     "Elemental Channel",
                     "Gemcut Resonance"
+                },
+                AllowedClassIds = new[]
+                {
+                    "warrior",
+                    "wizard",
+                    "time-mage",
+                    "sage",
+                    "rogue",
+                    "builder"
                 },
                 Customization = new RaceCustomizationOptions
                 {
@@ -96,6 +125,16 @@ namespace Client.CharacterCreation
                     "Ancestral Ward",
                     "Veil Rend"
                 },
+                AllowedClassIds = new[]
+                {
+                    "warrior",
+                    "wizard",
+                    "time-mage",
+                    "sage",
+                    "rogue",
+                    "necromancer",
+                    "builder"
+                },
                 Customization = new RaceCustomizationOptions
                 {
                     Height = new FloatRange(1.65f, 2.0f),
@@ -122,6 +161,16 @@ namespace Client.CharacterCreation
                     "Runesmith's Flourish",
                     "Miniaturize"
                 },
+                AllowedClassIds = new[]
+                {
+                    "warrior",
+                    "wizard",
+                    "time-mage",
+                    "sage",
+                    "rogue",
+                    "technomancer",
+                    "builder"
+                },
                 Customization = new RaceCustomizationOptions
                 {
                     Height = new FloatRange(1.0f, 1.4f),
@@ -138,9 +187,36 @@ namespace Client.CharacterCreation
             }
         };
 
+        private static readonly Dictionary<string, RaceDefinition> Lookup;
+
+        static RaceCatalog()
+        {
+            Lookup = new Dictionary<string, RaceDefinition>(StringComparer.OrdinalIgnoreCase);
+            foreach (var race in Races)
+            {
+                if (race?.Id == null || Lookup.ContainsKey(race.Id))
+                {
+                    continue;
+                }
+
+                Lookup[race.Id] = race;
+            }
+        }
+
         public static IReadOnlyList<RaceDefinition> GetAllRaces()
         {
             return Races;
+        }
+
+        public static bool TryGetRace(string raceId, out RaceDefinition race)
+        {
+            if (string.IsNullOrWhiteSpace(raceId))
+            {
+                race = null;
+                return false;
+            }
+
+            return Lookup.TryGetValue(raceId, out race);
         }
     }
 }

@@ -10,6 +10,7 @@ namespace Client.CharacterCreation
         public string LoreSummary;
         public string AppearanceSummary;
         public string[] SignatureAbilities;
+        public string[] AllowedClassIds;
         public RaceCustomizationOptions Customization;
     }
 

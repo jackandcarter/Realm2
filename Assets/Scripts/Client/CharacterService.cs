@@ -24,6 +24,8 @@ namespace Client
         public string name;
         public string bio;
         public string raceId;
+        public string classId;
+        public ClassUnlockState[] classStates;
         public CharacterAppearanceInfo appearance = new CharacterAppearanceInfo();
         public string createdAt;
     }
@@ -35,6 +37,8 @@ namespace Client
         public string name;
         public string bio;
         public string raceId;
+        public string classId;
+        public ClassUnlockState[] classStates;
         public CharacterAppearanceRequest appearance;
     }
 
@@ -140,6 +144,8 @@ namespace Client
                 name = name,
                 bio = bio,
                 raceId = selection.HasValue && selection.Value.Race != null ? selection.Value.Race.Id : null,
+                classId = selection.HasValue && selection.Value.Class != null ? selection.Value.Class.Id : null,
+                classStates = BuildClassStatePayload(selection),
                 appearance = BuildAppearancePayload(selection)
             });
 
@@ -235,6 +241,8 @@ namespace Client
                         name = "Aeloria",
                         bio = "An arcane adept forged in testing.",
                         raceId = "felarian",
+                        classId = "ranger",
+                        classStates = BuildDefaultClassStates("felarian", "ranger"),
                         appearance = new CharacterAppearanceInfo
                         {
                             height = 1.72f,
@@ -250,6 +258,8 @@ namespace Client
                         name = "Bram",
                         bio = "Warrior of the mock clans.",
                         raceId = "human",
+                        classId = "warrior",
+                        classStates = BuildDefaultClassStates("human", "warrior"),
                         appearance = new CharacterAppearanceInfo
                         {
                             height = 1.85f,
@@ -275,6 +285,77 @@ namespace Client
             };
         }
 
+        private static ClassUnlockState[] BuildClassStatePayload(CharacterCreationSelection? selection)
+        {
+            if (!selection.HasValue || selection.Value.ClassStates == null)
+            {
+                return null;
+            }
+
+            var sourceStates = selection.Value.ClassStates;
+            var results = new List<ClassUnlockState>(sourceStates.Length);
+            foreach (var state in sourceStates)
+            {
+                if (state == null || string.IsNullOrWhiteSpace(state.ClassId))
+                {
+                    continue;
+                }
+
+                results.Add(new ClassUnlockState
+                {
+                    ClassId = state.ClassId.Trim(),
+                    Unlocked = state.Unlocked
+                });
+            }
+
+            return results.Count > 0 ? results.ToArray() : null;
+        }
+
+        private static ClassUnlockState[] BuildDefaultClassStates(string raceId, string activeClassId)
+        {
+            if (!RaceCatalog.TryGetRace(raceId, out var race) || race?.AllowedClassIds == null)
+            {
+                return Array.Empty<ClassUnlockState>();
+            }
+
+            var states = new List<ClassUnlockState>(race.AllowedClassIds.Length);
+            foreach (var allowedClassId in race.AllowedClassIds)
+            {
+                if (string.IsNullOrWhiteSpace(allowedClassId))
+                {
+                    continue;
+                }
+
+                var trimmedId = allowedClassId.Trim();
+                var unlocked = !string.IsNullOrWhiteSpace(activeClassId) && string.Equals(trimmedId, activeClassId, StringComparison.OrdinalIgnoreCase);
+                states.Add(new ClassUnlockState
+                {
+                    ClassId = trimmedId,
+                    Unlocked = unlocked
+                });
+            }
+
+            return states.ToArray();
+        }
+
+        private static string GetDefaultClassForRace(string raceId)
+        {
+            if (!RaceCatalog.TryGetRace(raceId, out var race) || race?.AllowedClassIds == null)
+            {
+                return null;
+            }
+
+            foreach (var allowed in race.AllowedClassIds)
+            {
+                if (!string.IsNullOrWhiteSpace(allowed))
+                {
+                    return allowed.Trim();
+                }
+            }
+
+            return null;
+        }
+
         private IEnumerator RunMockCreateCharacter(string realmId, string name, string bio, Action<CharacterInfo> onSuccess, Action<ApiError> onError, CharacterCreationSelection? selection)
         {
             yield return null;
@@ -285,6 +366,17 @@ namespace Client
                 yield break;
             }
 
+            var raceId = selection.HasValue && selection.Value.Race != null ? selection.Value.Race.Id : "human";
+            var selectedClassId = selection.HasValue && selection.Value.Class != null ? selection.Value.Class.Id : null;
+            if (string.IsNullOrWhiteSpace(selectedClassId))
+            {
+                selectedClassId = GetDefaultClassForRace(raceId) ?? "warrior";
+            }
+
+            var classStates = selection.HasValue
+                ? (BuildClassStatePayload(selection) ?? BuildDefaultClassStates(raceId, selectedClassId))
+                : BuildDefaultClassStates(raceId, selectedClassId);
+
             var character = new CharacterInfo
             {
                 id = Guid.NewGuid().ToString("N"),
@@ -292,7 +384,9 @@ namespace Client
                 name = name,
                 realmId = realmId,
                 bio = string.IsNullOrWhiteSpace(bio) ? "" : bio,
-                raceId = selection.HasValue && selection.Value.Race != null ? selection.Value.Race.Id : "human",
+                raceId = raceId,
+                classId = selectedClassId,
+                classStates = classStates,
                 appearance = selection.HasValue
                     ? new CharacterAppearanceInfo
                     {
