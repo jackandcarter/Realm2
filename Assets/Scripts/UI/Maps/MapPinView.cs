@@ -10,13 +10,15 @@ namespace Client.UI.Maps
     /// with the <see cref="MapPinService"/>.
     /// </summary>
     [DisallowMultipleComponent]
-    public sealed class MapPinView : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, IPointerClickHandler
+    public sealed class MapPinView : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, IPointerClickHandler, IPointerMoveHandler
     {
         [SerializeField] private MapPinService service;
         [SerializeField] private GameObject selectionHighlight;
         [SerializeField] private GameObject hoverHighlight;
         [SerializeField] private UnityEvent<string> onTooltipRequested;
         [SerializeField] private UnityEvent onTooltipCleared;
+        [SerializeField] private MapTooltipController.TooltipContext tooltipContext = MapTooltipController.TooltipContext.WorldMap;
+        [SerializeField] private RectTransform tooltipRootOverride;
 
         private MapPinData _data;
         private bool _subscribed;
@@ -38,13 +40,6 @@ namespace Client.UI.Maps
         {
             Subscribe();
             RefreshHighlights();
-        }
-
-        private void OnDisable()
-        {
-            Unsubscribe();
-            SetHover(false);
-            SetSelection(false);
         }
 
         /// <summary>
@@ -91,6 +86,15 @@ namespace Client.UI.Maps
                 onTooltipRequested?.Invoke(_data.Tooltip);
             }
 
+            var tooltipController = MapTooltipController.Instance;
+            if (tooltipController != null)
+            {
+                var parent = tooltipRootOverride != null ? tooltipRootOverride : transform.parent as RectTransform;
+                tooltipController.ShowTooltip(_data, parent, tooltipContext,
+                    eventData != null ? eventData.position : (Vector2)Input.mousePosition,
+                    eventData != null ? eventData.pressEventCamera : null);
+            }
+
             service?.SetHighlightedPin(_data);
         }
 
@@ -98,6 +102,9 @@ namespace Client.UI.Maps
         {
             SetHover(false);
             onTooltipCleared?.Invoke();
+
+            var tooltipController = MapTooltipController.Instance;
+            tooltipController?.HideTooltip(tooltipContext);
 
             if (service != null && service.HighlightedPin == _data)
             {
@@ -118,6 +125,19 @@ namespace Client.UI.Maps
             }
 
             service?.SetSelectedPin(_data);
+        }
+
+        public void OnPointerMove(PointerEventData eventData)
+        {
+            if (_data == null || tooltipContext != MapTooltipController.TooltipContext.WorldMap)
+            {
+                return;
+            }
+
+            var tooltipController = MapTooltipController.Instance;
+            tooltipController?.UpdateCursorPosition(
+                eventData != null ? eventData.position : (Vector2)Input.mousePosition,
+                eventData != null ? eventData.pressEventCamera : null);
         }
 
         private void Subscribe()
@@ -142,6 +162,16 @@ namespace Client.UI.Maps
             service.SelectedPinChanged -= HandleSelectedPinChanged;
             service.HighlightedPinChanged -= HandleHighlightedPinChanged;
             _subscribed = false;
+        }
+
+        private void OnDisable()
+        {
+            Unsubscribe();
+            SetHover(false);
+            SetSelection(false);
+
+            var tooltipController = MapTooltipController.Instance;
+            tooltipController?.HideTooltip(tooltipContext);
         }
 
         private void HandleSelectedPinChanged(MapPinData pin)
