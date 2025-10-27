@@ -144,6 +144,29 @@ export function up(db: DatabaseInstance): void {
 
   exec(
     db,
+    'migration.001.create_resource_wallets',
+    `CREATE TABLE IF NOT EXISTS realm_resource_wallets (
+      id TEXT PRIMARY KEY,
+      realm_id TEXT NOT NULL,
+      user_id TEXT NOT NULL,
+      resource_type TEXT NOT NULL,
+      quantity INTEGER NOT NULL DEFAULT 0,
+      updated_at TEXT NOT NULL,
+      UNIQUE(realm_id, user_id, resource_type),
+      FOREIGN KEY(realm_id) REFERENCES realms(id) ON DELETE CASCADE,
+      FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+    );`
+  );
+
+  exec(
+    db,
+    'migration.001.create_resource_wallets_index',
+    `CREATE INDEX IF NOT EXISTS idx_resource_wallet_lookup
+      ON realm_resource_wallets(realm_id, user_id, resource_type);`
+  );
+
+  exec(
+    db,
     'migration.001.create_chunk_change_log',
     `CREATE TABLE IF NOT EXISTS chunk_change_log (
       id TEXT PRIMARY KEY,

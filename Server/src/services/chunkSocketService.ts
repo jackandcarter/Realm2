@@ -15,6 +15,7 @@ import {
 import { addChunkListener, removeChunkListener } from './chunkStreamService';
 import { ChunkChangeDTO } from '../types/chunk';
 import { HttpError } from '../utils/errors';
+import { ResourceDelta } from '../types/resources';
 
 interface SocketContext {
   userId: string;
@@ -41,6 +42,7 @@ interface MutationMessage {
   chunk?: ChunkUpdateInput;
   structures?: StructureUpdateInput[];
   plots?: PlotUpdateInput[];
+  resources?: ResourceDelta[];
 }
 
 interface PingMessage {
@@ -66,6 +68,8 @@ interface MutationAckServerMessage extends BaseServerMessage {
 interface MutationRejectedServerMessage extends BaseServerMessage {
   type: 'mutationRejected';
   error: string;
+  retryable?: boolean;
+  retryAfterMs?: number;
 }
 
 interface SimpleServerMessage extends BaseServerMessage {
@@ -203,12 +207,15 @@ function handleMutation(context: SocketContext, message: MutationMessage): void 
       message.changeType,
       message.chunk,
       message.structures,
-      message.plots
+      message.plots,
+      message.resources
     );
     send(context.socket, { type: 'mutationAck', realmId, requestId, change });
   } catch (error) {
     const reason = error instanceof HttpError ? error.message : 'Failed to process mutation';
-    sendMutationRejection(context.socket, realmId, requestId, reason);
+    const retryable = error instanceof HttpError ? error.retryable : undefined;
+    const retryAfterMs = error instanceof HttpError ? error.retryAfterMs : undefined;
+    sendMutationRejection(context.socket, realmId, requestId, reason, retryable, retryAfterMs);
   }
 }
 
@@ -255,7 +262,21 @@ function sendMutationRejection(
   socket: WebSocket,
   realmId: string | undefined,
   requestId: string | undefined,
-  error: string
+  error: string,
+  retryable?: boolean,
+  retryAfterMs?: number
 ): void {
-  send(socket, { type: 'mutationRejected', realmId, requestId, error });
+  const payload: MutationRejectedServerMessage = {
+    type: 'mutationRejected',
+    realmId,
+    requestId,
+    error,
+  };
+  if (typeof retryable === 'boolean') {
+    payload.retryable = retryable;
+  }
+  if (typeof retryAfterMs === 'number') {
+    payload.retryAfterMs = retryAfterMs;
+  }
+  send(socket, payload);
 }

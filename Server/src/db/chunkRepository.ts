@@ -232,6 +232,30 @@ export function listPlotsForChunks(chunkIds: string[]): ChunkPlotRecord[] {
   return stmt.all(...chunkIds).map(mapPlotRow);
 }
 
+export function findPlotById(plotId: string): ChunkPlotRecord | undefined {
+  const stmt = db.prepare(
+    `SELECT id, realm_id, chunk_id, plot_identifier, owner_user_id, data_json, is_deleted, created_at, updated_at
+     FROM chunk_plots
+     WHERE id = ?`
+  );
+  const row = stmt.get(plotId);
+  return row ? mapPlotRow(row) : undefined;
+}
+
+export function findPlotByIdentifier(
+  realmId: string,
+  chunkId: string,
+  plotIdentifier: string
+): ChunkPlotRecord | undefined {
+  const stmt = db.prepare(
+    `SELECT id, realm_id, chunk_id, plot_identifier, owner_user_id, data_json, is_deleted, created_at, updated_at
+     FROM chunk_plots
+     WHERE realm_id = ? AND chunk_id = ? AND plot_identifier = ?`
+  );
+  const row = stmt.get(realmId, chunkId, plotIdentifier);
+  return row ? mapPlotRow(row) : undefined;
+}
+
 export function upsertStructures(structures: UpsertStructureInput[]): ChunkStructureRecord[] {
   if (structures.length === 0) {
     return [];

@@ -1,9 +1,12 @@
 import { randomUUID } from 'crypto';
+import { db } from '../db/database';
 import {
   ChunkChangeRecord,
   ChunkPlotRecord,
   ChunkStructureRecord,
   findChunkById,
+  findPlotById,
+  findPlotByIdentifier,
   listChunkChanges,
   listChunksByRealm,
   listPlotsForChunks,
@@ -22,8 +25,11 @@ import {
   ChunkSnapshotDTO,
   ChunkStructureDTO,
   RealmChunkDTO,
+  ResourceDeltaDTO,
 } from '../types/chunk';
 import { publishChunkChange } from './chunkStreamService';
+import { applyResourceDeltas, InsufficientResourceError } from '../db/resourceWalletRepository';
+import { ResourceDelta } from '../types/resources';
 
 export interface ChunkSnapshotEnvelope {
   realmId: string;
@@ -63,6 +69,7 @@ interface ChunkChangePayload {
   chunk?: RealmChunkDTO | undefined;
   structures?: ChunkStructureDTO[] | undefined;
   plots?: ChunkPlotDTO[] | undefined;
+  resources?: ResourceDeltaDTO[] | undefined;
 }
 
 function ensureRealmAccess(userId: string, realmId: string) {
@@ -212,6 +219,7 @@ export function getChunkChangeFeed(
       chunk: payload.chunk,
       structures: payload.structures,
       plots: payload.plots,
+      resources: payload.resources,
     };
   });
   return {
@@ -221,6 +229,66 @@ export function getChunkChangeFeed(
   };
 }
 
+function normalizeResourceDeltas(deltas: ResourceDelta[] | undefined): ResourceDeltaDTO[] {
+  const normalized: ResourceDeltaDTO[] = [];
+  for (const delta of deltas ?? []) {
+    if (!delta) {
+      continue;
+    }
+    const resourceType = delta.resourceType?.trim();
+    if (!resourceType) {
+      throw new HttpError(400, 'resourceType is required for resource adjustments');
+    }
+    if (!Number.isFinite(delta.quantity) || delta.quantity === 0) {
+      continue;
+    }
+    normalized.push({ resourceType, quantity: delta.quantity });
+  }
+  return normalized;
+}
+
+function validatePlotOwnership(
+  userId: string,
+  realmId: string,
+  chunkId: string,
+  role: 'player' | 'builder',
+  plots: PlotUpdateInput[] | undefined
+): void {
+  if (!plots || plots.length === 0) {
+    return;
+  }
+
+  for (const plot of plots) {
+    const identifier = plot.plotIdentifier?.trim();
+    const targetPlot =
+      (plot.plotId && findPlotById(plot.plotId)) ||
+      (identifier ? findPlotByIdentifier(realmId, chunkId, identifier) : undefined);
+
+    if (!targetPlot && !plot.plotId && !identifier) {
+      throw new HttpError(400, 'plotIdentifier or plotId is required for plot updates');
+    }
+
+    if (targetPlot && targetPlot.realmId !== realmId) {
+      throw new HttpError(400, 'Plot does not belong to the requested realm');
+    }
+    if (targetPlot && targetPlot.chunkId !== chunkId) {
+      throw new HttpError(400, 'Plot does not belong to the requested chunk');
+    }
+
+    if (role !== 'builder') {
+      if (!targetPlot || targetPlot.isDeleted) {
+        throw new HttpError(403, 'Only builders can create new plots');
+      }
+      if (targetPlot.ownerUserId !== userId) {
+        throw new HttpError(403, 'You do not own this plot');
+      }
+      if (typeof plot.ownerUserId !== 'undefined' && plot.ownerUserId !== userId && plot.ownerUserId !== null) {
+        throw new HttpError(403, 'You cannot transfer plot ownership to another player');
+      }
+    }
+  }
+}
+
 export function recordChunkChange(
   userId: string,
   realmId: string,
@@ -228,99 +296,131 @@ export function recordChunkChange(
   changeType: string | undefined,
   chunk?: ChunkUpdateInput,
   structures?: StructureUpdateInput[],
-  plots?: PlotUpdateInput[]
+  plots?: PlotUpdateInput[],
+  resources?: ResourceDelta[]
 ): ChunkChangeDTO {
   const { membership } = ensureRealmAccess(userId, realmId);
-  if (membership.role !== 'builder') {
+  if (
+    membership.role !== 'builder' &&
+    (chunk || (structures && structures.length > 0))
+  ) {
     throw new HttpError(403, 'Only builders can modify realm chunks');
   }
 
-  const existingChunk = findChunkById(chunkId);
-  if (!existingChunk && !chunk) {
-    throw new HttpError(400, 'Chunk metadata must be supplied for new chunks');
-  }
-  if (existingChunk && existingChunk.realmId !== realmId) {
-    throw new HttpError(403, 'Chunk does not belong to the requested realm');
-  }
+  const normalizedResources = normalizeResourceDeltas(resources);
 
-  let chunkRecord = existingChunk;
-  if (chunk) {
-    const chunkX = chunk.chunkX ?? chunkRecord?.chunkX;
-    const chunkZ = chunk.chunkZ ?? chunkRecord?.chunkZ;
-    if (typeof chunkX !== 'number' || typeof chunkZ !== 'number') {
-      throw new HttpError(400, 'Chunk coordinates must be provided');
-    }
-    chunkRecord = upsertChunk({
-      id: chunkId,
-      realmId,
-      chunkX,
-      chunkZ,
-      payloadJson: serializePayload(chunk.payload),
-      isDeleted: Boolean(chunk.isDeleted),
-    });
-  }
-
-  if (!chunkRecord) {
-    throw new HttpError(500, 'Failed to load chunk after update');
-  }
-
-  const structureRecords = upsertStructures(
-    (structures ?? []).map((structure) => {
-      if (!structure.structureType) {
-        throw new HttpError(400, 'Structure type is required');
+  try {
+    const applyChange = db.transaction(() => {
+      const existingChunk = findChunkById(chunkId);
+      if (!existingChunk && !chunk) {
+        throw new HttpError(400, 'Chunk metadata must be supplied for new chunks');
       }
-      return {
-        id: structure.structureId ?? randomUUID(),
-        realmId,
-        chunkId: chunkRecord!.id,
-        structureType: structure.structureType,
-        dataJson: serializePayload(structure.data),
-        isDeleted: Boolean(structure.isDeleted),
+      if (existingChunk && existingChunk.realmId !== realmId) {
+        throw new HttpError(403, 'Chunk does not belong to the requested realm');
+      }
+
+      let chunkRecord = existingChunk;
+      if (chunk) {
+        const chunkX = chunk.chunkX ?? chunkRecord?.chunkX;
+        const chunkZ = chunk.chunkZ ?? chunkRecord?.chunkZ;
+        if (typeof chunkX !== 'number' || typeof chunkZ !== 'number') {
+          throw new HttpError(400, 'Chunk coordinates must be provided');
+        }
+        chunkRecord = upsertChunk({
+          id: chunkId,
+          realmId,
+          chunkX,
+          chunkZ,
+          payloadJson: serializePayload(chunk.payload),
+          isDeleted: Boolean(chunk.isDeleted),
+        });
+      }
+
+      if (!chunkRecord) {
+        throw new HttpError(500, 'Failed to load chunk after update');
+      }
+
+      validatePlotOwnership(userId, realmId, chunkRecord.id, membership.role, plots);
+
+      if (normalizedResources.length > 0) {
+        applyResourceDeltas(realmId, userId, normalizedResources);
+      }
+
+      const structureRecords = upsertStructures(
+        (structures ?? []).map((structure) => {
+          if (!structure.structureType) {
+            throw new HttpError(400, 'Structure type is required');
+          }
+          return {
+            id: structure.structureId ?? randomUUID(),
+            realmId,
+            chunkId: chunkRecord!.id,
+            structureType: structure.structureType,
+            dataJson: serializePayload(structure.data),
+            isDeleted: Boolean(structure.isDeleted),
+          };
+        })
+      );
+
+      const plotRecords = upsertPlots(
+        (plots ?? []).map((plot) => {
+          const plotId = plot.plotId ?? randomUUID();
+          const identifier = plot.plotIdentifier ?? plotId;
+          const existingPlot =
+            (plot.plotId && findPlotById(plot.plotId)) ||
+            findPlotByIdentifier(realmId, chunkRecord!.id, identifier);
+          const ownerUserId =
+            typeof plot.ownerUserId === 'undefined'
+              ? existingPlot?.ownerUserId ?? null
+              : plot.ownerUserId ?? null;
+          return {
+            id: plotId,
+            realmId,
+            chunkId: chunkRecord!.id,
+            plotIdentifier: identifier,
+            ownerUserId,
+            dataJson: serializePayload(plot.data ?? existingPlot?.dataJson ?? {}),
+            isDeleted: Boolean(plot.isDeleted),
+          };
+        })
+      );
+
+      const payload: ChunkChangePayload = {
+        chunk: chunkRecord ? toChunkDTO(chunkRecord) : undefined,
+        structures: structureRecords.length > 0 ? structureRecords.map(toStructureDTO) : undefined,
+        plots: plotRecords.length > 0 ? plotRecords.map(toPlotDTO) : undefined,
+        resources: normalizedResources.length > 0 ? normalizedResources : undefined,
       };
-    })
-  );
 
-  const plotRecords = upsertPlots(
-    (plots ?? []).map((plot) => {
-      const plotId = plot.plotId ?? randomUUID();
-      const identifier = plot.plotIdentifier ?? plotId;
-      return {
-        id: plotId,
+      const change: ChunkChangeRecord = logChunkChange(
         realmId,
-        chunkId: chunkRecord!.id,
-        plotIdentifier: identifier,
-        ownerUserId: plot.ownerUserId ?? null,
-        dataJson: serializePayload(plot.data),
-        isDeleted: Boolean(plot.isDeleted),
+        chunkRecord.id,
+        changeType ?? 'chunk:update',
+        JSON.stringify(payload)
+      );
+
+      const changeDto: ChunkChangeDTO = {
+        changeId: change.id,
+        realmId: change.realmId,
+        chunkId: change.chunkId,
+        changeType: change.changeType,
+        createdAt: change.createdAt,
+        chunk: payload.chunk,
+        structures: payload.structures,
+        plots: payload.plots,
+        resources: payload.resources,
       };
-    })
-  );
 
-  const payload: ChunkChangePayload = {
-    chunk: chunkRecord ? toChunkDTO(chunkRecord) : undefined,
-    structures: structureRecords.length > 0 ? structureRecords.map(toStructureDTO) : undefined,
-    plots: plotRecords.length > 0 ? plotRecords.map(toPlotDTO) : undefined,
-  };
+      return changeDto;
+    });
 
-  const change: ChunkChangeRecord = logChunkChange(
-    realmId,
-    chunkRecord.id,
-    changeType ?? 'chunk:update',
-    JSON.stringify(payload)
-  );
-
-  const changeDto: ChunkChangeDTO = {
-    changeId: change.id,
-    realmId: change.realmId,
-    chunkId: change.chunkId,
-    changeType: change.changeType,
-    createdAt: change.createdAt,
-    chunk: payload.chunk,
-    structures: payload.structures,
-    plots: payload.plots,
-  };
-
-  publishChunkChange(changeDto);
-
-  return changeDto;
+    const changeDto = applyChange();
+    publishChunkChange(changeDto);
+    return changeDto;
+  } catch (error) {
+    if (error instanceof InsufficientResourceError) {
+      throw new HttpError(409, error.message, { retryable: false });
+    }
+    throw error;
+  }
 }
