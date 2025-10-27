@@ -41,7 +41,7 @@ chunkRouter.get('/changes', requireAuth, (req, res, next) => {
 chunkRouter.post('/:chunkId/changes', requireAuth, (req, res, next) => {
   try {
     const { realmId, chunkId } = req.params as { realmId: string; chunkId: string };
-    const { changeType, chunk, structures, plots } = req.body ?? {};
+    const { changeType, chunk, structures, plots, resources } = req.body ?? {};
     const change = recordChunkChange(
       req.user!.id,
       realmId,
@@ -49,7 +49,8 @@ chunkRouter.post('/:chunkId/changes', requireAuth, (req, res, next) => {
       changeType,
       chunk,
       structures,
-      plots
+      plots,
+      resources
     );
     res.status(201).json({ change });
   } catch (error) {
@@ -92,7 +93,11 @@ chunkRouter.get('/stream', requireAuth, (req, res, next) => {
 chunkRouter.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
   if (isHttpError(err)) {
     const httpErr = err as HttpError;
-    res.status(httpErr.status).json({ message: httpErr.message });
+    res.status(httpErr.status).json({
+      message: httpErr.message,
+      retryable: httpErr.retryable ?? false,
+      retryAfterMs: httpErr.retryAfterMs,
+    });
     return;
   }
   res.status(500).json({ message: 'Failed to process chunk request' });

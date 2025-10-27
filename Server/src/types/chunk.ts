@@ -46,4 +46,10 @@ export interface ChunkChangeDTO {
   chunk?: RealmChunkDTO | undefined;
   structures?: ChunkStructureDTO[] | undefined;
   plots?: ChunkPlotDTO[] | undefined;
+  resources?: ResourceDeltaDTO[] | undefined;
+}
+
+export interface ResourceDeltaDTO {
+  resourceType: string;
+  quantity: number;
 }
