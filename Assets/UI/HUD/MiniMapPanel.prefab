@@ -12,6 +12,7 @@ GameObject:
   - component: {fileID: 22200000}
   - component: {fileID: 11400000}
   - component: {fileID: 11400001}
+  - component: {fileID: 11400002}
   m_Layer: 5
   m_Name: MiniMapPanel
   m_TagString: Untagged
@@ -115,6 +116,23 @@ MonoBehaviour:
   onWorldMapClosed:
     m_PersistentCalls:
       m_Calls: []
+--- !u!114 &11400002
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 100000}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1f3e4a5987934a33b7c2b348c4ae0f86, type: 3}
+  m_Name:
+  m_EditorClassIdentifier:
+  tooltipPrefab: {fileID: 11400001, guid: b3248c9f22f04f42ae05f5d8b6de4616, type: 3}
+  worldMapCursorOffset: {x: 24, y: -24}
+  worldMapPadding: {x: 24, y: 24}
+  miniMapFixedOffset: {x: 18, y: -18}
+  miniMapPadding: {x: 12, y: 12}
 --- !u!1 &100010
 GameObject:
   m_ObjectHideFlags: 0

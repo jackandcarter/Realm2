@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using Client.Map;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
@@ -30,6 +31,26 @@ namespace Client.UI.Maps
         [SerializeField] private Slider transparencySlider;
         [SerializeField] private CanvasGroup mapCanvasGroup;
 
+        [Header("Services")]
+        [SerializeField] private MapPinService pinService;
+
+        [Header("Details Panel")]
+        [SerializeField] private GameObject detailsPanel;
+        [SerializeField] private GameObject detailsContentRoot;
+        [SerializeField] private Text detailsTitleLabel;
+        [SerializeField] private GameObject detailsSubtitleContainer;
+        [SerializeField] private Text detailsSubtitleLabel;
+        [SerializeField] private GameObject detailsStatusContainer;
+        [SerializeField] private Text detailsStatusLabel;
+        [SerializeField] private GameObject detailsDescriptionContainer;
+        [SerializeField] private Text detailsDescriptionLabel;
+        [SerializeField] private GameObject detailsEmptyStateContainer;
+        [SerializeField] private Text detailsEmptyStateLabel;
+        [SerializeField] private string emptyDetailsTitle = "Select a pin";
+        [SerializeField, TextArea] private string emptyDetailsBody = "Hover over a point of interest to view its lore and travel status.";
+        [SerializeField] private string unlockedStatusLabel = "Status: Unlocked";
+        [SerializeField] private string lockedStatusLabel = "Status: Locked";
+
         [Header("Persistence")]
         [SerializeField] private string preferenceKey = "world_map_overlay_state";
 
@@ -42,6 +63,7 @@ namespace Client.UI.Maps
         private Vector2 _resizeStartMouseLocalPoint;
         private RectTransform _parentRect;
         private OverlayState _state;
+        private bool _serviceSubscribed;
 
         public bool IsOpen => _isOpen;
 
@@ -82,6 +104,11 @@ namespace Client.UI.Maps
                 }
             }
 
+            if (pinService == null)
+            {
+                pinService = FindObjectOfType<MapPinService>(true);
+            }
+
             ConfigureHandle(dragHandle, typeof(WorldMapOverlayDragHandle));
             ConfigureHandle(resizeHandle, typeof(WorldMapOverlayResizeHandle));
 
@@ -106,6 +133,8 @@ namespace Client.UI.Maps
                 transparencySlider.maxValue = DefaultMaximumTransparency;
                 transparencySlider.onValueChanged.AddListener(OnTransparencySliderValueChanged);
             }
+
+            UpdateDetailsPanel(pinService != null ? pinService.SelectedPin : null);
         }
 
         private void OnEnable()
@@ -119,6 +148,9 @@ namespace Client.UI.Maps
             {
                 closeButton.onClick.AddListener(Hide);
             }
+
+            SubscribeToPinService();
+            UpdateDetailsPanel(pinService != null ? pinService.SelectedPin : null);
         }
 
         private void OnDisable()
@@ -132,6 +164,8 @@ namespace Client.UI.Maps
             {
                 closeButton.onClick.RemoveListener(Hide);
             }
+
+            UnsubscribeFromPinService();
         }
 
         private void OnDestroy()
@@ -145,6 +179,8 @@ namespace Client.UI.Maps
             {
                 closeButton.onClick.RemoveListener(Hide);
             }
+
+            UnsubscribeFromPinService();
         }
 
         public void Toggle()
@@ -191,6 +227,19 @@ namespace Client.UI.Maps
         public void HandleTeleportCompleted()
         {
             Show();
+        }
+
+        public void SetPinService(MapPinService targetService)
+        {
+            if (pinService == targetService)
+            {
+                return;
+            }
+
+            UnsubscribeFromPinService();
+            pinService = targetService;
+            SubscribeToPinService();
+            UpdateDetailsPanel(pinService != null ? pinService.SelectedPin : null);
         }
 
         internal void BeginWindowDrag(PointerEventData eventData)
@@ -486,6 +535,130 @@ namespace Client.UI.Maps
             PlayerPrefs.DeleteKey(preferenceKey);
             LoadState();
             ApplyState(_state, false);
+        }
+
+        private void SubscribeToPinService()
+        {
+            if (_serviceSubscribed || pinService == null)
+            {
+                return;
+            }
+
+            pinService.SelectedPinChanged += HandleSelectedPinChanged;
+            _serviceSubscribed = true;
+        }
+
+        private void UnsubscribeFromPinService()
+        {
+            if (!_serviceSubscribed || pinService == null)
+            {
+                return;
+            }
+
+            pinService.SelectedPinChanged -= HandleSelectedPinChanged;
+            _serviceSubscribed = false;
+        }
+
+        private void HandleSelectedPinChanged(MapPinData pin)
+        {
+            UpdateDetailsPanel(pin);
+        }
+
+        private void UpdateDetailsPanel(MapPinData pin)
+        {
+            if (detailsPanel == null)
+            {
+                return;
+            }
+
+            bool hasPin = pin != null;
+            if (detailsContentRoot != null)
+            {
+                detailsContentRoot.SetActive(hasPin);
+            }
+
+            if (detailsEmptyStateContainer != null)
+            {
+                detailsEmptyStateContainer.SetActive(!hasPin);
+            }
+
+            if (!hasPin)
+            {
+                if (detailsTitleLabel != null)
+                {
+                    detailsTitleLabel.text = string.IsNullOrWhiteSpace(emptyDetailsTitle)
+                        ? string.Empty
+                        : emptyDetailsTitle.Trim();
+                }
+
+                if (detailsEmptyStateLabel != null)
+                {
+                    detailsEmptyStateLabel.text = string.IsNullOrWhiteSpace(emptyDetailsBody)
+                        ? string.Empty
+                        : emptyDetailsBody.Trim();
+                }
+
+                if (detailsSubtitleContainer != null)
+                {
+                    detailsSubtitleContainer.SetActive(false);
+                }
+
+                if (detailsStatusContainer != null)
+                {
+                    detailsStatusContainer.SetActive(false);
+                }
+
+                if (detailsDescriptionContainer != null)
+                {
+                    detailsDescriptionContainer.SetActive(false);
+                }
+
+                return;
+            }
+
+            if (detailsTitleLabel != null)
+            {
+                var title = string.IsNullOrWhiteSpace(pin.DisplayName) ? emptyDetailsTitle : pin.DisplayName.Trim();
+                detailsTitleLabel.text = title;
+            }
+
+            bool hasSubtitle = !string.IsNullOrWhiteSpace(pin.DisplaySubTitle);
+            if (detailsSubtitleLabel != null)
+            {
+                detailsSubtitleLabel.text = hasSubtitle ? pin.DisplaySubTitle.Trim() : string.Empty;
+            }
+
+            if (detailsSubtitleContainer != null)
+            {
+                detailsSubtitleContainer.SetActive(hasSubtitle);
+            }
+
+            bool unlocked = pinService != null && pinService.IsPinUnlocked(pin.Id);
+            if (detailsStatusLabel != null)
+            {
+                detailsStatusLabel.text = unlocked ? unlockedStatusLabel : lockedStatusLabel;
+            }
+
+            if (detailsStatusContainer != null)
+            {
+                detailsStatusContainer.SetActive(detailsStatusLabel != null);
+            }
+
+            bool hasDescription = !string.IsNullOrWhiteSpace(pin.Tooltip);
+            if (detailsDescriptionLabel != null)
+            {
+                detailsDescriptionLabel.text = hasDescription ? pin.Tooltip.Trim() : string.Empty;
+            }
+
+            if (detailsDescriptionContainer != null)
+            {
+                detailsDescriptionContainer.SetActive(hasDescription);
+            }
+
+            if (detailsEmptyStateLabel != null)
+            {
+                detailsEmptyStateLabel.text = string.Empty;
+            }
         }
     }
 }
