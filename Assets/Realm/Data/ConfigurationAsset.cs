@@ -40,7 +40,7 @@ namespace Realm.Data
 #endif
         }
 
-        internal void RecordCloneCreation()
+        public void RecordCloneCreation()
         {
             EnsureHistoryInitialized();
 
@@ -50,7 +50,7 @@ namespace Realm.Data
 #endif
         }
 
-        internal void RecordManualModification()
+        public void RecordManualModification()
         {
             EnsureHistoryInitialized();
 
