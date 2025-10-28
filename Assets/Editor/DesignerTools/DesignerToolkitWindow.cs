@@ -522,31 +522,29 @@ namespace Realm.Editor.DesignerTools
 
         private void SeedDefaultStats()
         {
-            profile.statCategories.AddRange(new[]
-            {
-                new StatCategory { displayName = "Health", color = new Color(0.7f, 0.2f, 0.2f), defaultMultiplier = 1.2f },
-                new StatCategory { displayName = "Attack", color = new Color(0.8f, 0.6f, 0.2f), defaultMultiplier = 1.1f },
-                new StatCategory { displayName = "Defense", color = new Color(0.2f, 0.6f, 0.8f), defaultMultiplier = 1.0f },
-                new StatCategory { displayName = "Speed", color = new Color(0.3f, 0.8f, 0.4f), defaultMultiplier = 0.9f },
-            });
+            // Intentionally left blank – stats should be authored explicitly through the toolkit.
         }
 
         private void SeedDefaultClasses()
         {
-            var warrior = new CharacterClass { displayName = "Warrior", allowShieldWithTwoHanded = false };
-            warrior.stats.Add(new ClassStatAssignment { statId = profile.statCategories[0].id, multiplier = 1.4f, bonus = 10 });
-            warrior.progression.Add(new LevelProgressionRow { level = 1 });
-            warrior.loadoutSlots.Add(new LoadoutSlot { slotName = "Weapon", requiredRole = LoadoutRole.DPS, requiredElement = LoadoutElement.None, allowTwoHanded = true });
-            warrior.loadoutSlots.Add(new LoadoutSlot { slotName = "Shield", requiredRole = LoadoutRole.Tank, requiredElement = LoadoutElement.None, allowTwoHanded = false });
+            var classNames = new[]
+            {
+                "Warrior",
+                "Wizard",
+                "Time Mage",
+                "Necromancer",
+                "Technomancer",
+                "Sage",
+                "Rogue",
+                "Ranger",
+                "Builder",
+                "Mythologist"
+            };
 
-            var mage = new CharacterClass { displayName = "Mage", allowShieldWithTwoHanded = true };
-            mage.stats.Add(new ClassStatAssignment { statId = profile.statCategories[1].id, multiplier = 1.6f, bonus = 15 });
-            mage.progression.Add(new LevelProgressionRow { level = 1 });
-            mage.loadoutSlots.Add(new LoadoutSlot { slotName = "Focus", requiredRole = LoadoutRole.Support, requiredElement = LoadoutElement.Light, allowTwoHanded = false });
-            mage.loadoutSlots.Add(new LoadoutSlot { slotName = "Accessory", requiredRole = LoadoutRole.None, requiredElement = LoadoutElement.None, allowTwoHanded = true });
-
-            profile.classes.Add(warrior);
-            profile.classes.Add(mage);
+            foreach (var className in classNames)
+            {
+                profile.classes.Add(new CharacterClass { displayName = className });
+            }
         }
     }
 }
