@@ -5,7 +5,7 @@ using UnityEngine;
 namespace Realm.Data
 {
     [CreateAssetMenu(menuName = "Realm/Classes/Class Definition", fileName = "ClassDefinition")]
-    public class ClassDefinition : ScriptableObject, IGuidIdentified
+    public class ClassDefinition : ConfigurationAsset, IGuidIdentified
     {
         [SerializeField, Tooltip("Stable unique identifier for this class. Auto-generated if empty.")]
         private string guid;
@@ -73,8 +73,10 @@ namespace Realm.Data
             return null;
         }
 
-        private void OnValidate()
+        protected override void OnValidate()
         {
+            base.OnValidate();
+
             if (string.IsNullOrWhiteSpace(guid))
             {
                 guid = Guid.NewGuid().ToString("N");
