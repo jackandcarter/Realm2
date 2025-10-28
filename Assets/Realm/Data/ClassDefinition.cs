@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Realm.Abilities;
 using UnityEngine;
 
 namespace Realm.Data
@@ -22,27 +23,35 @@ namespace Realm.Data
         [SerializeField, Tooltip("Categories that help describe this class' focus areas.")]
         private List<StatCategory> statCategories = new();
 
+        [SerializeField, Tooltip("Defines the stat profile used to evaluate JRPG style curves and formulas for this class.")]
+        private StatProfileDefinition statProfile;
+
         [SerializeField, Tooltip("Base stat values evaluated by level for this class.")]
         private List<ClassStatCurve> baseStatCurves = new();
 
         [SerializeField, Tooltip("Growth modifiers that apply after the base stat curve is evaluated.")]
         private List<ClassStatCurve> growthModifiers = new();
 
-        [SerializeField, Tooltip("Abilities available to the class at creation.")]
-        private List<AbilityDefinition> startingAbilities = new();
+        [SerializeField, Tooltip("Armor categories the class may equip.")]
+        private List<ArmorType> allowedArmorTypes = new();
 
-        [SerializeField, Tooltip("Abilities learned as the class progresses.")]
-        private List<AbilityDefinition> unlockableAbilities = new();
+        [SerializeField, Tooltip("Weapon categories the class may equip.")]
+        private List<WeaponType> allowedWeaponTypes = new();
+
+        [SerializeField, Tooltip("Ability unlocks describing how the class gains access to abilities.")]
+        private List<ClassAbilityUnlock> abilityUnlocks = new();
 
         public string Guid => guid;
         public string DisplayName => displayName;
         public string Description => description;
         public Sprite Icon => icon;
         public IReadOnlyList<StatCategory> StatCategories => statCategories;
+        public StatProfileDefinition StatProfile => statProfile;
         public IReadOnlyList<ClassStatCurve> BaseStatCurves => baseStatCurves;
         public IReadOnlyList<ClassStatCurve> GrowthModifiers => growthModifiers;
-        public IReadOnlyList<AbilityDefinition> StartingAbilities => startingAbilities;
-        public IReadOnlyList<AbilityDefinition> UnlockableAbilities => unlockableAbilities;
+        public IReadOnlyList<ArmorType> AllowedArmorTypes => allowedArmorTypes;
+        public IReadOnlyList<WeaponType> AllowedWeaponTypes => allowedWeaponTypes;
+        public IReadOnlyList<ClassAbilityUnlock> AbilityUnlocks => abilityUnlocks;
 
         public ClassStatCurve FindBaseCurve(StatDefinition stat)
         {
@@ -91,12 +100,14 @@ namespace Realm.Data
             RemoveNullsAndDuplicates(statCategories);
             RemoveNullCurves(baseStatCurves);
             RemoveNullCurves(growthModifiers);
-            RemoveNullsAndDuplicates(startingAbilities);
-            RemoveNullsAndDuplicates(unlockableAbilities);
+            RemoveDuplicateValues(allowedArmorTypes);
+            RemoveDuplicateValues(allowedWeaponTypes);
+            NormalizeAbilityUnlocks(abilityUnlocks);
 
 #if UNITY_EDITOR
             SynchronizeCurveData(baseStatCurves);
             SynchronizeCurveData(growthModifiers);
+            SynchronizeAbilityUnlocks();
 #endif
         }
 
@@ -118,6 +129,23 @@ namespace Realm.Data
             }
         }
 
+        private static void RemoveDuplicateValues<T>(List<T> items)
+        {
+            if (items == null)
+            {
+                return;
+            }
+
+            var seen = new HashSet<T>();
+            for (var i = items.Count - 1; i >= 0; i--)
+            {
+                if (!seen.Add(items[i]))
+                {
+                    items.RemoveAt(i);
+                }
+            }
+        }
+
 #if UNITY_EDITOR
         private static void SynchronizeCurveData(List<ClassStatCurve> curves)
         {
@@ -129,6 +157,19 @@ namespace Realm.Data
             for (var i = 0; i < curves.Count; i++)
             {
                 curves[i]?.EnsureEditorConsistency();
+            }
+        }
+
+        private void SynchronizeAbilityUnlocks()
+        {
+            if (abilityUnlocks == null)
+            {
+                return;
+            }
+
+            foreach (var unlock in abilityUnlocks)
+            {
+                unlock?.EnsureEditorConsistency();
             }
         }
 #endif
@@ -150,6 +191,109 @@ namespace Realm.Data
                 }
             }
         }
+
+        private static void NormalizeAbilityUnlocks(List<ClassAbilityUnlock> unlocks)
+        {
+            if (unlocks == null)
+            {
+                return;
+            }
+
+            var seen = new HashSet<AbilityDefinition>();
+            for (var i = unlocks.Count - 1; i >= 0; i--)
+            {
+                var unlock = unlocks[i];
+                if (unlock == null || unlock.Ability == null)
+                {
+                    unlocks.RemoveAt(i);
+                    continue;
+                }
+
+                if (!seen.Add(unlock.Ability))
+                {
+                    unlocks.RemoveAt(i);
+                    continue;
+                }
+
+                unlock.ClampEditorValues();
+            }
+        }
+    }
+
+    [Serializable]
+    public class ClassAbilityUnlock
+    {
+        [SerializeField]
+        private AbilityDefinition ability;
+
+        [SerializeField]
+        private AbilityUnlockConditionType conditionType = AbilityUnlockConditionType.Level;
+
+        [SerializeField]
+        private int requiredLevel = 1;
+
+        [SerializeField]
+        private string questId;
+
+        [SerializeField]
+        private string itemId;
+
+        [SerializeField, TextArea(1, 3)]
+        private string notes;
+
+        public AbilityDefinition Ability => ability;
+        public AbilityUnlockConditionType ConditionType => conditionType;
+        public int RequiredLevel => requiredLevel;
+        public string QuestId => questId;
+        public string ItemId => itemId;
+        public string Notes => notes;
+
+        public string DescribeCondition()
+        {
+            return conditionType switch
+            {
+                AbilityUnlockConditionType.Level => requiredLevel <= 1
+                    ? "Unlocked at start"
+                    : $"Unlocks at level {requiredLevel}",
+                AbilityUnlockConditionType.Quest => string.IsNullOrWhiteSpace(questId)
+                    ? "Quest unlock (unspecified)"
+                    : $"Quest: {questId}",
+                AbilityUnlockConditionType.Item => string.IsNullOrWhiteSpace(itemId)
+                    ? "Item unlock (unspecified)"
+                    : $"Item: {itemId}",
+                _ => "Unlock condition unspecified"
+            };
+        }
+
+#if UNITY_EDITOR
+        internal void EnsureEditorConsistency()
+        {
+            ClampEditorValues();
+        }
+#endif
+
+        internal void ClampEditorValues()
+        {
+            if (conditionType == AbilityUnlockConditionType.Level)
+            {
+                requiredLevel = Mathf.Max(1, requiredLevel);
+            }
+            else
+            {
+                requiredLevel = Mathf.Max(0, requiredLevel);
+            }
+
+            questId = questId?.Trim();
+            itemId = itemId?.Trim();
+            notes = notes?.Trim();
+        }
+    }
+
+    public enum AbilityUnlockConditionType
+    {
+        Level,
+        Quest,
+        Item
     }
 
     [Serializable]
