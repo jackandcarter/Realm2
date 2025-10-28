@@ -2,6 +2,7 @@ import { randomUUID } from 'crypto';
 import { db } from './database';
 import { JsonValue } from '../types/characterCustomization';
 import { recordVersionConflict } from '../observability/metrics';
+import { isClassAllowedForRace } from '../config/classRules';
 
 export interface CharacterProgressionState {
   level: number;
@@ -80,6 +81,21 @@ export class VersionConflictError extends Error {
   ) {
     super(`${entity} version conflict`);
     this.name = 'VersionConflictError';
+  }
+}
+
+export class ForbiddenClassUnlockError extends Error {
+  constructor(
+    public readonly characterId: string,
+    public readonly raceId: string,
+    public readonly classIds: string[],
+  ) {
+    super(
+      classIds.length === 1
+        ? `Class ${classIds[0]} cannot be unlocked for race ${raceId}`
+        : `Classes ${classIds.join(', ')} cannot be unlocked for race ${raceId}`,
+    );
+    this.name = 'ForbiddenClassUnlockError';
   }
 }
 
@@ -303,6 +319,32 @@ export function replaceClassUnlocks(
     throw new VersionConflictError('classUnlocks', expectedVersion, actualVersion);
   }
 
+  const characterRaceRow = db
+    .prepare(
+      `SELECT race_id as raceId
+       FROM characters
+       WHERE id = ?`
+    )
+    .get(characterId) as CharacterRaceRow | undefined;
+
+  if (!characterRaceRow) {
+    throw new Error(`Character ${characterId} not found while updating class unlocks`);
+  }
+
+  const raceId = characterRaceRow.raceId?.trim() || 'human';
+  const forbiddenClassIds = Array.from(
+    new Set(
+      unlocks
+        .filter((unlock) => unlock.unlocked)
+        .map((unlock) => unlock.classId?.trim() ?? '')
+        .filter((classId) => classId && !isClassAllowedForRace(classId, raceId)),
+    ),
+  );
+
+  if (forbiddenClassIds.length > 0) {
+    throw new ForbiddenClassUnlockError(characterId, raceId, forbiddenClassIds);
+  }
+
   const now = new Date().toISOString();
   const tx = db.transaction(() => {
     db.prepare(`DELETE FROM character_class_unlocks WHERE character_id = ?`).run(characterId);
@@ -487,6 +529,10 @@ interface ClassUnlockRow {
   classId: string;
   unlocked: number;
   unlockedAt: string | null;
+}
+
+interface CharacterRaceRow {
+  raceId?: string | null;
 }
 
 interface InventoryRow {
