@@ -574,7 +574,22 @@ namespace Client
             var label = string.IsNullOrWhiteSpace(character.bio)
                 ? character.name
                 : $"{character.name} • {character.bio}";
+            var status = CharacterClassStatusUtility.Evaluate(character);
+            if (status.RequiresAttention)
+            {
+                var statusBadge = string.IsNullOrWhiteSpace(status.StatusLabel) ? "Needs review" : status.StatusLabel;
+                label = $"{label} [{statusBadge}]";
+            }
+
             var button = CreateListButton(_characterListRoot, $"Character_{character.id}", label);
+            if (status.RequiresAttention)
+            {
+                var image = button.GetComponent<Image>();
+                if (image != null)
+                {
+                    image.color = new Color(0.9f, 0.75f, 0.75f, 0.95f);
+                }
+            }
             button.onClick.AddListener(() => OnCharacterEntryClicked(character));
             return button;
         }
@@ -588,11 +603,17 @@ namespace Client
 
         private void OnCharacterEntryClicked(CharacterInfo character)
         {
-            DisplayCharacterDetails(character);
+            var classStatus = DisplayCharacterDetails(character);
 
             if (character == null)
             {
-                _characterMessage.text = "Select a character to view their details.";
+                _characterMessage.text = classStatus.Message;
+                return;
+            }
+
+            if (!classStatus.CanPlay)
+            {
+                _characterMessage.text = classStatus.Message;
                 return;
             }
 
@@ -610,16 +631,24 @@ namespace Client
                 return;
             }
 
+            var classStatus = CharacterClassStatusUtility.Evaluate(_selectedCharacter);
+            if (!classStatus.CanPlay)
+            {
+                _characterMessage.text = classStatus.Message;
+                return;
+            }
+
             BeginPlayForCharacter(_selectedCharacter);
         }
 
-        private void DisplayCharacterDetails(CharacterInfo character)
+        private CharacterClassStatusInfo DisplayCharacterDetails(CharacterInfo character)
         {
             _selectedCharacter = character;
 
+            var statusPreview = CharacterClassStatusUtility.Evaluate(character);
             if (_playCharacterButton != null)
             {
-                _playCharacterButton.interactable = character != null;
+                _playCharacterButton.interactable = character != null && statusPreview.CanPlay;
             }
 
             if (character == null)
@@ -628,12 +657,12 @@ namespace Client
                 SetDetailLabel(_characterRaceLabel, "Race: —");
                 SetDetailLabel(_characterClassLabel, "Class: —");
                 SetDetailLabel(_characterLocationLabel, "Last Known Location: —");
-                return;
+                return statusPreview;
             }
 
             var createdDisplay = FormatCreatedDate(character.createdAt);
             var raceDisplay = ResolveRaceName(character.raceId);
-            var classDisplay = ResolveClassName(character.classId);
+            var classStatus = statusPreview;
             var unlockedSummary = BuildUnlockedClassesSummary(character.classStates);
             var locationDisplay = string.IsNullOrWhiteSpace(character.lastKnownLocation)
                 ? "Unknown"
@@ -641,8 +670,12 @@ namespace Client
 
             SetDetailLabel(_characterCreatedAtLabel, $"Created: {createdDisplay}");
             SetDetailLabel(_characterRaceLabel, $"Race: {raceDisplay}");
-            SetDetailLabel(_characterClassLabel, $"Class: {classDisplay} (Unlocked: {unlockedSummary})");
+            var classLabel = string.IsNullOrWhiteSpace(classStatus.StatusLabel)
+                ? $"Class: {classStatus.ClassDisplay}"
+                : $"Class: {classStatus.ClassDisplay} ({classStatus.StatusLabel})";
+            SetDetailLabel(_characterClassLabel, $"{classLabel} • Unlocked: {unlockedSummary}");
             SetDetailLabel(_characterLocationLabel, $"Last Known Location: {locationDisplay}");
+            return classStatus;
         }
 
         private static void SetDetailLabel(Text label, string value)
@@ -685,16 +718,6 @@ namespace Client
             }
 
             return string.IsNullOrWhiteSpace(raceId) ? "Unknown" : raceId.Trim();
-        }
-
-        private static string ResolveClassName(string classId)
-        {
-            if (!string.IsNullOrWhiteSpace(classId) && ClassCatalog.TryGetClass(classId, out var classDefinition))
-            {
-                return classDefinition.DisplayName;
-            }
-
-            return string.IsNullOrWhiteSpace(classId) ? "Unassigned" : classId.Trim();
         }
 
         private static string BuildUnlockedClassesSummary(ClassUnlockState[] states)
