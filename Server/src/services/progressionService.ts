@@ -9,6 +9,7 @@ import {
   ClassUnlockInput,
   InventoryItemInput,
   QuestStateInput,
+  ForbiddenClassUnlockError,
   VersionConflictError,
   getCharacterProgressionSnapshot,
   initializeCharacterProgressionState,
@@ -96,7 +97,14 @@ export function updateCharacterProgressionForUser(
   }
 
   if (input.classUnlocks) {
-    replaceClassUnlocks(characterId, input.classUnlocks.unlocks, input.classUnlocks.expectedVersion);
+    try {
+      replaceClassUnlocks(characterId, input.classUnlocks.unlocks, input.classUnlocks.expectedVersion);
+    } catch (error) {
+      if (error instanceof ForbiddenClassUnlockError) {
+        throw new HttpError(400, error.message);
+      }
+      throw error;
+    }
   }
 
   if (input.inventory) {
@@ -209,6 +217,10 @@ function handleSocketMessage(
 function handleSocketError(socket: WebSocket, error: unknown): void {
   if (error instanceof VersionConflictError) {
     sendError(socket, `${error.entity} update failed due to version mismatch`);
+    return;
+  }
+  if (error instanceof ForbiddenClassUnlockError) {
+    sendError(socket, error.message);
     return;
   }
   if (error instanceof HttpError) {
