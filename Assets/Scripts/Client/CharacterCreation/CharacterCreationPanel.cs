@@ -196,7 +196,11 @@ namespace Client.CharacterCreation
                 return state;
             }
 
-            var unlocked = !string.Equals(trimmed, ClassUnlockUtility.BuilderClassId, StringComparison.OrdinalIgnoreCase);
+            var unlocked = false;
+            if (ClassRulesCatalog.TryGetRule(trimmed, out var rule))
+            {
+                unlocked = rule.UnlockMethod == ClassUnlockMethod.Starter;
+            }
             state = new ClassUnlockState
             {
                 ClassId = trimmed,
@@ -525,10 +529,12 @@ namespace Client.CharacterCreation
 
                 var state = EnsureClassState(classDefinition.Id);
                 var unlocked = state?.Unlocked ?? true;
+                var requiresExplicitUnlock = ClassRulesCatalog.TryGetRule(classDefinition.Id, out var rule)
+                    && rule.UnlockMethod != ClassUnlockMethod.Starter;
 
-                if (!unlocked && string.Equals(classDefinition.Id, ClassUnlockUtility.BuilderClassId, StringComparison.OrdinalIgnoreCase))
+                if (!unlocked && requiresExplicitUnlock)
                 {
-                    // Hide the Builder option entirely until the character explicitly unlocks it.
+                    // Hide quest/unlock-gated classes until the character explicitly unlocks them.
                     continue;
                 }
 
@@ -720,6 +726,11 @@ namespace Client.CharacterCreation
                 if (state == null)
                 {
                     continue;
+                }
+
+                if (_selectedRace != null && ClassRulesCatalog.IsStarterClassForRace(state.ClassId, _selectedRace.Id))
+                {
+                    state.Unlocked = true;
                 }
 
                 if (_selectedClass != null && string.Equals(state.ClassId, _selectedClass.Id, StringComparison.OrdinalIgnoreCase))

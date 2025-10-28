@@ -175,6 +175,52 @@ describe('Realm and character API', () => {
     });
   });
 
+  it('rejects classes that are forbidden to the selected race', async () => {
+    const { accessToken } = await registerAndGetToken('classcheck@example.com');
+
+    const realmsResponse = await request(app)
+      .get('/realms')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .expect(200);
+
+    const targetRealm = realmsResponse.body.realms[0];
+
+    await request(app)
+      .post('/characters')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({
+        realmId: targetRealm.id,
+        name: 'Rule Breaker',
+        raceId: 'human',
+        classId: 'ranger',
+        classStates: [{ classId: 'ranger', unlocked: true }],
+      })
+      .expect(400);
+  });
+
+  it('requires quest classes to be unlocked before selection', async () => {
+    const { accessToken } = await registerAndGetToken('buildercheck@example.com');
+
+    const realmsResponse = await request(app)
+      .get('/realms')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .expect(200);
+
+    const targetRealm = realmsResponse.body.realms[0];
+
+    await request(app)
+      .post('/characters')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({
+        realmId: targetRealm.id,
+        name: 'Unlock Tester',
+        raceId: 'human',
+        classId: 'builder',
+        classStates: [{ classId: 'builder', unlocked: false }],
+      })
+      .expect(400);
+  });
+
   it('rejects invalid race selections', async () => {
     const { accessToken } = await registerAndGetToken('invalid-race@example.com');
 

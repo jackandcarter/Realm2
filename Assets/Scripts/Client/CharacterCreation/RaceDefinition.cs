@@ -11,6 +11,7 @@ namespace Client.CharacterCreation
         public string AppearanceSummary;
         public string[] SignatureAbilities;
         public string[] AllowedClassIds;
+        public string[] StarterClassIds;
         public RaceCustomizationOptions Customization;
     }
 

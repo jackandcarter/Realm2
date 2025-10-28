@@ -19,16 +19,8 @@ namespace Client.CharacterCreation
                     "Forest Whisper",
                     "Temporal Pounce"
                 },
-                AllowedClassIds = new[]
-                {
-                    "warrior",
-                    "wizard",
-                    "time-mage",
-                    "sage",
-                    "rogue",
-                    "ranger",
-                    "builder"
-                },
+                AllowedClassIds = ClassRulesCatalog.GetAllowedClassIdsForRace("felarian"),
+                StarterClassIds = ClassRulesCatalog.GetStarterClassIdsForRace("felarian"),
                 Customization = new RaceCustomizationOptions
                 {
                     Height = new FloatRange(1.55f, 1.9f),
@@ -55,15 +47,8 @@ namespace Client.CharacterCreation
                     "Diplomat's Insight",
                     "Second Wind"
                 },
-                AllowedClassIds = new[]
-                {
-                    "warrior",
-                    "wizard",
-                    "time-mage",
-                    "sage",
-                    "rogue",
-                    "builder"
-                },
+                AllowedClassIds = ClassRulesCatalog.GetAllowedClassIdsForRace("human"),
+                StarterClassIds = ClassRulesCatalog.GetStarterClassIdsForRace("human"),
                 Customization = new RaceCustomizationOptions
                 {
                     Height = new FloatRange(1.5f, 2.05f),
@@ -90,15 +75,8 @@ namespace Client.CharacterCreation
                     "Elemental Channel",
                     "Gemcut Resonance"
                 },
-                AllowedClassIds = new[]
-                {
-                    "warrior",
-                    "wizard",
-                    "time-mage",
-                    "sage",
-                    "rogue",
-                    "builder"
-                },
+                AllowedClassIds = ClassRulesCatalog.GetAllowedClassIdsForRace("crystallian"),
+                StarterClassIds = ClassRulesCatalog.GetStarterClassIdsForRace("crystallian"),
                 Customization = new RaceCustomizationOptions
                 {
                     Height = new FloatRange(1.8f, 2.3f),
@@ -125,16 +103,8 @@ namespace Client.CharacterCreation
                     "Ancestral Ward",
                     "Veil Rend"
                 },
-                AllowedClassIds = new[]
-                {
-                    "warrior",
-                    "wizard",
-                    "time-mage",
-                    "sage",
-                    "rogue",
-                    "necromancer",
-                    "builder"
-                },
+                AllowedClassIds = ClassRulesCatalog.GetAllowedClassIdsForRace("revenant"),
+                StarterClassIds = ClassRulesCatalog.GetStarterClassIdsForRace("revenant"),
                 Customization = new RaceCustomizationOptions
                 {
                     Height = new FloatRange(1.65f, 2.0f),
@@ -161,16 +131,8 @@ namespace Client.CharacterCreation
                     "Runesmith's Flourish",
                     "Miniaturize"
                 },
-                AllowedClassIds = new[]
-                {
-                    "warrior",
-                    "wizard",
-                    "time-mage",
-                    "sage",
-                    "rogue",
-                    "technomancer",
-                    "builder"
-                },
+                AllowedClassIds = ClassRulesCatalog.GetAllowedClassIdsForRace("gearling"),
+                StarterClassIds = ClassRulesCatalog.GetStarterClassIdsForRace("gearling"),
                 Customization = new RaceCustomizationOptions
                 {
                     Height = new FloatRange(1.0f, 1.4f),

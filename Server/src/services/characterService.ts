@@ -11,7 +11,7 @@ import {
   isCharacterAppearance,
   JsonValue,
 } from '../types/characterCustomization';
-import { CharacterClassState } from '../types/classUnlocks';
+import { CharacterClassState, sanitizeClassStates } from '../types/classUnlocks';
 import {
   findRaceById,
   getCanonicalRaceIds,
@@ -19,6 +19,11 @@ import {
   RaceCustomizationOptions,
   RaceDefinition,
 } from '../config/races';
+import {
+  findClassRule,
+  getAllowedClassIdsForRace,
+  getStarterClassIdsForRace,
+} from '../config/classRules';
 
 export interface CreateCharacterInput {
   realmId?: string;
@@ -53,6 +58,11 @@ export function createCharacterForUser(
 
   const { raceId, race } = resolveRace(input.raceId);
   const appearance = normalizeAppearanceForRace(input.appearance, race);
+  const { classId, classStates } = normalizeClassSelectionForRace(
+    race.id,
+    input.classId,
+    input.classStates
+  );
 
   try {
     return createCharacter({
@@ -62,8 +72,8 @@ export function createCharacterForUser(
       bio: input.bio?.trim() || undefined,
       raceId,
       appearance,
-      classId: input.classId,
-      classStates: input.classStates,
+      classId,
+      classStates,
       lastKnownLocation: input.lastKnownLocation,
     });
   } catch (_error) {
@@ -152,4 +162,61 @@ function validateDimension(
   }
 
   return value;
+}
+
+function normalizeClassSelectionForRace(
+  raceId: string,
+  rawClassId: string | undefined,
+  classStatesInput: CharacterClassState[] | undefined
+): { classId?: string; classStates: CharacterClassState[] } {
+  const allowedClassIds = getAllowedClassIdsForRace(raceId);
+  const starterClassIds = getStarterClassIdsForRace(raceId);
+  const allowedSet = new Set(allowedClassIds.map((id) => id.toLowerCase()));
+  const starterSet = new Set(starterClassIds.map((id) => id.toLowerCase()));
+
+  let classId: string | undefined;
+  if (rawClassId && rawClassId.trim() !== '') {
+    const trimmed = rawClassId.trim();
+    if (!allowedSet.has(trimmed.toLowerCase())) {
+      throw new HttpError(400, `Class ${trimmed} is not available to race ${raceId}`);
+    }
+    classId = trimmed;
+  }
+
+  const sanitizedStates = sanitizeClassStates(classStatesInput ?? []);
+  const normalizedStates: CharacterClassState[] = [];
+  const seen = new Set<string>();
+
+  for (const state of sanitizedStates) {
+    const trimmedId = state.classId.trim();
+    const key = trimmedId.toLowerCase();
+    if (!allowedSet.has(key) || seen.has(key)) {
+      continue;
+    }
+    normalizedStates.push({ classId: trimmedId, unlocked: Boolean(state.unlocked) });
+    seen.add(key);
+  }
+
+  for (const allowedId of allowedClassIds) {
+    const key = allowedId.toLowerCase();
+    if (seen.has(key)) {
+      continue;
+    }
+    normalizedStates.push({ classId: allowedId, unlocked: starterSet.has(key) });
+    seen.add(key);
+  }
+
+  if (classId) {
+    const rule = findClassRule(classId);
+    if (rule && rule.unlockMethod !== 'starter') {
+      const state = normalizedStates.find(
+        (entry) => entry.classId.toLowerCase() === classId!.toLowerCase()
+      );
+      if (!state || !state.unlocked) {
+        throw new HttpError(400, `Class ${classId} must be unlocked before it can be selected`);
+      }
+    }
+  }
+
+  return { classId, classStates: normalizedStates };
 }
