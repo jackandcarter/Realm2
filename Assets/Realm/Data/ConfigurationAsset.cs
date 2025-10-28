@@ -25,65 +25,60 @@ namespace Realm.Data
             }
         }
 
-#if UNITY_EDITOR
         protected virtual void OnEnable()
         {
-            EnsureHistoryCreated();
+            EnsureHistoryInitialized();
         }
 
         protected virtual void OnValidate()
         {
-            EnsureHistoryCreated();
+            EnsureHistoryInitialized();
+
+#if UNITY_EDITOR
             History.RecordModification(CurrentUserName);
             EditorUtility.SetDirty(this);
+#endif
         }
 
         internal void RecordCloneCreation()
         {
-            EnsureHistoryCreated();
+            EnsureHistoryInitialized();
+
+#if UNITY_EDITOR
             History.RecordCreation(CurrentUserName);
             EditorUtility.SetDirty(this);
+#endif
         }
 
         internal void RecordManualModification()
         {
-            EnsureHistoryCreated();
+            EnsureHistoryInitialized();
+
+#if UNITY_EDITOR
             History.RecordModification(CurrentUserName);
             EditorUtility.SetDirty(this);
+#endif
         }
 
-        private void EnsureHistoryCreated()
+        private void EnsureHistoryInitialized()
         {
             if (history == null)
             {
                 history = new AssetHistoryMetadata();
             }
 
+#if UNITY_EDITOR
             history.EnsureCreated(CurrentUserName);
+#endif
         }
 
+#if UNITY_EDITOR
         private static string CurrentUserName
         {
             get
             {
                 var name = Environment.UserName;
                 return string.IsNullOrWhiteSpace(name) ? "Unknown" : name.Trim();
-            }
-        }
-#else
-        protected virtual void OnEnable()
-        {
-            if (history == null)
-            {
-                history = new AssetHistoryMetadata();
-            }
-        }
-
-        protected virtual void OnValidate()
-        {
-            if (history == null)
-            {
-                history = new AssetHistoryMetadata();
             }
         }
 #endif
