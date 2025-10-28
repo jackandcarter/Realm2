@@ -358,7 +358,9 @@ namespace Client
                 }
 
                 var trimmedId = allowedClassId.Trim();
-                var unlocked = !string.IsNullOrWhiteSpace(activeClassId) && string.Equals(trimmedId, activeClassId, StringComparison.OrdinalIgnoreCase);
+                var unlocked = (!string.IsNullOrWhiteSpace(activeClassId)
+                        && string.Equals(trimmedId, activeClassId, StringComparison.OrdinalIgnoreCase))
+                    || ClassRulesCatalog.IsStarterClassForRace(trimmedId, raceId);
                 states.Add(new ClassUnlockState
                 {
                     ClassId = trimmedId,
@@ -371,16 +373,30 @@ namespace Client
 
         private static string GetDefaultClassForRace(string raceId)
         {
-            if (!RaceCatalog.TryGetRace(raceId, out var race) || race?.AllowedClassIds == null)
+            if (!RaceCatalog.TryGetRace(raceId, out var race))
             {
                 return null;
             }
 
-            foreach (var allowed in race.AllowedClassIds)
+            if (race.StarterClassIds != null)
             {
-                if (!string.IsNullOrWhiteSpace(allowed))
+                foreach (var starter in race.StarterClassIds)
                 {
-                    return allowed.Trim();
+                    if (!string.IsNullOrWhiteSpace(starter))
+                    {
+                        return starter.Trim();
+                    }
+                }
+            }
+
+            if (race.AllowedClassIds != null)
+            {
+                foreach (var allowed in race.AllowedClassIds)
+                {
+                    if (!string.IsNullOrWhiteSpace(allowed))
+                    {
+                        return allowed.Trim();
+                    }
                 }
             }
 
