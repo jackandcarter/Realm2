@@ -95,7 +95,7 @@ namespace Client.Terrain
     }
 
     [Serializable]
-    internal class RealmChunkSnapshotResponse
+    public class RealmChunkSnapshotResponse
     {
         public string realmId;
         public string serverTimestamp;
@@ -103,7 +103,7 @@ namespace Client.Terrain
     }
 
     [Serializable]
-    internal class RealmChunkChangeFeedResponse
+    public class RealmChunkChangeFeedResponse
     {
         public string realmId;
         public string serverTimestamp;
