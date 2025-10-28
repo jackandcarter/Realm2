@@ -5,7 +5,7 @@ using UnityEngine;
 namespace Realm.Data
 {
     [CreateAssetMenu(menuName = "Realm/Stats/Stat Category", fileName = "StatCategory")]
-    public class StatCategory : ScriptableObject, IGuidIdentified
+    public class StatCategory : ConfigurationAsset, IGuidIdentified
     {
         [SerializeField, Tooltip("Stable unique identifier for this category. Auto-generated if empty.")]
         private string guid;
@@ -33,8 +33,10 @@ namespace Realm.Data
             return stat != null && stats.Contains(stat);
         }
 
-        private void OnValidate()
+        protected override void OnValidate()
         {
+            base.OnValidate();
+
             if (string.IsNullOrWhiteSpace(guid))
             {
                 guid = Guid.NewGuid().ToString("N");

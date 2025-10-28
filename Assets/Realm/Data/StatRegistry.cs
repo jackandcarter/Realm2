@@ -5,7 +5,7 @@ using UnityEngine;
 namespace Realm.Data
 {
     [CreateAssetMenu(menuName = "Realm/Stats/Stat Registry", fileName = "StatRegistry")]
-    public class StatRegistry : ScriptableObject
+    public class StatRegistry : ConfigurationAsset
     {
         [SerializeField]
         private List<StatDefinition> statDefinitions = new();
@@ -29,13 +29,15 @@ namespace Realm.Data
         public IReadOnlyList<ClassDefinition> Classes => classes;
         public IReadOnlyList<AbilityDefinition> Abilities => abilities;
 
-        private void OnEnable()
+        protected override void OnEnable()
         {
+            base.OnEnable();
             BuildLookups();
         }
 
-        private void OnValidate()
+        protected override void OnValidate()
         {
+            base.OnValidate();
             SanitizeList(statDefinitions);
             SanitizeList(categories);
             SanitizeList(classes);

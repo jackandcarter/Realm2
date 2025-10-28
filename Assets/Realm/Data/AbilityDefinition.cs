@@ -4,7 +4,7 @@ using UnityEngine;
 namespace Realm.Data
 {
     [CreateAssetMenu(menuName = "Realm/Abilities/Ability Definition", fileName = "AbilityDefinition")]
-    public class AbilityDefinition : ScriptableObject, IGuidIdentified
+    public class AbilityDefinition : ConfigurationAsset, IGuidIdentified
     {
         [SerializeField, Tooltip("Stable unique identifier for this ability. Auto-generated if empty.")]
         private string guid;
@@ -31,8 +31,10 @@ namespace Realm.Data
         public float CooldownSeconds => cooldownSeconds;
         public int ResourceCost => resourceCost;
 
-        private void OnValidate()
+        protected override void OnValidate()
         {
+            base.OnValidate();
+
             if (string.IsNullOrWhiteSpace(guid))
             {
                 guid = Guid.NewGuid().ToString("N");
