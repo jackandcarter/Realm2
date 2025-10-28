@@ -112,6 +112,17 @@ namespace Client.CharacterCreation
             return entry.Abilities.Select(a => a.Clone()).ToList();
         }
 
+        public IReadOnlyList<string> GetTrackedClassIds()
+        {
+            EnsureCache();
+            if (_cachedLevels == null || _cachedLevels.Count == 0)
+            {
+                return Array.Empty<string>();
+            }
+
+            return _cachedLevels.Keys.ToList();
+        }
+
         [Serializable]
         public class ClassAbilityTrack
         {
