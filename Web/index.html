@@ -76,6 +76,134 @@
         <div class="feedback" role="status" aria-live="polite"></div>
       </section>
 
+
+      <section class="card ability-designer" id="ability-designer">
+        <h2>Design an ability prototype</h2>
+        <p class="card__intro">
+          Explore combat tuning concepts by combining targeting, resource costs, and modular effect nodes.
+          The sandbox below updates in real time as you iterate on an ability.
+        </p>
+
+        <div class="ability-section">
+          <h3>Targeting</h3>
+          <p class="section-hint">Choose who or what the ability can interact with. Combine options to model chain or hybrid spells.</p>
+          <div class="option-group option-group--grid">
+            <label class="option">
+              <input type="checkbox" name="ability-target" value="self" />
+              <span>Self</span>
+            </label>
+            <label class="option">
+              <input type="checkbox" name="ability-target" value="ally" />
+              <span>Ally</span>
+            </label>
+            <label class="option">
+              <input type="checkbox" name="ability-target" value="enemy" checked />
+              <span>Enemy</span>
+            </label>
+            <label class="option">
+              <input type="checkbox" name="ability-target" value="area" />
+              <span>Area (AoE)</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="ability-section">
+          <h3>Resource &amp; cooldown</h3>
+          <p class="section-hint">Dial in the pacing knobs that gate the ability.</p>
+          <div class="field-row">
+            <label class="field field--compact">
+              <span>Resource</span>
+              <select id="resource-type" name="resource-type">
+                <option value="Mana">Mana</option>
+                <option value="Stamina">Stamina</option>
+                <option value="Energy">Energy</option>
+                <option value="Focus">Focus</option>
+              </select>
+            </label>
+            <label class="field field--compact">
+              <span>Cost</span>
+              <input id="resource-cost" name="resource-cost" type="number" min="0" value="35" />
+            </label>
+            <label class="field field--compact">
+              <span>Cooldown (sec)</span>
+              <input id="cooldown" name="cooldown" type="number" min="0" value="18" />
+            </label>
+          </div>
+        </div>
+
+        <div class="ability-section">
+          <h3>Execution conditions</h3>
+          <p class="section-hint">Layer prerequisites that must be met before the ability can fire.</p>
+          <div class="option-group">
+            <label class="option">
+              <input type="checkbox" name="execution-condition" value="lineOfSight" />
+              <span>Requires line of sight</span>
+            </label>
+            <label class="option">
+              <input type="checkbox" name="execution-condition" value="stationary" />
+              <span>Caster must be stationary</span>
+            </label>
+            <label class="option">
+              <input type="checkbox" name="execution-condition" value="comboWindow" />
+              <span>Only during combo window</span>
+            </label>
+            <label class="option">
+              <input type="checkbox" name="execution-condition" value="resourceThreshold" />
+              <span>Requires resource threshold</span>
+            </label>
+          </div>
+          <label class="field field--compact">
+            <span>Custom condition</span>
+            <input id="custom-condition" name="custom-condition" type="text" placeholder="e.g., Only usable above 50% health" />
+          </label>
+        </div>
+
+        <div class="ability-section ability-section--effects">
+          <h3>Effect composer</h3>
+          <p class="section-hint">Stack effect nodes in the order they should resolve. Use priority to manage simultaneous triggers.</p>
+          <form class="effect-form" id="effect-form">
+            <label class="field field--compact">
+              <span>Effect</span>
+              <select id="effect-type" name="effect-type">
+                <option value="damage">Damage</option>
+                <option value="heal">Heal</option>
+                <option value="buff">Buff</option>
+                <option value="debuff">Debuff</option>
+                <option value="state">State change</option>
+              </select>
+            </label>
+            <label class="field field--compact">
+              <span>Descriptor</span>
+              <input id="effect-descriptor" name="effect-descriptor" type="text" placeholder="e.g., Burning, Shielded" />
+            </label>
+            <label class="field field--compact">
+              <span>Magnitude</span>
+              <input id="effect-magnitude" name="effect-magnitude" type="number" step="1" value="120" />
+            </label>
+            <label class="field field--compact">
+              <span>Duration (sec)</span>
+              <input id="effect-duration" name="effect-duration" type="number" min="0" step="0.5" value="0" />
+            </label>
+            <label class="field field--compact">
+              <span>Priority</span>
+              <input id="effect-priority" name="effect-priority" type="number" step="1" min="1" value="1" />
+            </label>
+            <button type="button" id="add-effect" class="button button--ghost">Add effect node</button>
+          </form>
+          <ul class="effect-list" aria-live="polite"></ul>
+        </div>
+
+        <div class="ability-summary">
+          <h3>Tooltip &amp; summary</h3>
+          <div class="ability-validation" aria-live="polite"></div>
+          <div class="ability-preview" aria-live="polite"></div>
+          <label class="field field--compact" for="ability-tooltip">
+            <span>Generated tooltip</span>
+            <textarea id="ability-tooltip" name="ability-tooltip" rows="4" readonly>Resolve validation issues to generate a tooltip preview.</textarea>
+          </label>
+        </div>
+      </section>
+
       <section class="card card--secondary">
         <h2>Already registered?</h2>
         <p>
