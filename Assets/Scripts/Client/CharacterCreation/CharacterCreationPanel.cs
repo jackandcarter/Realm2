@@ -513,14 +513,23 @@ namespace Client.CharacterCreation
         {
             ClearClassButtons();
 
-            if (race?.AllowedClassIds == null || race.AllowedClassIds.Length == 0)
+            if (race == null || string.IsNullOrWhiteSpace(race.Id))
             {
                 SelectClass(null);
                 return;
             }
 
+            var allowedClassIds = ClassRulesCatalog.GetStarterClassIdsForRace(race.Id);
+            if (allowedClassIds == null || allowedClassIds.Length == 0)
+            {
+                SelectClass(null);
+                return;
+            }
+
+            var canSpawnButtons = classListRoot != null && classButtonTemplate != null;
             CharacterClassDefinition firstUnlocked = null;
-            foreach (var classId in race.AllowedClassIds)
+
+            foreach (var classId in allowedClassIds)
             {
                 if (!ClassCatalog.TryGetClass(classId, out var classDefinition))
                 {
@@ -528,47 +537,60 @@ namespace Client.CharacterCreation
                 }
 
                 var state = EnsureClassState(classDefinition.Id);
-                var unlocked = state?.Unlocked ?? true;
-                var requiresExplicitUnlock = ClassRulesCatalog.TryGetRule(classDefinition.Id, out var rule)
-                    && rule.UnlockMethod != ClassUnlockMethod.Starter;
-
-                if (!unlocked && requiresExplicitUnlock)
-                {
-                    // Hide quest/unlock-gated classes until the character explicitly unlocks them.
-                    continue;
-                }
+                var unlocked = state?.Unlocked ?? false;
+                var hasRule = ClassRulesCatalog.TryGetRule(classDefinition.Id, out var rule) && rule != null;
+                var requiresExplicitUnlock = hasRule && rule.UnlockMethod != ClassUnlockMethod.Starter;
 
                 _availableClassDefinitions.Add(classDefinition);
 
-                if (classListRoot == null || classButtonTemplate == null)
+                Button button = null;
+                if (canSpawnButtons)
                 {
-                    continue;
+                    button = Instantiate(classButtonTemplate, classListRoot);
+                    button.gameObject.SetActive(true);
+                    button.name = $"Class_{classDefinition.Id}";
+
+                    var label = button.GetComponentInChildren<Text>();
+                    if (label != null)
+                    {
+                        if (unlocked)
+                        {
+                            label.text = classDefinition.DisplayName;
+                        }
+                        else
+                        {
+                            var reason = requiresExplicitUnlock
+                                ? "Requires quest unlock."
+                                : "Unlock through gameplay.";
+                            label.text = $"{classDefinition.DisplayName} (Locked — {reason})";
+                        }
+                    }
+
+                    button.interactable = unlocked;
                 }
 
-                var button = Instantiate(classButtonTemplate, classListRoot);
-                button.gameObject.SetActive(true);
-                button.name = $"Class_{classDefinition.Id}";
-
-                var label = button.GetComponentInChildren<Text>();
-                if (label != null)
-                {
-                    label.text = unlocked
-                        ? classDefinition.DisplayName
-                        : $"{classDefinition.DisplayName} (Locked)";
-                }
-
-                button.interactable = unlocked;
                 if (unlocked)
                 {
-                    var captured = classDefinition;
-                    button.onClick.AddListener(() => SelectClass(captured));
+                    if (button != null)
+                    {
+                        var captured = classDefinition;
+                        button.onClick.AddListener(() => SelectClass(captured));
+                    }
+
                     if (firstUnlocked == null)
                     {
                         firstUnlocked = classDefinition;
                     }
                 }
+                else if (button != null)
+                {
+                    button.onClick.RemoveAllListeners();
+                }
 
-                _spawnedClassButtons.Add(button);
+                if (button != null)
+                {
+                    _spawnedClassButtons.Add(button);
+                }
             }
 
             if (firstUnlocked != null)
