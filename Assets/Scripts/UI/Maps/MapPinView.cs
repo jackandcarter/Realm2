@@ -32,7 +32,7 @@ namespace Client.UI.Maps
         {
             if (service == null)
             {
-                service = FindObjectOfType<MapPinService>(true);
+                service = FindFirstObjectByType<MapPinService>(FindObjectsInactive.Include);
             }
         }
 

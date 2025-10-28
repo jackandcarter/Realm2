@@ -46,7 +46,7 @@ namespace Client.UI.Maps
             {
                 if (_instance == null)
                 {
-                    _instance = FindObjectOfType<MapTooltipController>(true);
+                    _instance = FindFirstObjectByType<MapTooltipController>(FindObjectsInactive.Include);
                 }
 
                 return _instance;
