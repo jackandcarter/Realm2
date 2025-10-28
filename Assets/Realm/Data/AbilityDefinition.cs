@@ -37,7 +37,7 @@ namespace Realm.Data
 
             if (string.IsNullOrWhiteSpace(guid))
             {
-                guid = Guid.NewGuid().ToString("N");
+                guid = System.Guid.NewGuid().ToString("N");
 #if UNITY_EDITOR
                 UnityEditor.EditorUtility.SetDirty(this);
 #endif

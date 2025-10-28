@@ -70,7 +70,7 @@ namespace Client.UI.Maps
 
             if (worldMapOverlay == null)
             {
-                worldMapOverlay = FindObjectOfType<WorldMapOverlayController>(true);
+                worldMapOverlay = FindFirstObjectByType<WorldMapOverlayController>(FindObjectsInactive.Include);
             }
 
             EnsureIconsParented(pinContainer);
@@ -196,7 +196,7 @@ namespace Client.UI.Maps
         {
             if (worldMapOverlay == null)
             {
-                worldMapOverlay = FindObjectOfType<WorldMapOverlayController>(true);
+                worldMapOverlay = FindFirstObjectByType<WorldMapOverlayController>(FindObjectsInactive.Include);
             }
 
             if (worldMapOverlay == null)

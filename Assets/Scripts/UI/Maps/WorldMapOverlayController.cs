@@ -106,7 +106,7 @@ namespace Client.UI.Maps
 
             if (pinService == null)
             {
-                pinService = FindObjectOfType<MapPinService>(true);
+                pinService = FindFirstObjectByType<MapPinService>(FindObjectsInactive.Include);
             }
 
             ConfigureHandle(dragHandle, typeof(WorldMapOverlayDragHandle));
@@ -293,7 +293,6 @@ namespace Client.UI.Maps
 
             _isResizing = true;
             _resizeStartSize = windowRoot.rect.size;
-            _resizeStartAnchoredPosition = windowRoot.anchoredPosition;
             if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(windowRoot, eventData.position, eventData.pressEventCamera, out _resizeStartMouseLocalPoint))
             {
                 _resizeStartMouseLocalPoint = Vector2.zero;
