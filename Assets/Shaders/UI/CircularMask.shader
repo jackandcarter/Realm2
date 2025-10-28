@@ -70,6 +70,7 @@ Shader "UI/CircularMask"
                 float4 worldPosition : TEXCOORD1;
             };
 
+            sampler2D _MainTex;
             fixed4 _Color;
             float4 _ClipRect;
             float _Feather;
