@@ -109,6 +109,12 @@ The authentication and realm management API lives in the `Server/` directory.
 3. Open the project and allow Unity to import packages. Any missing package errors can typically be resolved by opening the Package Manager and clicking **Refresh**.
 4. When developing gameplay features, keep scenes and assets grouped logically under `Assets/` to keep automated build validation fast.
 
+### Procedural Character Assets
+
+- A reusable script at `Tools/ProceduralModels/create_feline_character.py` procedurally sculpts a stylized Felarian (feline humanoid) body plan that can be imported directly into Unity.
+- Run `python Tools/ProceduralModels/create_feline_character.py` to rebuild the mesh. The script exports `Assets/Resources/Models/FelineHumanoid.obj`, ensuring the project always has a clean source of truth for the mesh data.
+- Modify the profile curves or proportions in the script to iterate on silhouettes without re-authoring meshes in an external DCC tool. The generated OBJ can be assigned materials, rigs, and prefabs like any other Unity model asset.
+
 ## Continuous Integration
 
 Automated checks run for every push to `main` and on pull requests that modify backend or Unity content.
