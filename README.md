@@ -109,6 +109,14 @@ The authentication and realm management API lives in the `Server/` directory.
 3. Open the project and allow Unity to import packages. Any missing package errors can typically be resolved by opening the Package Manager and clicking **Refresh**.
 4. When developing gameplay features, keep scenes and assets grouped logically under `Assets/` to keep automated build validation fast.
 
+### Procedural Character Assets
+
+- A reusable script at `Tools/ProceduralModels/create_feline_character.py` procedurally sculpts a stylized Felarian (feline humanoid) body plan that can be imported directly into Unity.
+- Run `python Tools/ProceduralModels/create_feline_character.py` to rebuild the mesh. The script exports `Assets/Resources/Models/FelineHumanoid.obj`, ensuring the project always has a clean source of truth for the mesh data.
+- Modify the profile curves or proportions in the script to iterate on silhouettes without re-authoring meshes in an external DCC tool. The generated OBJ can be assigned materials, rigs, and prefabs like any other Unity model asset.
+- Inside the Unity Editor, add the `CharacterMorphController` component (found under `Scripts/CharacterCustomization/`) to a prefab or scene instance of the Felarian. Each entry in the controller lets you assign a transform (abdomen, neck, limbs, etc.) and exposes height/width sliders so designers can dial in proportions without leaving the inspector. Use **Capture Current Scales** to treat the current mesh as the neutral pose, then tweak sliders to build race or class variants and save them as prefabs.
+- Because this workflow manipulates standard transforms, it does **not** require compute shaders or blend shapes. However, the same concept can later be extended with Unity deformers, GPU blend-shape baking, or procedural animation graphs if we need higher fidelity morphs.
+
 ## Continuous Integration
 
 Automated checks run for every push to `main` and on pull requests that modify backend or Unity content.
