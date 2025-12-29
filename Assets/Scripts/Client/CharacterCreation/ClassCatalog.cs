@@ -32,8 +32,8 @@ namespace Client.CharacterCreation
             {
                 Id = "necromancer",
                 DisplayName = "Necromancer",
-                RoleSummary = "Revenant-exclusive hybrid of melee prowess and necrotic support.",
-                Description = "Revenant specialists who command the dead, reinforcing allies with necromantic arts."
+                RoleSummary = "Revenant-exclusive hybrid of scythe combos and necrotic spellcasting.",
+                Description = "Undead warriors who weave melee hit-box chains with ranged necromancy to fracture enemy lines."
             },
             new CharacterClassDefinition
             {

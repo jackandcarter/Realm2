@@ -14,8 +14,12 @@ namespace Realm.EditorTools
         private SerializedProperty _targetingProperty;
         private SerializedProperty _resourceProperty;
         private SerializedProperty _executionProperty;
+        private SerializedProperty _hitboxProperty;
+        private SerializedProperty _comboProperty;
+        private SerializedProperty _comboStagesProperty;
         private SerializedProperty _effectsProperty;
         private ReorderableList _effectsList;
+        private ReorderableList _comboStagesList;
         private readonly List<(string message, MessageType type)> _validationMessages = new();
         private Vector2 _scrollPosition;
         private GUIStyle _wrapStyle;
@@ -63,6 +67,9 @@ namespace Realm.EditorTools
             _targetingProperty = _serializedAbility.FindProperty("Targeting");
             _resourceProperty = _serializedAbility.FindProperty("Resource");
             _executionProperty = _serializedAbility.FindProperty("Execution");
+            _hitboxProperty = _serializedAbility.FindProperty("Hitbox");
+            _comboProperty = _serializedAbility.FindProperty("Combo");
+            _comboStagesProperty = _comboProperty.FindPropertyRelative("Stages");
             _effectsProperty = _serializedAbility.FindProperty("Effects");
 
             _effectsList = new ReorderableList(_serializedAbility, _effectsProperty, true, true, true, true)
@@ -123,6 +130,54 @@ namespace Realm.EditorTools
                 line.y += line.height + 2f;
                 EditorGUI.PropertyField(new Rect(line.x, line.y, line.width, line.height), element.FindPropertyRelative("ScalingWithPower"), new GUIContent("Scales With Power"));
             };
+
+            _comboStagesList = new ReorderableList(_serializedAbility, _comboStagesProperty, true, true, true, true)
+            {
+                drawHeaderCallback = rect => EditorGUI.LabelField(rect, "Combo Stages"),
+                elementHeightCallback = index => EditorGUIUtility.singleLineHeight * 7.5f + 16f,
+                onAddCallback = list =>
+                {
+                    var index = _comboStagesProperty.arraySize;
+                    _comboStagesProperty.InsertArrayElementAtIndex(index);
+                    var element = _comboStagesProperty.GetArrayElementAtIndex(index);
+                    element.FindPropertyRelative("StageId").stringValue = $"stage-{index + 1}";
+                    element.FindPropertyRelative("DisplayName").stringValue = $"Stage {index + 1}";
+                    element.FindPropertyRelative("DamageMultiplier").floatValue = 1f;
+                    element.FindPropertyRelative("WindowSeconds").floatValue = 0.6f;
+                    element.FindPropertyRelative("AnimationTrigger").stringValue = string.Empty;
+                },
+                onRemoveCallback = list =>
+                {
+                    if (list.index >= 0 && list.index < _comboStagesProperty.arraySize)
+                    {
+                        _comboStagesProperty.DeleteArrayElementAtIndex(list.index);
+                    }
+                }
+            };
+
+            _comboStagesList.drawElementCallback = (rect, index, active, focused) =>
+            {
+                var element = _comboStagesProperty.GetArrayElementAtIndex(index);
+                var line = rect;
+                line.height = EditorGUIUtility.singleLineHeight;
+                line.y += 2f;
+
+                var left = new Rect(line.x, line.y, line.width * 0.5f - 4f, line.height);
+                var right = new Rect(line.x + line.width * 0.5f + 4f, line.y, line.width * 0.5f - 4f, line.height);
+
+                EditorGUI.PropertyField(left, element.FindPropertyRelative("StageId"), GUIContent.none);
+                EditorGUI.PropertyField(right, element.FindPropertyRelative("DisplayName"), GUIContent.none);
+
+                line.y += line.height + 2f;
+                EditorGUI.PropertyField(new Rect(line.x, line.y, line.width * 0.5f - 4f, line.height), element.FindPropertyRelative("DamageMultiplier"), new GUIContent("Damage Multiplier"));
+                EditorGUI.PropertyField(new Rect(line.x + line.width * 0.5f + 4f, line.y, line.width * 0.5f - 4f, line.height), element.FindPropertyRelative("WindowSeconds"), new GUIContent("Window (s)"));
+
+                line.y += line.height + 2f;
+                EditorGUI.PropertyField(new Rect(line.x, line.y, line.width, line.height), element.FindPropertyRelative("AnimationTrigger"), new GUIContent("Animation Trigger"));
+
+                line.y += line.height + 2f;
+                EditorGUI.PropertyField(new Rect(line.x, line.y, line.width, EditorGUIUtility.singleLineHeight), element.FindPropertyRelative("HitboxOverride"), new GUIContent("Hitbox Override"), true);
+            };
         }
 
         private void OnGUI()
@@ -155,6 +210,10 @@ namespace Realm.EditorTools
             DrawResourceSection();
             EditorGUILayout.Space(12f);
             DrawExecutionSection();
+            EditorGUILayout.Space(12f);
+            DrawDeliverySection();
+            EditorGUILayout.Space(12f);
+            DrawComboSection();
             EditorGUILayout.Space(12f);
             DrawEffectsSection();
             EditorGUILayout.Space(12f);
@@ -316,6 +375,41 @@ namespace Realm.EditorTools
             _effectsList.DoLayoutList();
         }
 
+        private void DrawDeliverySection()
+        {
+            EditorGUILayout.LabelField("Hitbox Delivery", EditorStyles.boldLabel);
+            if (_hitboxProperty == null)
+            {
+                EditorGUILayout.HelpBox("Hitbox configuration is unavailable.", MessageType.Warning);
+                return;
+            }
+
+            EditorGUILayout.PropertyField(_hitboxProperty.FindPropertyRelative("Shape"));
+            EditorGUILayout.PropertyField(_hitboxProperty.FindPropertyRelative("Size"), new GUIContent("Size (m)"));
+            EditorGUILayout.PropertyField(_hitboxProperty.FindPropertyRelative("Radius"), new GUIContent("Radius (m)"));
+            EditorGUILayout.PropertyField(_hitboxProperty.FindPropertyRelative("Length"), new GUIContent("Length (m)"));
+            EditorGUILayout.PropertyField(_hitboxProperty.FindPropertyRelative("Offset"), new GUIContent("Offset"));
+            EditorGUILayout.PropertyField(_hitboxProperty.FindPropertyRelative("UseCasterFacing"), new GUIContent("Use Caster Facing"));
+            EditorGUILayout.PropertyField(_hitboxProperty.FindPropertyRelative("ActiveSeconds"), new GUIContent("Active Window (s)"));
+            EditorGUILayout.PropertyField(_hitboxProperty.FindPropertyRelative("RequiresContact"), new GUIContent("Requires Contact"));
+        }
+
+        private void DrawComboSection()
+        {
+            EditorGUILayout.LabelField("Combo Chain", EditorStyles.boldLabel);
+
+            var enabledProp = _comboProperty.FindPropertyRelative("Enabled");
+            var resetProp = _comboProperty.FindPropertyRelative("ResetSeconds");
+
+            EditorGUILayout.PropertyField(enabledProp, new GUIContent("Enabled"));
+            EditorGUILayout.PropertyField(resetProp, new GUIContent("Reset After (s)"));
+
+            using (new EditorGUI.DisabledScope(!enabledProp.boolValue))
+            {
+                _comboStagesList.DoLayoutList();
+            }
+        }
+
         private void DrawValidationSection()
         {
             if (_validationMessages.Count == 0)
@@ -358,6 +452,18 @@ namespace Realm.EditorTools
             if (_workingCopy.Execution == null)
             {
                 _workingCopy.Execution = new AbilityExecutionCondition();
+            }
+            if (_workingCopy.Hitbox == null)
+            {
+                _workingCopy.Hitbox = new AbilityHitboxConfig();
+            }
+            if (_workingCopy.Combo == null)
+            {
+                _workingCopy.Combo = new AbilityComboChain();
+            }
+            if (_workingCopy.Combo.Stages == null)
+            {
+                _workingCopy.Combo.Stages = new List<AbilityComboStage>();
             }
             if (_workingCopy.Effects == null)
             {
@@ -480,6 +586,18 @@ namespace Realm.EditorTools
             if (execution.RequiresBuffActive && string.IsNullOrWhiteSpace(execution.RequiredBuffName))
             {
                 _validationMessages.Add(("Specify the buff name when 'Requires Buff Active' is enabled.", MessageType.Warning));
+            }
+
+            if (_workingCopy.Combo != null && _workingCopy.Combo.Enabled)
+            {
+                if (_workingCopy.Combo.Stages == null || _workingCopy.Combo.Stages.Count == 0)
+                {
+                    _validationMessages.Add(("Combo chain enabled but no stages were defined.", MessageType.Error));
+                }
+                else if (_workingCopy.Combo.Stages.Count < 2)
+                {
+                    _validationMessages.Add(("Combo chain has fewer than two stages.", MessageType.Warning));
+                }
             }
 
             foreach (var effect in _workingCopy.Effects)

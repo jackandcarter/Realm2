@@ -41,6 +41,14 @@ namespace Realm.Abilities
         Custom
     }
 
+    public enum AbilityHitboxShape
+    {
+        Sphere,
+        Capsule,
+        Box,
+        Cone
+    }
+
     [Serializable]
     public class AbilityTargetingConfig
     {
@@ -78,6 +86,38 @@ namespace Realm.Abilities
     }
 
     [Serializable]
+    public class AbilityHitboxConfig
+    {
+        public AbilityHitboxShape Shape = AbilityHitboxShape.Capsule;
+        public Vector3 Size = new Vector3(1f, 1f, 1f);
+        public float Radius = 0.75f;
+        public float Length = 1.5f;
+        public Vector3 Offset = new Vector3(0f, 0f, 0.75f);
+        public bool UseCasterFacing = true;
+        public float ActiveSeconds = 0.2f;
+        public bool RequiresContact = true;
+    }
+
+    [Serializable]
+    public class AbilityComboStage
+    {
+        public string StageId = "stage-1";
+        public string DisplayName = "Combo Stage";
+        public float DamageMultiplier = 1f;
+        public float WindowSeconds = 0.6f;
+        public string AnimationTrigger;
+        public AbilityHitboxConfig HitboxOverride = new AbilityHitboxConfig();
+    }
+
+    [Serializable]
+    public class AbilityComboChain
+    {
+        public bool Enabled;
+        public float ResetSeconds = 1.2f;
+        public List<AbilityComboStage> Stages = new List<AbilityComboStage>();
+    }
+
+    [Serializable]
     public class AbilityEffect
     {
         public string Name = "New Effect";
@@ -101,6 +141,8 @@ namespace Realm.Abilities
         public AbilityTargetingConfig Targeting = new AbilityTargetingConfig();
         public AbilityResourceConfig Resource = new AbilityResourceConfig();
         public AbilityExecutionCondition Execution = new AbilityExecutionCondition();
+        public AbilityHitboxConfig Hitbox = new AbilityHitboxConfig();
+        public AbilityComboChain Combo = new AbilityComboChain();
         public List<AbilityEffect> Effects = new List<AbilityEffect>();
 
         public string BuildSummary()
@@ -131,6 +173,11 @@ namespace Realm.Abilities
                 {
                     segments.Add(DescribeEffect(effect));
                 }
+            }
+
+            if (Combo != null && Combo.Enabled && Combo.Stages != null && Combo.Stages.Count > 0)
+            {
+                segments.Add($"Combo chain: {Combo.Stages.Count} hits.");
             }
 
             return string.Join(" \u2022 ", segments);

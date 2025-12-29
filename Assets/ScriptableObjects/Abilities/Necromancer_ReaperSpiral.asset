@@ -1,0 +1,129 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: db0099da1bc141d989cd94a09067f1ed, type: 3}
+  m_Name: Necromancer_ReaperSpiral
+  m_EditorClassIdentifier:
+  AbilityName: Reaper's Spiral
+  Description: Unleash a four-hit scythe combo that cleaves nearby enemies and leaves necrotic wounds.
+  Icon: {fileID: 0}
+  Targeting:
+    Mode: 3
+    AreaShape: 2
+    AreaSize: 2.5
+    MaxTargets: 4
+    RequiresPrimaryTarget: 0
+    CanAffectCaster: 0
+  Resource:
+    ResourceType: 3
+    Cost: 20
+    PercentageCost: 0
+    CooldownSeconds: 6
+    GlobalCooldownSeconds: 1.2
+  Execution:
+    Label: Reaper Combo
+    Description: Chain four hitbox swings for escalating damage.
+    RequiresLoS: 0
+    RequiresGroundTarget: 0
+    OnlyWhileMoving: 0
+    OnlyWhileStationary: 0
+    RequiresBuffActive: 0
+    RequiredBuffName: 
+    HealthThreshold: 1
+    RequiresComboWindow: 1
+  Hitbox:
+    Shape: 3
+    Size: {x: 2.2, y: 1.6, z: 2.4}
+    Radius: 1.1
+    Length: 2.4
+    Offset: {x: 0, y: 0.9, z: 1.1}
+    UseCasterFacing: 1
+    ActiveSeconds: 0.25
+    RequiresContact: 1
+  Combo:
+    Enabled: 1
+    ResetSeconds: 1.1
+    Stages:
+    - StageId: swing-1
+      DisplayName: Grave Cut
+      DamageMultiplier: 1
+      WindowSeconds: 0.5
+      AnimationTrigger: combo_1
+      HitboxOverride:
+        Shape: 3
+        Size: {x: 2, y: 1.4, z: 2}
+        Radius: 1
+        Length: 2
+        Offset: {x: 0, y: 0.85, z: 1}
+        UseCasterFacing: 1
+        ActiveSeconds: 0.2
+        RequiresContact: 1
+    - StageId: swing-2
+      DisplayName: Bone Splitter
+      DamageMultiplier: 1.1
+      WindowSeconds: 0.5
+      AnimationTrigger: combo_2
+      HitboxOverride:
+        Shape: 3
+        Size: {x: 2.1, y: 1.5, z: 2.2}
+        Radius: 1.05
+        Length: 2.2
+        Offset: {x: 0, y: 0.85, z: 1.05}
+        UseCasterFacing: 1
+        ActiveSeconds: 0.22
+        RequiresContact: 1
+    - StageId: swing-3
+      DisplayName: Soul Shear
+      DamageMultiplier: 1.2
+      WindowSeconds: 0.55
+      AnimationTrigger: combo_3
+      HitboxOverride:
+        Shape: 3
+        Size: {x: 2.25, y: 1.6, z: 2.35}
+        Radius: 1.1
+        Length: 2.35
+        Offset: {x: 0, y: 0.9, z: 1.1}
+        UseCasterFacing: 1
+        ActiveSeconds: 0.24
+        RequiresContact: 1
+    - StageId: swing-4
+      DisplayName: Mortal Reap
+      DamageMultiplier: 1.4
+      WindowSeconds: 0.6
+      AnimationTrigger: combo_4
+      HitboxOverride:
+        Shape: 3
+        Size: {x: 2.4, y: 1.7, z: 2.6}
+        Radius: 1.2
+        Length: 2.6
+        Offset: {x: 0, y: 0.9, z: 1.2}
+        UseCasterFacing: 1
+        ActiveSeconds: 0.26
+        RequiresContact: 1
+  Effects:
+  - Name: Necrotic Cleave
+    EffectType: 0
+    Magnitude: 8
+    DurationSeconds: 0
+    TickInterval: 1
+    ScalingWithPower: 1
+    StateName: 
+    CustomSummary: 
+    Priority: 0
+  - Name: Necrotic Wound
+    EffectType: 3
+    Magnitude: 0
+    DurationSeconds: 4
+    TickInterval: 1
+    ScalingWithPower: 0
+    StateName: state.necrotic_wound
+    CustomSummary: 
+    Priority: 1

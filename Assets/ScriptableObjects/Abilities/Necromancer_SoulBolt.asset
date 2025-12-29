@@ -1,0 +1,73 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: db0099da1bc141d989cd94a09067f1ed, type: 3}
+  m_Name: Necromancer_SoulBolt
+  m_EditorClassIdentifier:
+  AbilityName: Soul Bolt
+  Description: Launch a necrotic bolt that damages a target and weakens their defenses.
+  Icon: {fileID: 0}
+  Targeting:
+    Mode: 2
+    AreaShape: 0
+    AreaSize: 0
+    MaxTargets: 1
+    RequiresPrimaryTarget: 1
+    CanAffectCaster: 0
+  Resource:
+    ResourceType: 1
+    Cost: 18
+    PercentageCost: 0
+    CooldownSeconds: 8
+    GlobalCooldownSeconds: 1.5
+  Execution:
+    Label: Necrotic Projectile
+    Description: Fires a long-range spell that frays the target's spirit.
+    RequiresLoS: 1
+    RequiresGroundTarget: 0
+    OnlyWhileMoving: 0
+    OnlyWhileStationary: 0
+    RequiresBuffActive: 0
+    RequiredBuffName: 
+    HealthThreshold: 1
+    RequiresComboWindow: 0
+  Hitbox:
+    Shape: 0
+    Size: {x: 0.6, y: 0.6, z: 0.6}
+    Radius: 0.3
+    Length: 0.6
+    Offset: {x: 0, y: 0.2, z: 0.4}
+    UseCasterFacing: 1
+    ActiveSeconds: 0.1
+    RequiresContact: 0
+  Combo:
+    Enabled: 0
+    ResetSeconds: 1.2
+    Stages: []
+  Effects:
+  - Name: Soul Bolt Damage
+    EffectType: 0
+    Magnitude: 12
+    DurationSeconds: 0
+    TickInterval: 1
+    ScalingWithPower: 1
+    StateName: 
+    CustomSummary: 
+    Priority: 0
+  - Name: Soul Fray
+    EffectType: 3
+    Magnitude: 0
+    DurationSeconds: 6
+    TickInterval: 1
+    ScalingWithPower: 0
+    StateName: state.soul_fray
+    CustomSummary: 
+    Priority: 1
