@@ -287,20 +287,27 @@ namespace Digger.Modules.Core.Editor
             }
 
             var warnUseOpacityAsDensity = -1;
+            TerrainLayer warnLayer = null;
             for (var i = 0; i < tData.terrainLayers.Length; i++) {
-                if (tData.terrainLayers[i].diffuseRemapMin.w > 0.1f) {
+                var terrainLayer = tData.terrainLayers[i];
+                if (!terrainLayer) {
+                    continue;
+                }
+
+                if (terrainLayer.diffuseRemapMin.w > 0.1f) {
                     warnUseOpacityAsDensity = i;
+                    warnLayer = terrainLayer;
                     break;
                 }
             }
 
-            if (warnUseOpacityAsDensity >= 0) {
-                Debug.LogWarning($"The terrain layer \"{tData.terrainLayers[warnUseOpacityAsDensity].name}\" has \"Opacity as Density\" enabled. " +
+            if (warnUseOpacityAsDensity >= 0 && warnLayer != null) {
+                Debug.LogWarning($"The terrain layer \"{warnLayer.name}\" has \"Opacity as Density\" enabled. " +
                                  "This is not well supported by Digger.");
                 if (forceRefresh) {
                     EditorUtility.DisplayDialog(
                         "Opacity as Density",
-                        $"The terrain layer \"{tData.terrainLayers[warnUseOpacityAsDensity].name}\" has \"Opacity as Density\" enabled.\n\n" +
+                        $"The terrain layer \"{warnLayer.name}\" has \"Opacity as Density\" enabled.\n\n" +
                         "This is not well supported by Digger as it may creates visual difference between Digger meshes and the terrain. It is recommended " +
                         "to disable it and click on \"Sync & Refresh\" again.",
                         "Ok");
