@@ -66,8 +66,12 @@ namespace Client.UI.Maps
         private RectTransform _parentRect;
         private OverlayState _state;
         private bool _serviceSubscribed;
+        private Texture _currentTexture;
+        private Rect _worldBounds = new(-512f, -512f, 1024f, 1024f);
 
         public bool IsOpen => _isOpen;
+        public Texture CurrentTexture => _currentTexture;
+        public Rect WorldBounds => _worldBounds;
 
         [Serializable]
         private struct OverlayState
@@ -242,6 +246,21 @@ namespace Client.UI.Maps
             pinService = targetService;
             SubscribeToPinService();
             UpdateDetailsPanel(pinService != null ? pinService.SelectedPin : null);
+        }
+
+        public void SetMapTexture(Texture texture)
+        {
+            _currentTexture = texture;
+            if (mapTexture != null)
+            {
+                mapTexture.texture = texture;
+                mapTexture.enabled = texture != null;
+            }
+        }
+
+        public void SetWorldBounds(Rect bounds)
+        {
+            _worldBounds = bounds;
         }
 
         internal void BeginWindowDrag(PointerEventData eventData)
