@@ -26,6 +26,18 @@ namespace Realm.Editor.DesignerTools
         private string abilityDefinitionsFolder = "Assets/ScriptableObjects/Abilities";
 
         [SerializeField]
+        private string weaponTypeDefinitionsFolder = "Assets/ScriptableObjects/Equipment/WeaponTypes";
+
+        [SerializeField]
+        private string armorTypeDefinitionsFolder = "Assets/ScriptableObjects/Equipment/ArmorTypes";
+
+        [SerializeField]
+        private string weaponDefinitionsFolder = "Assets/ScriptableObjects/Equipment/Weapons";
+
+        [SerializeField]
+        private string armorDefinitionsFolder = "Assets/ScriptableObjects/Equipment/Armors";
+
+        [SerializeField]
         private string registryAssetPath = "Assets/ScriptableObjects/Stats/StatRegistry.asset";
 
         internal static DesignerToolkitProfile Instance => instance;
@@ -64,6 +76,30 @@ namespace Realm.Editor.DesignerTools
         {
             get => abilityDefinitionsFolder;
             set => abilityDefinitionsFolder = value;
+        }
+
+        internal string WeaponTypeDefinitionsFolder
+        {
+            get => weaponTypeDefinitionsFolder;
+            set => weaponTypeDefinitionsFolder = value;
+        }
+
+        internal string ArmorTypeDefinitionsFolder
+        {
+            get => armorTypeDefinitionsFolder;
+            set => armorTypeDefinitionsFolder = value;
+        }
+
+        internal string WeaponDefinitionsFolder
+        {
+            get => weaponDefinitionsFolder;
+            set => weaponDefinitionsFolder = value;
+        }
+
+        internal string ArmorDefinitionsFolder
+        {
+            get => armorDefinitionsFolder;
+            set => armorDefinitionsFolder = value;
         }
 
         internal string RegistryAssetPath
