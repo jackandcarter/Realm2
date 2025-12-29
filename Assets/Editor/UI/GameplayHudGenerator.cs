@@ -33,6 +33,7 @@ namespace Realm.Editor.UI
             BindMapReferences(miniMap, worldMap);
             ApplyControllerBindings(controller, root.GetComponent<Canvas>(), classDockAnchor);
 
+            RemoveMissingScripts(root);
             SavePrefab(root);
             Selection.activeGameObject = root;
         }
@@ -178,6 +179,23 @@ namespace Realm.Editor.UI
             }
 
             PrefabUtility.SaveAsPrefabAssetAndConnect(root, PrefabPath, InteractionMode.AutomatedAction);
+        }
+
+        private static void RemoveMissingScripts(GameObject root)
+        {
+            if (root == null)
+            {
+                return;
+            }
+
+            foreach (var transform in root.GetComponentsInChildren<Transform>(true))
+            {
+                var removedCount = GameObjectUtility.RemoveMonoBehavioursWithMissingScript(transform.gameObject);
+                if (removedCount > 0)
+                {
+                    Debug.LogWarning($"Removed {removedCount} missing script component(s) from '{transform.name}' while generating the Gameplay HUD.", transform);
+                }
+            }
         }
 
         private static void ApplyUiLayer(GameObject target)
