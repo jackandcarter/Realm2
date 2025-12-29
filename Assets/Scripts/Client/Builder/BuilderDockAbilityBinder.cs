@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Building;
 using Client.Player;
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -20,7 +21,7 @@ namespace Client.Builder
         [Header("UI")]
         [SerializeField] private RectTransform buttonContainer;
         [SerializeField] private GameObject buttonPrefab;
-        [SerializeField] private Text statusLabel;
+        [SerializeField] private TMP_Text statusLabel;
         [SerializeField] private Color readyColor = new Color(0.3f, 0.8f, 0.5f, 1f);
         [SerializeField] private Color disabledColor = new Color(0.7f, 0.7f, 0.7f, 1f);
 
@@ -326,12 +327,12 @@ namespace Client.Builder
             var existing = transform.Find("StatusLabel");
             if (existing != null)
             {
-                statusLabel = existing.GetComponent<Text>();
+                statusLabel = existing.GetComponent<TMP_Text>();
             }
 
             if (statusLabel == null)
             {
-                Debug.LogWarning("BuilderDockAbilityBinder is missing a StatusLabel Text reference.", this);
+                Debug.LogWarning("BuilderDockAbilityBinder is missing a StatusLabel TMP reference.", this);
                 return false;
             }
 

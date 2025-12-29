@@ -1,5 +1,6 @@
 using System.IO;
 using Client.UI;
+using TMPro;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -16,7 +17,7 @@ namespace Realm.Editor.UI
         public static void GenerateFoundation()
         {
             var manager = FindOrCreateManager();
-            var font = LoadLegacyFont();
+            var font = LoadDefaultFontAsset();
 
             EnsureEventSystem();
 
@@ -84,7 +85,7 @@ namespace Realm.Editor.UI
             return child.GetComponent<RectTransform>();
         }
 
-        private static Button FindOrCreateTabButton(RectTransform parent, string name, string label, Font font)
+        private static Button FindOrCreateTabButton(RectTransform parent, string name, string label, TMP_FontAsset font)
         {
             var existing = parent.Find(name);
             if (existing != null && existing.TryGetComponent(out Button existingButton))
@@ -105,7 +106,7 @@ namespace Realm.Editor.UI
             layout.preferredWidth = 180f;
             layout.preferredHeight = 48f;
 
-            var labelObject = new GameObject("Label", typeof(RectTransform), typeof(CanvasRenderer), typeof(Text));
+            var labelObject = new GameObject("Label", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
             labelObject.transform.SetParent(button.transform, false);
             ApplyUiLayer(labelObject);
 
@@ -119,7 +120,7 @@ namespace Realm.Editor.UI
             return button.GetComponent<Button>();
         }
 
-        private static GameObject FindOrCreatePanel(RectTransform parent, string name, string title, string description, Font font)
+        private static GameObject FindOrCreatePanel(RectTransform parent, string name, string title, string description, TMP_FontAsset font)
         {
             var existing = parent.Find(name);
             if (existing != null)
@@ -148,9 +149,9 @@ namespace Realm.Editor.UI
             return panel;
         }
 
-        private static void CreatePanelLabel(Transform parent, string name, string text, Font font, int fontSize, Vector2 anchorMin, Vector2 anchorMax, Vector2 offsetMin, Vector2 offsetMax)
+        private static void CreatePanelLabel(Transform parent, string name, string text, TMP_FontAsset font, int fontSize, Vector2 anchorMin, Vector2 anchorMax, Vector2 offsetMin, Vector2 offsetMax)
         {
-            var label = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(Text));
+            var label = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
             Undo.RegisterCreatedObjectUndo(label, "Create Arkitect Panel Label");
             label.transform.SetParent(parent, false);
             ApplyUiLayer(label);
@@ -161,48 +162,60 @@ namespace Realm.Editor.UI
             rect.offsetMin = offsetMin;
             rect.offsetMax = offsetMax;
 
-            var textComponent = label.GetComponent<Text>();
+            var textComponent = label.GetComponent<TextMeshProUGUI>();
             textComponent.text = text;
-            textComponent.font = font;
+            if (font != null)
+            {
+                textComponent.font = font;
+            }
+
             textComponent.fontSize = fontSize;
-            textComponent.alignment = TextAnchor.UpperLeft;
+            textComponent.alignment = TextAlignmentOptions.TopLeft;
             textComponent.color = new Color(0.839f, 0.925f, 0.992f, 1f);
         }
 
-        private static void EnsurePanelText(Transform panel, string title, string description, Font font)
+        private static void EnsurePanelText(Transform panel, string title, string description, TMP_FontAsset font)
         {
             var titleTransform = panel.Find("Title");
-            if (titleTransform != null && titleTransform.TryGetComponent(out Text titleText))
+            if (titleTransform != null && titleTransform.TryGetComponent(out TextMeshProUGUI titleText))
             {
                 if (string.IsNullOrWhiteSpace(titleText.text))
                 {
                     titleText.text = title;
                 }
 
-                titleText.font = font;
+                if (font != null)
+                {
+                    titleText.font = font;
+                }
+
                 titleText.fontSize = 28;
-                titleText.alignment = TextAnchor.UpperLeft;
+                titleText.alignment = TextAlignmentOptions.TopLeft;
                 titleText.color = new Color(0.898f, 0.768f, 1f, 1f);
-                titleText.fontStyle = FontStyle.Bold;
+                titleText.fontStyle = FontStyles.Bold;
             }
 
             var descriptionTransform = panel.Find("Description");
-            if (descriptionTransform != null && descriptionTransform.TryGetComponent(out Text descriptionText))
+            if (descriptionTransform != null && descriptionTransform.TryGetComponent(out TextMeshProUGUI descriptionText))
             {
                 if (string.IsNullOrWhiteSpace(descriptionText.text))
                 {
                     descriptionText.text = description;
                 }
 
-                descriptionText.font = font;
+                if (font != null)
+                {
+                    descriptionText.font = font;
+                }
+
                 descriptionText.fontSize = 20;
-                descriptionText.alignment = TextAnchor.UpperLeft;
+                descriptionText.alignment = TextAlignmentOptions.TopLeft;
                 descriptionText.color = new Color(0.788f, 0.862f, 0.976f, 1f);
-                descriptionText.fontStyle = FontStyle.Normal;
+                descriptionText.fontStyle = FontStyles.Normal;
             }
         }
 
-        private static void EnsureButtonLabel(Button button, string label, Font font)
+        private static void EnsureButtonLabel(Button button, string label, TMP_FontAsset font)
         {
             if (button == null)
             {
@@ -212,7 +225,7 @@ namespace Realm.Editor.UI
             var labelTransform = button.transform.Find("Label");
             if (labelTransform == null)
             {
-                var labelObject = new GameObject("Label", typeof(RectTransform), typeof(CanvasRenderer), typeof(Text));
+                var labelObject = new GameObject("Label", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
                 Undo.RegisterCreatedObjectUndo(labelObject, "Create Arkitect Button Label");
                 labelObject.transform.SetParent(button.transform, false);
                 ApplyUiLayer(labelObject);
@@ -225,16 +238,20 @@ namespace Realm.Editor.UI
                 labelRect.offsetMax = Vector2.zero;
             }
 
-            if (!labelTransform.TryGetComponent(out Text text))
+            if (!labelTransform.TryGetComponent(out TextMeshProUGUI text))
             {
                 return;
             }
 
             text.text = label;
-            text.font = font;
-            text.fontStyle = FontStyle.Bold;
+            if (font != null)
+            {
+                text.font = font;
+            }
+
+            text.fontStyle = FontStyles.Bold;
             text.fontSize = 22;
-            text.alignment = TextAnchor.MiddleCenter;
+            text.alignment = TextAlignmentOptions.Center;
             text.color = new Color(0.839f, 0.925f, 0.992f, 1f);
         }
 
@@ -301,9 +318,9 @@ namespace Realm.Editor.UI
             PrefabUtility.SaveAsPrefabAssetAndConnect(root, PrefabPath, InteractionMode.AutomatedAction);
         }
 
-        private static Font LoadLegacyFont()
+        private static TMP_FontAsset LoadDefaultFontAsset()
         {
-            return Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            return TMP_Settings.defaultFontAsset;
         }
 
         private static void ApplyUiLayer(GameObject target)

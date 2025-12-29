@@ -1,4 +1,5 @@
 using Client.CharacterCreation;
+using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
@@ -10,7 +11,7 @@ namespace Client.UI.HUD.Dock
     public class AbilityDockItem : MonoBehaviour, IBeginDragHandler, IEndDragHandler, IDragHandler, IDropHandler
     {
         [SerializeField] private Image iconImage;
-        [SerializeField] private Text label;
+        [SerializeField] private TMP_Text label;
         [SerializeField] private CanvasGroup canvasGroup;
 
         private ClassAbilityDockModule _owner;
@@ -40,7 +41,7 @@ namespace Client.UI.HUD.Dock
 
             if (label == null)
             {
-                label = GetComponentInChildren<Text>();
+                label = GetComponentInChildren<TMP_Text>();
             }
         }
 
