@@ -9,6 +9,7 @@ using UnityEngine.UI;
 namespace Client.UI.HUD
 {
     [DisallowMultipleComponent]
+    [RequireComponent(typeof(CanvasGroup))]
     public class GameplayClassSwitcher : MonoBehaviour
     {
         [Header("Layout")]
@@ -46,7 +47,7 @@ namespace Client.UI.HUD
                 rootCanvasGroup = GetComponent<CanvasGroup>();
                 if (rootCanvasGroup == null)
                 {
-                    rootCanvasGroup = gameObject.AddComponent<CanvasGroup>();
+                    Debug.LogWarning("GameplayClassSwitcher requires a CanvasGroup component.", this);
                 }
             }
 
@@ -275,7 +276,7 @@ namespace Client.UI.HUD
             var canvasGroup = go.GetComponent<CanvasGroup>();
             if (canvasGroup == null)
             {
-                canvasGroup = go.AddComponent<CanvasGroup>();
+                Debug.LogWarning($"GameplayClassSwitcher button '{go.name}' is missing a CanvasGroup component.", go);
             }
 
             instance.onClick.RemoveAllListeners();
@@ -341,7 +342,8 @@ namespace Client.UI.HUD
                 var rectTransform = binding.Root.GetComponent<RectTransform>();
                 if (rectTransform == null)
                 {
-                    rectTransform = binding.Root.AddComponent<RectTransform>();
+                    Debug.LogWarning($"GameplayClassSwitcher button '{binding.Root.name}' is missing a RectTransform.", binding.Root);
+                    continue;
                 }
 
                 rectTransform.anchorMin = new Vector2(0.5f, 0.5f);

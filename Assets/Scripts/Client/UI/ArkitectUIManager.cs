@@ -12,6 +12,10 @@ namespace Client.UI
 {
     [ExecuteAlways]
     [DisallowMultipleComponent]
+    [RequireComponent(typeof(Canvas))]
+    [RequireComponent(typeof(CanvasScaler))]
+    [RequireComponent(typeof(GraphicRaycaster))]
+    [RequireComponent(typeof(RectTransform))]
     public class ArkitectUIManager : MonoBehaviour, IClassUiModule
     {
         [Header("Containers")]
@@ -64,7 +68,8 @@ namespace Client.UI
 
             if (!TryGetComponent(out RectTransform rectTransform))
             {
-                rectTransform = gameObject.AddComponent<RectTransform>();
+                Debug.LogError("ArkitectUIManager requires a RectTransform on the same GameObject.", this);
+                return;
             }
 
             rectTransform.SetParent(parent, false);
@@ -129,7 +134,10 @@ namespace Client.UI
 
         private void InitializeUi()
         {
-            EnsureCanvasSetup();
+            if (!EnsureCanvasSetup())
+            {
+                return;
+            }
             EnsureContainers();
             EnsureTabs();
             EnsurePanels();
@@ -149,12 +157,13 @@ namespace Client.UI
             ApplyPermissions(_hasPermissions);
         }
 
-        private void EnsureCanvasSetup()
+        private bool EnsureCanvasSetup()
         {
             var canvas = GetComponent<Canvas>();
             if (canvas == null)
             {
-                canvas = gameObject.AddComponent<Canvas>();
+                Debug.LogError("ArkitectUIManager requires a Canvas component in the scene.", this);
+                return false;
             }
 
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
@@ -162,7 +171,8 @@ namespace Client.UI
 
             if (!TryGetComponent<RectTransform>(out var rectTransform))
             {
-                rectTransform = gameObject.AddComponent<RectTransform>();
+                Debug.LogError("ArkitectUIManager requires a RectTransform component in the scene.", this);
+                return false;
             }
 
             rectTransform.anchorMin = Vector2.zero;
@@ -172,17 +182,23 @@ namespace Client.UI
 
             if (GetComponent<CanvasScaler>() == null)
             {
-                var scaler = gameObject.AddComponent<CanvasScaler>();
-                scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-                scaler.referenceResolution = new Vector2(1920f, 1080f);
-                scaler.matchWidthOrHeight = 0.5f;
-                scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
+                Debug.LogError("ArkitectUIManager requires a CanvasScaler component in the scene.", this);
+                return false;
             }
 
             if (GetComponent<GraphicRaycaster>() == null)
             {
-                gameObject.AddComponent<GraphicRaycaster>();
+                Debug.LogError("ArkitectUIManager requires a GraphicRaycaster component in the scene.", this);
+                return false;
             }
+
+            var scaler = GetComponent<CanvasScaler>();
+            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            scaler.referenceResolution = new Vector2(1920f, 1080f);
+            scaler.matchWidthOrHeight = 0.5f;
+            scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
+
+            return true;
         }
 
         private void EnsureContainers()
@@ -203,12 +219,11 @@ namespace Client.UI
 
             if (panelsContainer == null)
             {
-                panelsContainer = CreateRectTransform("Panels", transform as RectTransform);
+                Debug.LogWarning("ArkitectUIManager is missing the Panels container. Assign it in the scene.", this);
             }
-
-            ConfigurePanelsContainer(panelsContainer);
-            if (panelsContainer != null)
+            else
             {
+                ConfigurePanelsContainer(panelsContainer);
                 ReparentIfNecessary(panelsContainer, transform as RectTransform);
                 ArkitectRegistry.RegisterUiPanel(PanelsRegistryId, panelsContainer.gameObject);
             }
@@ -229,12 +244,11 @@ namespace Client.UI
 
             if (tabContainer == null)
             {
-                tabContainer = CreateTabContainer();
+                Debug.LogWarning("ArkitectUIManager is missing the TabBar container. Assign it in the scene.", this);
             }
-
-            ConfigureTabContainer(tabContainer);
-            if (tabContainer != null)
+            else
             {
+                ConfigureTabContainer(tabContainer);
                 ReparentIfNecessary(tabContainer, transform as RectTransform);
                 ArkitectRegistry.RegisterUiPanel(TabBarRegistryId, tabContainer.gameObject);
             }
@@ -261,7 +275,7 @@ namespace Client.UI
 
             if (buttonReference == null)
             {
-                buttonReference = CreateTabButton(objectName, label);
+                Debug.LogWarning($"ArkitectUIManager is missing the {objectName} button. Assign it in the scene.", this);
             }
             else
             {
@@ -312,7 +326,7 @@ namespace Client.UI
 
             if (panelReference == null)
             {
-                panelReference = CreatePanel(panelName, description);
+                Debug.LogWarning($"ArkitectUIManager is missing the {panelName} panel. Assign it in the scene.", this);
             }
             else
             {
@@ -348,7 +362,8 @@ namespace Client.UI
 
             if (!button.TryGetComponent(out Image image))
             {
-                image = button.gameObject.AddComponent<Image>();
+                Debug.LogWarning($"ArkitectUIManager tab button '{button.name}' is missing an Image component.", button);
+                return;
             }
 
             image.color = inactiveTabColor;
@@ -380,31 +395,6 @@ namespace Client.UI
             _activePanel = panel;
         }
 
-        private RectTransform CreateRectTransform(string name, RectTransform parent)
-        {
-            var go = new GameObject(name, typeof(RectTransform));
-            var rect = go.GetComponent<RectTransform>();
-            rect.SetParent(parent, false);
-            rect.anchorMin = Vector2.zero;
-            rect.anchorMax = Vector2.one;
-            rect.anchoredPosition = Vector2.zero;
-            rect.sizeDelta = Vector2.zero;
-            go.layer = parent != null ? parent.gameObject.layer : gameObject.layer;
-            return rect;
-        }
-
-        private RectTransform CreateTabContainer()
-        {
-            var go = new GameObject("TabBar", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(HorizontalLayoutGroup));
-            go.layer = gameObject.layer;
-            var rect = go.GetComponent<RectTransform>();
-            rect.SetParent(transform, false);
-            ConfigureTabContainer(rect);
-            var image = go.GetComponent<Image>();
-            image.color = new Color(0.141f, 0.180f, 0.250f, 0.95f);
-            return rect;
-        }
-
         private void ConfigureTabContainer(RectTransform rect)
         {
             if (rect == null)
@@ -420,7 +410,8 @@ namespace Client.UI
 
             if (!rect.TryGetComponent(out HorizontalLayoutGroup layout))
             {
-                layout = rect.gameObject.AddComponent<HorizontalLayoutGroup>();
+                Debug.LogWarning("ArkitectUIManager TabBar is missing a HorizontalLayoutGroup component.", rect);
+                return;
             }
 
             layout.spacing = 18f;
@@ -447,89 +438,6 @@ namespace Client.UI
             rect.pivot = new Vector2(0.5f, 0.5f);
             rect.anchoredPosition = new Vector2(0f, -30f);
             rect.sizeDelta = new Vector2(0f, -120f);
-        }
-
-        private Button CreateTabButton(string objectName, string label)
-        {
-            if (tabContainer == null)
-            {
-                return null;
-            }
-
-            var go = new GameObject(objectName, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button), typeof(LayoutElement));
-            go.layer = tabContainer.gameObject.layer;
-            var rect = go.GetComponent<RectTransform>();
-            rect.SetParent(tabContainer, false);
-            rect.anchorMin = new Vector2(0f, 0f);
-            rect.anchorMax = new Vector2(0f, 1f);
-            rect.sizeDelta = new Vector2(200f, -18f);
-            rect.anchoredPosition = Vector2.zero;
-
-            var image = go.GetComponent<Image>();
-            image.color = inactiveTabColor;
-
-            var element = go.GetComponent<LayoutElement>();
-            element.flexibleWidth = 1f;
-            element.preferredHeight = 54f;
-
-            var button = go.GetComponent<Button>();
-            button.transition = Selectable.Transition.ColorTint;
-            button.targetGraphic = image;
-            var colors = button.colors;
-            colors.normalColor = inactiveTabColor;
-            colors.highlightedColor = new Color(0.361f, 0.392f, 0.588f, 1f);
-            colors.pressedColor = new Color(0.278f, 0.318f, 0.505f, 1f);
-            colors.selectedColor = new Color(0.533f, 0.286f, 0.741f, 1f);
-            colors.disabledColor = new Color(0.2f, 0.2f, 0.2f, 0.4f);
-            colors.colorMultiplier = 1f;
-            colors.fadeDuration = 0.1f;
-            button.colors = colors;
-
-            var labelText = CreateText("Label", rect, label, 22, FontStyle.Bold, TextAnchor.MiddleCenter);
-            labelText.color = new Color(0.839f, 0.925f, 0.992f, 1f);
-
-            return button;
-        }
-
-        private GameObject CreatePanel(string panelName, string description)
-        {
-            if (panelsContainer == null)
-            {
-                return null;
-            }
-
-            var go = new GameObject(panelName, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
-            go.layer = panelsContainer.gameObject.layer;
-            var rect = go.GetComponent<RectTransform>();
-            rect.SetParent(panelsContainer, false);
-            rect.anchorMin = Vector2.zero;
-            rect.anchorMax = Vector2.one;
-            rect.anchoredPosition = Vector2.zero;
-            rect.sizeDelta = Vector2.zero;
-
-            var image = go.GetComponent<Image>();
-            image.color = new Color(0.109f, 0.137f, 0.211f, 0.88f);
-
-            var title = CreateText("Title", rect, SplitTitle(panelName), 28, FontStyle.Bold, TextAnchor.UpperLeft);
-            var titleRect = title.rectTransform;
-            titleRect.anchorMin = new Vector2(0f, 1f);
-            titleRect.anchorMax = new Vector2(1f, 1f);
-            titleRect.pivot = new Vector2(0f, 1f);
-            titleRect.anchoredPosition = new Vector2(24f, -28f);
-            titleRect.sizeDelta = new Vector2(-48f, 48f);
-            title.color = new Color(0.898f, 0.768f, 1f, 1f);
-
-            var descriptionText = CreateText("Description", rect, description, 20, FontStyle.Normal, TextAnchor.UpperLeft);
-            var descriptionRect = descriptionText.rectTransform;
-            descriptionRect.anchorMin = new Vector2(0f, 0f);
-            descriptionRect.anchorMax = new Vector2(1f, 1f);
-            descriptionRect.pivot = new Vector2(0f, 1f);
-            descriptionRect.anchoredPosition = new Vector2(24f, -96f);
-            descriptionRect.sizeDelta = new Vector2(-48f, -132f);
-            descriptionText.color = new Color(0.788f, 0.862f, 0.976f, 1f);
-            descriptionText.alignment = TextAnchor.UpperLeft;
-
-            return go;
         }
 
         private void RefreshPanelVisuals(Transform panelTransform, string description)
@@ -586,29 +494,6 @@ namespace Client.UI
             }
         }
 
-        private Text CreateText(string objectName, RectTransform parent, string content, int fontSize, FontStyle style, TextAnchor alignment)
-        {
-            var go = new GameObject(objectName, typeof(RectTransform), typeof(CanvasRenderer), typeof(Text));
-            go.layer = parent != null ? parent.gameObject.layer : gameObject.layer;
-            var rect = go.GetComponent<RectTransform>();
-            rect.SetParent(parent, false);
-            rect.anchorMin = new Vector2(0f, 0f);
-            rect.anchorMax = new Vector2(1f, 1f);
-            rect.anchoredPosition = Vector2.zero;
-            rect.sizeDelta = Vector2.zero;
-
-            var text = go.GetComponent<Text>();
-            text.text = content;
-            text.font = Resources.GetBuiltinResource<Font>("Arial.ttf");
-            text.fontSize = fontSize;
-            text.fontStyle = style;
-            text.alignment = alignment;
-            text.horizontalOverflow = HorizontalWrapMode.Wrap;
-            text.verticalOverflow = VerticalWrapMode.Overflow;
-            text.color = new Color(0.839f, 0.925f, 0.992f, 1f);
-            return text;
-        }
-
         private void UpdateButtonLabel(Button button, string label)
         {
             if (button == null)
@@ -624,7 +509,7 @@ namespace Client.UI
 
             if (labelTransform == null)
             {
-                CreateText("Label", button.transform as RectTransform, label, 22, FontStyle.Bold, TextAnchor.MiddleCenter);
+                Debug.LogWarning($"ArkitectUIManager button '{button.name}' is missing a Label/Text child.", button);
                 return;
             }
 
