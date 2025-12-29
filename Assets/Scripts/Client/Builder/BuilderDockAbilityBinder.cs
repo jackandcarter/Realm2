@@ -187,6 +187,11 @@ namespace Client.Builder
         {
             foreach (var binding in _buttons)
             {
+                if (binding == null)
+                {
+                    continue;
+                }
+
                 if (binding.Button != null)
                 {
                     binding.Button.onClick.RemoveAllListeners();
@@ -234,7 +239,6 @@ namespace Client.Builder
                 }
 
                 ApplyStatus(binding, status, allowSilent: false, ref messageApplied);
-                _buttons[i] = binding;
             }
 
             if (!messageApplied)
@@ -381,7 +385,7 @@ namespace Client.Builder
             statusLabel.text = message;
         }
 
-        private struct ButtonBinding
+        private sealed class ButtonBinding
         {
             public readonly BuilderAbilityDefinition Definition;
             public readonly Button Button;
