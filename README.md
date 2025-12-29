@@ -77,19 +77,19 @@ The authentication and realm management API lives in the `Server/` directory.
 
    ```bash
    cd Server
-   cp .env.example .env
+   npm install
+   npm run setup:local
    ```
 
 3. Start the service locally:
 
    ```bash
-   npm install
    npm run dev
    ```
 
    The API listens on <http://localhost:3000>. Swagger docs are served from `/docs` once the server is running.
 
-4. To run the backend inside Docker (useful for parity with CI):
+4. To run the backend inside Docker (optional, useful for parity with CI):
 
    ```bash
    docker compose up --build

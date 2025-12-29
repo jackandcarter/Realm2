@@ -15,6 +15,15 @@ This directory hosts a lightweight Express + TypeScript backend that provides au
 npm install
 ```
 
+### Prepare a local (non-Docker) environment
+
+```bash
+npm run setup:local
+```
+
+This copies `.env.example` to `.env` if needed and creates the local `data/` directories
+used for SQLite and backups.
+
 ### Run in development mode
 
 ```bash
@@ -88,6 +97,8 @@ Restore operations should be performed while the service is offline. Restart the
 - Structured logs are emitted via `pino`, capturing migration progress, backup lifecycle, and unexpected errors.
 
 ## Docker support
+
+Docker is optional. Use it only if you want container parity with CI or a production image.
 
 Build the production image:
 
