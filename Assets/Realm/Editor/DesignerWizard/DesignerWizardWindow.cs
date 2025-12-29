@@ -26,10 +26,10 @@ namespace Realm.Editor.DesignerWizard
         private Vector2 _scrollPosition;
         private DesignerWizardState _state;
 
-        [MenuItem("Realm/Designer Wizard")]
+        [MenuItem("Realm/Developer Note Pad")]
         private static void ShowWindow()
         {
-            var window = GetWindow<DesignerWizardWindow>(false, "Designer Wizard", true);
+            var window = GetWindow<DesignerWizardWindow>(false, "Developer Note Pad", true);
             window.Show();
         }
 
