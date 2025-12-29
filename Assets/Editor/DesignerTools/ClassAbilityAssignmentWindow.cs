@@ -5,14 +5,13 @@ using Realm.Data;
 using Realm.EditorTools;
 using UnityEditor;
 using UnityEngine;
-using AbilityDefinition = Realm.Abilities.AbilityDefinition;
 
 namespace Realm.Editor.DesignerTools
 {
     public class ClassAbilityAssignmentWindow : EditorWindow
     {
         private readonly List<ClassDefinition> _classes = new();
-        private readonly List<AbilityDefinition> _abilities = new();
+        private readonly List<Realm.Abilities.AbilityDefinition> _abilities = new();
         private SerializedObject _serializedClass;
         private int _selectedClassIndex = -1;
         private Vector2 _classScroll;
@@ -53,7 +52,7 @@ namespace Realm.Editor.DesignerTools
             foreach (var guid in AssetDatabase.FindAssets("t:Realm.Abilities.AbilityDefinition"))
             {
                 var path = AssetDatabase.GUIDToAssetPath(guid);
-                var ability = AssetDatabase.LoadAssetAtPath<AbilityDefinition>(path);
+                var ability = AssetDatabase.LoadAssetAtPath<Realm.Abilities.AbilityDefinition>(path);
                 if (ability != null)
                 {
                     _abilities.Add(ability);
@@ -213,7 +212,7 @@ namespace Realm.Editor.DesignerTools
                 using (new EditorGUILayout.HorizontalScope())
                 {
                     var abilityProp = element.FindPropertyRelative("ability");
-                    var ability = abilityProp?.objectReferenceValue as AbilityDefinition;
+                    var ability = abilityProp?.objectReferenceValue as Realm.Abilities.AbilityDefinition;
                     var displayName = ResolveAbilityLabel(ability);
                     EditorGUILayout.LabelField(displayName, EditorStyles.boldLabel);
                     if (ability != null && GUILayout.Button("Ability Designer", GUILayout.Width(130f)))
@@ -272,7 +271,7 @@ namespace Realm.Editor.DesignerTools
 
             using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
             {
-                AbilityDefinition selectedAbility = null;
+                Realm.Abilities.AbilityDefinition selectedAbility = null;
                 foreach (var ability in _abilities)
                 {
                     var label = ResolveAbilityLabel(ability);
@@ -324,7 +323,7 @@ namespace Realm.Editor.DesignerTools
             return value != null && value.IndexOf(filter, StringComparison.OrdinalIgnoreCase) >= 0;
         }
 
-        private static string ResolveAbilityLabel(AbilityDefinition ability)
+        private static string ResolveAbilityLabel(Realm.Abilities.AbilityDefinition ability)
         {
             if (ability == null)
             {
