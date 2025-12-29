@@ -233,14 +233,14 @@ namespace Realm.EditorTools
         {
             using (new EditorGUILayout.HorizontalScope(EditorStyles.toolbar))
             {
-                _selectedAsset = (AbilityDefinition)EditorGUILayout.ObjectField(_selectedAsset, typeof(AbilityDefinition), false, GUILayout.Width(250f));
+                _selectedAsset = (AbilityDefinition)EditorGUILayout.ObjectField(new GUIContent("Ability Asset", "AbilityDefinition asset to load into the editor."), _selectedAsset, typeof(AbilityDefinition), false, GUILayout.Width(250f));
 
-                if (GUILayout.Button("Load", EditorStyles.toolbarButton))
+                if (GUILayout.Button(new GUIContent("Load", "Load the selected ability asset into the working copy."), EditorStyles.toolbarButton))
                 {
                     LoadFromAsset(_selectedAsset);
                 }
 
-                if (GUILayout.Button("New", EditorStyles.toolbarButton))
+                if (GUILayout.Button(new GUIContent("New", "Reset the editor to a fresh working copy."), EditorStyles.toolbarButton))
                 {
                     ResetWorkingCopy();
                 }
@@ -249,13 +249,13 @@ namespace Realm.EditorTools
 
                 using (new EditorGUI.DisabledScope(_selectedAsset == null))
                 {
-                    if (GUILayout.Button("Apply To Asset", EditorStyles.toolbarButton))
+                    if (GUILayout.Button(new GUIContent("Apply To Asset", "Overwrite the selected asset with the working copy data."), EditorStyles.toolbarButton))
                     {
                         SaveToExistingAsset();
                     }
                 }
 
-                if (GUILayout.Button("Save As...", EditorStyles.toolbarButton))
+                if (GUILayout.Button(new GUIContent("Save As...", "Create a new AbilityDefinition asset from the working copy."), EditorStyles.toolbarButton))
                 {
                     SaveAsNewAsset();
                 }
@@ -265,14 +265,16 @@ namespace Realm.EditorTools
         private void DrawGeneralSection()
         {
             EditorGUILayout.LabelField("Ability Overview", EditorStyles.boldLabel);
-            EditorGUILayout.PropertyField(_serializedAbility.FindProperty("AbilityName"), new GUIContent("Name"));
-            EditorGUILayout.PropertyField(_serializedAbility.FindProperty("Description"));
-            EditorGUILayout.PropertyField(_serializedAbility.FindProperty("Icon"));
+            EditorGUILayout.HelpBox("Define the player-facing name, description, and icon for this ability.", MessageType.Info);
+            EditorGUILayout.PropertyField(_serializedAbility.FindProperty("AbilityName"), new GUIContent("Name", "Display name shown in the UI."));
+            EditorGUILayout.PropertyField(_serializedAbility.FindProperty("Description"), new GUIContent("Description", "Short summary used for tooltips and logs."));
+            EditorGUILayout.PropertyField(_serializedAbility.FindProperty("Icon"), new GUIContent("Icon", "Sprite used in ability lists and hotbars."));
         }
 
         private void DrawTargetingSection()
         {
             EditorGUILayout.LabelField("Targeting", EditorStyles.boldLabel);
+            EditorGUILayout.HelpBox("Configure how the ability selects targets and whether it uses an area shape.", MessageType.Info);
 
             var modeProp = _targetingProperty.FindPropertyRelative("Mode");
             var areaShapeProp = _targetingProperty.FindPropertyRelative("AreaShape");
@@ -304,6 +306,7 @@ namespace Realm.EditorTools
         private void DrawResourceSection()
         {
             EditorGUILayout.LabelField("Resources & Cooldowns", EditorStyles.boldLabel);
+            EditorGUILayout.HelpBox("Set resource costs and cooldowns used by the runtime ability system.", MessageType.Info);
 
             var typeProp = _resourceProperty.FindPropertyRelative("ResourceType");
             var costProp = _resourceProperty.FindPropertyRelative("Cost");
@@ -333,6 +336,7 @@ namespace Realm.EditorTools
         private void DrawExecutionSection()
         {
             EditorGUILayout.LabelField("Execution Conditions", EditorStyles.boldLabel);
+            EditorGUILayout.HelpBox("Gate ability usage with movement, targeting, or buff requirements.", MessageType.Info);
 
             var labelProp = _executionProperty.FindPropertyRelative("Label");
             var descProp = _executionProperty.FindPropertyRelative("Description");
@@ -378,6 +382,7 @@ namespace Realm.EditorTools
         private void DrawDeliverySection()
         {
             EditorGUILayout.LabelField("Hitbox Delivery", EditorStyles.boldLabel);
+            EditorGUILayout.HelpBox("Define the hitbox shape, size, and timing used when the ability executes.", MessageType.Info);
             if (_hitboxProperty == null)
             {
                 EditorGUILayout.HelpBox("Hitbox configuration is unavailable.", MessageType.Warning);
@@ -397,6 +402,7 @@ namespace Realm.EditorTools
         private void DrawComboSection()
         {
             EditorGUILayout.LabelField("Combo Chain", EditorStyles.boldLabel);
+            EditorGUILayout.HelpBox("Enable and configure chained stages that reward timing-based sequences.", MessageType.Info);
 
             var enabledProp = _comboProperty.FindPropertyRelative("Enabled");
             var resetProp = _comboProperty.FindPropertyRelative("ResetSeconds");
@@ -427,6 +433,7 @@ namespace Realm.EditorTools
         private void DrawSummarySection()
         {
             EditorGUILayout.LabelField("Tooltip Preview", EditorStyles.boldLabel);
+            EditorGUILayout.HelpBox("Preview the summary text generated for in-game tooltips.", MessageType.Info);
             var summary = _workingCopy.BuildSummary();
             EditorGUILayout.LabelField(summary, _wrapStyle);
         }

@@ -68,20 +68,21 @@ namespace Realm.Editor.DesignerTools
         {
             using (new EditorGUILayout.HorizontalScope(EditorStyles.toolbar))
             {
-                if (GUILayout.Button("Refresh", EditorStyles.toolbarButton, GUILayout.Width(70f)))
+                if (GUILayout.Button(new GUIContent("Refresh", "Rescan the project for stat profile assets."), EditorStyles.toolbarButton, GUILayout.Width(70f)))
                 {
                     RefreshProfiles();
                 }
 
                 GUILayout.Space(8f);
 
-                if (GUILayout.Button("New Profile", EditorStyles.toolbarButton, GUILayout.Width(100f)))
+                if (GUILayout.Button(new GUIContent("New Profile", "Create a new StatProfileDefinition asset using the default folder path."), EditorStyles.toolbarButton, GUILayout.Width(100f)))
                 {
                     CreateNewProfile();
                 }
 
                 GUILayout.FlexibleSpace();
-                _search = GUILayout.TextField(_search, GUILayout.Width(220f));
+                EditorGUILayout.LabelField(new GUIContent("Search", "Filter the profile list by display name."), GUILayout.Width(50f));
+                _search = GUILayout.TextField(_search, GUILayout.Width(170f));
             }
         }
 
@@ -105,7 +106,7 @@ namespace Realm.Editor.DesignerTools
                         }
 
                         var label = string.IsNullOrWhiteSpace(profile.DisplayName) ? profile.name : profile.DisplayName;
-                        if (GUILayout.Toggle(_selectedIndex == i, label, EditorStyles.toolbarButton))
+                        if (GUILayout.Toggle(_selectedIndex == i, new GUIContent(label, "Select a profile to edit its curves and metadata."), EditorStyles.toolbarButton))
                         {
                             if (_selectedIndex != i)
                             {
@@ -128,6 +129,8 @@ namespace Realm.Editor.DesignerTools
                     return;
                 }
 
+                EditorGUILayout.HelpBox("Edit the display name and narrative description, then define curve entries to control how each stat scales.", MessageType.Info);
+
                 _serializedProfile.Update();
 
                 using (var scroll = new EditorGUILayout.ScrollViewScope(_detailScroll))
@@ -136,11 +139,11 @@ namespace Realm.Editor.DesignerTools
 
                     using (new EditorGUI.DisabledScope(true))
                     {
-                        EditorGUILayout.PropertyField(_serializedProfile.FindProperty("guid"));
+                        EditorGUILayout.PropertyField(_serializedProfile.FindProperty("guid"), new GUIContent("Guid", "Stable unique identifier for this profile."));
                     }
 
-                    EditorGUILayout.PropertyField(_serializedProfile.FindProperty("displayName"));
-                    EditorGUILayout.PropertyField(_serializedProfile.FindProperty("description"));
+                    EditorGUILayout.PropertyField(_serializedProfile.FindProperty("displayName"), new GUIContent("Display Name", "Friendly name shown in UI and selection lists."));
+                    EditorGUILayout.PropertyField(_serializedProfile.FindProperty("description"), new GUIContent("Description", "Tooltip-ready description for designers and players."));
 
                     EditorGUILayout.Space();
                     EditorGUILayout.LabelField("Curve Library", EditorStyles.boldLabel);

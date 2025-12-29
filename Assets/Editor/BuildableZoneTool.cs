@@ -49,24 +49,25 @@ namespace Building.Editor
         private void OnGUI()
         {
             EditorGUILayout.Space();
-            _targetAsset = (BuildableZoneAsset)EditorGUILayout.ObjectField("Zone Asset", _targetAsset, typeof(BuildableZoneAsset), false);
-            _targetDigger = (DiggerSystem)EditorGUILayout.ObjectField("Target Digger", _targetDigger, typeof(DiggerSystem), true);
-            _zoneHeight = EditorGUILayout.FloatField("Zone Height", Mathf.Max(0.1f, _zoneHeight));
-            _surfaceOffset = EditorGUILayout.FloatField("Surface Offset", _surfaceOffset);
-            _placementMask = LayerMaskField("Placement Mask", _placementMask);
+            EditorGUILayout.HelpBox("Outline buildable zones directly in the Scene view. Drag to define an area, then release to save it into the asset.", MessageType.Info);
+            _targetAsset = (BuildableZoneAsset)EditorGUILayout.ObjectField(new GUIContent("Zone Asset", "BuildableZoneAsset that stores all authored zones."), _targetAsset, typeof(BuildableZoneAsset), false);
+            _targetDigger = (DiggerSystem)EditorGUILayout.ObjectField(new GUIContent("Target Digger", "Optional terrain system used to project placement onto the surface."), _targetDigger, typeof(DiggerSystem), true);
+            _zoneHeight = EditorGUILayout.FloatField(new GUIContent("Zone Height", "Vertical height of the buildable volume in meters."), Mathf.Max(0.1f, _zoneHeight));
+            _surfaceOffset = EditorGUILayout.FloatField(new GUIContent("Surface Offset", "Offset applied above the sampled surface when placing zones."), _surfaceOffset);
+            _placementMask = LayerMaskField(new GUIContent("Placement Mask", "Layer mask used when raycasting the terrain for placement."), _placementMask);
 
-            if (_targetAsset != null && GUILayout.Button("Sync Scene Metadata"))
+            if (_targetAsset != null && GUILayout.Button(new GUIContent("Sync Scene Metadata", "Store the current scene name and metadata on the zone asset.")))
             {
                 SyncSceneMetadata();
             }
 
             EditorGUI.BeginDisabledGroup(_targetAsset == null);
-            if (GUILayout.Button(_isPlacing ? "Cancel Placement" : "Start Placement"))
+            if (GUILayout.Button(new GUIContent(_isPlacing ? "Cancel Placement" : "Start Placement", "Toggle scene placement mode to draw a new zone.")))
             {
                 TogglePlacement();
             }
 
-            if (GUILayout.Button("Clear All Zones"))
+            if (GUILayout.Button(new GUIContent("Clear All Zones", "Remove every zone from the current asset.")))
             {
                 ClearZones();
             }
@@ -101,12 +102,12 @@ namespace Building.Editor
                 EditorGUILayout.LabelField("Size", bounds.size.ToString("F2"));
 
                 EditorGUILayout.BeginHorizontal();
-                if (GUILayout.Button("Focus"))
+                if (GUILayout.Button(new GUIContent("Focus", "Frame the selected zone in the Scene view.")))
                 {
                     SceneView.lastActiveSceneView?.Frame(bounds, false);
                 }
 
-                if (GUILayout.Button("Remove"))
+                if (GUILayout.Button(new GUIContent("Remove", "Delete this zone from the asset.")))
                 {
                     RemoveZoneAt(i);
                 }
@@ -338,7 +339,7 @@ namespace Building.Editor
             };
         }
 
-        private static LayerMask LayerMaskField(string label, LayerMask mask)
+        private static LayerMask LayerMaskField(GUIContent label, LayerMask mask)
         {
             var layers = InternalEditorUtility.layers;
             var layerNumbers = new List<int>();

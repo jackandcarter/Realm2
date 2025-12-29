@@ -63,7 +63,8 @@ public class MapPinEditorWindow : EditorWindow
     private void DrawWorldMapSection()
     {
         EditorGUILayout.LabelField("World Map", EditorStyles.boldLabel);
-        Texture2D newTexture = (Texture2D)EditorGUILayout.ObjectField("Texture", worldMapTexture, typeof(Texture2D), false);
+        EditorGUILayout.HelpBox("Assign a world map texture, then click on it to capture normalized coordinates for pins.", MessageType.Info);
+        Texture2D newTexture = (Texture2D)EditorGUILayout.ObjectField(new GUIContent("Texture", "World map texture used for pin placement preview."), worldMapTexture, typeof(Texture2D), false);
 
         if (newTexture != worldMapTexture)
         {
@@ -89,6 +90,7 @@ public class MapPinEditorWindow : EditorWindow
     private void DrawPinListSection()
     {
         EditorGUILayout.LabelField("Pin Definitions", EditorStyles.boldLabel);
+        EditorGUILayout.HelpBox("Pins define the id and normalized coordinates for world map and zone mini map locations.", MessageType.Info);
 
         using (var scroll = new EditorGUILayout.ScrollViewScope(pinListScroll, GUILayout.Height(160)))
         {
@@ -103,12 +105,12 @@ public class MapPinEditorWindow : EditorWindow
                 string label = string.IsNullOrEmpty(pin.id) ? $"Pin {i}" : pin.id;
                 label += $"  ({pin.worldNormalizedPosition.x:F2}, {pin.worldNormalizedPosition.y:F2})";
 
-                if (GUILayout.Toggle(isSelected, label, EditorStyles.miniButtonLeft))
+                if (GUILayout.Toggle(isSelected, new GUIContent(label, "Select this pin to edit its identifiers and coordinates."), EditorStyles.miniButtonLeft))
                 {
                     selectedPinIndex = i;
                 }
 
-                if (GUILayout.Button("✕", EditorStyles.miniButtonRight, GUILayout.Width(24)))
+                if (GUILayout.Button(new GUIContent("✕", "Remove this pin from the list."), EditorStyles.miniButtonRight, GUILayout.Width(24)))
                 {
                     RecordUndo("Remove pin");
                     pins.RemoveAt(i);
@@ -126,7 +128,7 @@ public class MapPinEditorWindow : EditorWindow
 
         EditorGUILayout.BeginHorizontal();
         GUILayout.FlexibleSpace();
-        if (GUILayout.Button("Add Pin", GUILayout.Width(100)))
+        if (GUILayout.Button(new GUIContent("Add Pin", "Create a new pin entry with a default identifier."), GUILayout.Width(100)))
         {
             RecordUndo("Add pin");
             pins.Add(new PinDefinition { id = $"Pin {pins.Count + 1}" });
@@ -150,7 +152,7 @@ public class MapPinEditorWindow : EditorWindow
         EditorGUILayout.LabelField("Selected Pin", EditorStyles.boldLabel);
 
         EditorGUI.BeginChangeCheck();
-        string newId = EditorGUILayout.TextField("Identifier", pin.id);
+        string newId = EditorGUILayout.TextField(new GUIContent("Identifier", "Unique id used to reference this pin in data exports."), pin.id);
         if (EditorGUI.EndChangeCheck())
         {
             RecordUndo("Rename pin");
@@ -158,7 +160,7 @@ public class MapPinEditorWindow : EditorWindow
         }
 
         EditorGUI.BeginChangeCheck();
-        Vector2 newWorld = Clamp01(EditorGUILayout.Vector2Field("World Normalized", pin.worldNormalizedPosition));
+        Vector2 newWorld = Clamp01(EditorGUILayout.Vector2Field(new GUIContent("World Normalized", "Normalized (0-1) coordinate on the world map texture."), pin.worldNormalizedPosition));
         if (EditorGUI.EndChangeCheck())
         {
             RecordUndo("Edit world normalized coordinate");
@@ -172,7 +174,7 @@ public class MapPinEditorWindow : EditorWindow
             {
                 ZoneCoordinate zoneCoord = pin.GetOrCreateZoneCoordinate(zone.zoneName);
                 EditorGUI.BeginChangeCheck();
-                Vector2 newZone = Clamp01(EditorGUILayout.Vector2Field($"{zone.zoneName} Normalized", zoneCoord.normalizedPosition));
+                Vector2 newZone = Clamp01(EditorGUILayout.Vector2Field(new GUIContent($"{zone.zoneName} Normalized", "Normalized (0-1) coordinate on the selected zone mini map texture."), zoneCoord.normalizedPosition));
                 if (EditorGUI.EndChangeCheck())
                 {
                     RecordUndo("Edit zone normalized coordinate");
@@ -193,6 +195,7 @@ public class MapPinEditorWindow : EditorWindow
     private void DrawZoneSection()
     {
         EditorGUILayout.LabelField("Zone Mini Maps", EditorStyles.boldLabel);
+        EditorGUILayout.HelpBox("Define per-zone mini map masks and coordinates to translate world pins into local maps.", MessageType.Info);
 
         EditorGUILayout.BeginHorizontal();
         for (int i = 0; i < zoneMiniMaps.Count; i++)
@@ -201,13 +204,13 @@ public class MapPinEditorWindow : EditorWindow
             string label = string.IsNullOrEmpty(zone.zoneName) ? $"Zone {i + 1}" : zone.zoneName;
             bool isSelected = i == selectedZoneIndex;
 
-            if (GUILayout.Toggle(isSelected, label, "Button"))
+            if (GUILayout.Toggle(isSelected, new GUIContent(label, "Select this zone mini map to edit its mask and coordinates."), "Button"))
             {
                 selectedZoneIndex = i;
             }
         }
 
-        if (GUILayout.Button("+", GUILayout.Width(28)))
+        if (GUILayout.Button(new GUIContent("+", "Add a new zone mini map entry."), GUILayout.Width(28)))
         {
             RecordUndo("Add zone mini map");
             zoneMiniMaps.Add(new ZoneMiniMap { zoneName = $"Zone {zoneMiniMaps.Count + 1}" });
@@ -229,7 +232,7 @@ public class MapPinEditorWindow : EditorWindow
         ZoneMiniMap selectedZone = zoneMiniMaps[selectedZoneIndex];
 
         EditorGUI.BeginChangeCheck();
-        string zoneName = EditorGUILayout.TextField("Zone Name", selectedZone.zoneName);
+        string zoneName = EditorGUILayout.TextField(new GUIContent("Zone Name", "Unique name used to match zone-specific coordinates."), selectedZone.zoneName);
         if (EditorGUI.EndChangeCheck())
         {
             RecordUndo("Rename zone");
@@ -237,14 +240,14 @@ public class MapPinEditorWindow : EditorWindow
         }
 
         EditorGUI.BeginChangeCheck();
-        Texture2D newTexture = (Texture2D)EditorGUILayout.ObjectField("Mini Map Mask", selectedZone.miniMapMask, typeof(Texture2D), false);
+        Texture2D newTexture = (Texture2D)EditorGUILayout.ObjectField(new GUIContent("Mini Map Mask", "Texture used to preview the zone mini map."), selectedZone.miniMapMask, typeof(Texture2D), false);
         if (EditorGUI.EndChangeCheck())
         {
             RecordUndo("Assign zone mini map mask");
             selectedZone.miniMapMask = newTexture;
         }
 
-        if (GUILayout.Button("Remove Selected Zone"))
+        if (GUILayout.Button(new GUIContent("Remove Selected Zone", "Delete the currently selected zone mini map entry.")))
         {
             RecordUndo("Remove zone mini map");
             zoneMiniMaps.RemoveAt(selectedZoneIndex);
@@ -358,7 +361,7 @@ public class MapPinEditorWindow : EditorWindow
         EditorGUILayout.HelpBox("Export to JSON for long-term storage or CSV for spreadsheet adjustments. Import replaces the in-memory pin list.", MessageType.Info);
 
         EditorGUILayout.BeginHorizontal();
-        if (GUILayout.Button("Export JSON"))
+        if (GUILayout.Button(new GUIContent("Export JSON", "Save the current pins and zones to a JSON file.")))
         {
             string path = EditorUtility.SaveFilePanel("Export Pins (JSON)", Application.dataPath, "MapPins", "json");
             if (!string.IsNullOrEmpty(path))
@@ -367,7 +370,7 @@ public class MapPinEditorWindow : EditorWindow
             }
         }
 
-        if (GUILayout.Button("Import JSON"))
+        if (GUILayout.Button(new GUIContent("Import JSON", "Load pins and zones from a JSON file (overwrites current list).")))
         {
             string path = EditorUtility.OpenFilePanel("Import Pins (JSON)", Application.dataPath, "json");
             if (!string.IsNullOrEmpty(path))
@@ -378,7 +381,7 @@ public class MapPinEditorWindow : EditorWindow
         EditorGUILayout.EndHorizontal();
 
         EditorGUILayout.BeginHorizontal();
-        if (GUILayout.Button("Export CSV"))
+        if (GUILayout.Button(new GUIContent("Export CSV", "Save pin coordinates to a CSV file for spreadsheet editing.")))
         {
             string path = EditorUtility.SaveFilePanel("Export Pins (CSV)", Application.dataPath, "MapPins", "csv");
             if (!string.IsNullOrEmpty(path))
@@ -387,7 +390,7 @@ public class MapPinEditorWindow : EditorWindow
             }
         }
 
-        if (GUILayout.Button("Import CSV"))
+        if (GUILayout.Button(new GUIContent("Import CSV", "Load pin coordinates from a CSV file (overwrites current list).")))
         {
             string path = EditorUtility.OpenFilePanel("Import Pins (CSV)", Application.dataPath, "csv");
             if (!string.IsNullOrEmpty(path))

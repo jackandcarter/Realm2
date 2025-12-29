@@ -95,19 +95,19 @@ namespace Realm.Editor.DesignerTools
         {
             using (new EditorGUILayout.HorizontalScope(EditorStyles.toolbar))
             {
-                if (GUILayout.Button("Refresh", EditorStyles.toolbarButton, GUILayout.Width(70f)))
+                if (GUILayout.Button(new GUIContent("Refresh", "Reload class and ability assets from the project."), EditorStyles.toolbarButton, GUILayout.Width(70f)))
                 {
                     RefreshData();
                 }
 
                 GUILayout.Space(8f);
 
-                EditorGUILayout.LabelField("Class Filter", GUILayout.Width(80f));
+                EditorGUILayout.LabelField(new GUIContent("Class Filter", "Filter the class list by display name."), GUILayout.Width(80f));
                 _classSearch = GUILayout.TextField(_classSearch, GUILayout.Width(160f));
 
                 GUILayout.Space(12f);
 
-                EditorGUILayout.LabelField("Ability Filter", GUILayout.Width(90f));
+                EditorGUILayout.LabelField(new GUIContent("Ability Filter", "Filter the ability list in the add section."), GUILayout.Width(90f));
                 _abilitySearch = GUILayout.TextField(_abilitySearch, GUILayout.Width(160f));
 
                 GUILayout.FlexibleSpace();
@@ -116,7 +116,7 @@ namespace Realm.Editor.DesignerTools
                 {
                     using (new EditorGUI.DisabledScope(_serializedClass == null))
                     {
-                        if (GUILayout.Button("Save", EditorStyles.toolbarButton, GUILayout.Width(70f)))
+                        if (GUILayout.Button(new GUIContent("Save", "Apply changes and save the selected class definition."), EditorStyles.toolbarButton, GUILayout.Width(70f)))
                         {
                             if (_serializedClass != null)
                             {
@@ -135,6 +135,7 @@ namespace Realm.Editor.DesignerTools
             using (new EditorGUILayout.VerticalScope(GUILayout.Width(260f)))
             {
                 EditorGUILayout.LabelField("Classes", EditorStyles.boldLabel);
+                EditorGUILayout.HelpBox("Select a class to author its ability unlock progression.", MessageType.Info);
 
                 using (var scroll = new EditorGUILayout.ScrollViewScope(_classScroll))
                 {
@@ -149,7 +150,7 @@ namespace Realm.Editor.DesignerTools
                         }
 
                         var label = string.IsNullOrWhiteSpace(definition.DisplayName) ? definition.name : definition.DisplayName;
-                        if (GUILayout.Toggle(_selectedClassIndex == i, label, EditorStyles.toolbarButton))
+                        if (GUILayout.Toggle(_selectedClassIndex == i, new GUIContent(label, "Select this class to edit its ability unlock list."), EditorStyles.toolbarButton))
                         {
                             if (_selectedClassIndex != i)
                             {
@@ -180,6 +181,7 @@ namespace Realm.Editor.DesignerTools
                 {
                     EditorGUILayout.LabelField(classDefinition.Description, _wrapStyle);
                 }
+                EditorGUILayout.HelpBox("Add abilities below and define how the class unlocks them (level, quest, or item).", MessageType.Info);
                 EditorGUILayout.Space();
 
                 using (var scroll = new EditorGUILayout.ScrollViewScope(_detailsScroll))
@@ -217,40 +219,40 @@ namespace Realm.Editor.DesignerTools
                     var ability = abilityProp?.objectReferenceValue as Realm.Abilities.AbilityDefinition;
                     var displayName = ResolveAbilityLabel(ability);
                     EditorGUILayout.LabelField(displayName, EditorStyles.boldLabel);
-                    if (ability != null && GUILayout.Button("Ability Designer", GUILayout.Width(130f)))
+                    if (ability != null && GUILayout.Button(new GUIContent("Ability Designer", "Open the ability definition in the designer window."), GUILayout.Width(130f)))
                     {
                         AbilityDesignerWindow.Open();
                         Selection.activeObject = ability;
                         EditorGUIUtility.PingObject(ability);
                     }
                     GUILayout.FlexibleSpace();
-                    if (GUILayout.Button("Remove", GUILayout.Width(70f)))
+                    if (GUILayout.Button(new GUIContent("Remove", "Remove this unlock entry from the class."), GUILayout.Width(70f)))
                     {
                         unlocksProperty.DeleteArrayElementAtIndex(index);
                         return;
                     }
                 }
 
-                EditorGUILayout.PropertyField(element.FindPropertyRelative("ability"));
+                EditorGUILayout.PropertyField(element.FindPropertyRelative("ability"), new GUIContent("Ability", "Ability asset granted by this unlock entry."));
 
                 var conditionProp = element.FindPropertyRelative("conditionType");
-                EditorGUILayout.PropertyField(conditionProp);
+                EditorGUILayout.PropertyField(conditionProp, new GUIContent("Unlock Condition", "Select how the ability becomes available."));
                 var condition = conditionProp.enumValueIndex;
 
                 switch (condition)
                 {
                     case AbilityUnlockLevelIndex:
-                        EditorGUILayout.PropertyField(element.FindPropertyRelative("requiredLevel"));
+                        EditorGUILayout.PropertyField(element.FindPropertyRelative("requiredLevel"), new GUIContent("Required Level", "Minimum class level to unlock this ability."));
                         break;
                     case AbilityUnlockQuestIndex:
-                        EditorGUILayout.PropertyField(element.FindPropertyRelative("questId"));
+                        EditorGUILayout.PropertyField(element.FindPropertyRelative("questId"), new GUIContent("Quest Id", "Quest identifier required to unlock this ability."));
                         break;
                     case AbilityUnlockItemIndex:
-                        EditorGUILayout.PropertyField(element.FindPropertyRelative("itemId"));
+                        EditorGUILayout.PropertyField(element.FindPropertyRelative("itemId"), new GUIContent("Item Id", "Item identifier required to unlock this ability."));
                         break;
                 }
 
-                EditorGUILayout.PropertyField(element.FindPropertyRelative("notes"));
+                EditorGUILayout.PropertyField(element.FindPropertyRelative("notes"), new GUIContent("Designer Notes", "Notes about why or how this ability unlocks."));
 
                 EditorGUILayout.LabelField("Summary", DescribeCondition(element), EditorStyles.miniLabel);
             }
@@ -278,7 +280,7 @@ namespace Realm.Editor.DesignerTools
                         continue;
                     }
 
-                    if (GUILayout.Button(label))
+                    if (GUILayout.Button(new GUIContent(label, "Add this ability to the class unlock list.")))
                     {
                         selectedAbility = ability;
                     }
