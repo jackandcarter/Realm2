@@ -1,3 +1,4 @@
+#if UNITY_EDITOR
 using UnityEditor;
 using UnityEngine;
 using Realm.CharacterCustomization;
@@ -109,3 +110,4 @@ namespace Realm.Editor.CharacterCustomization
         }
     }
 }
+#endif
