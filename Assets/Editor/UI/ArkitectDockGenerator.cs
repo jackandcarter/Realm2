@@ -1,6 +1,7 @@
 using System.IO;
 using Client.Builder;
 using Client.UI;
+using TMPro;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.UI;
@@ -15,7 +16,7 @@ namespace Realm.Editor.UI
         [MenuItem(MenuRoot + "/Generate Arkitect Dock", priority = 125)]
         public static void GenerateDock()
         {
-            var font = LoadLegacyFont();
+            var font = LoadDefaultFontAsset();
             var manager = FindOrCreateDockRoot();
 
             var root = manager.gameObject;
@@ -97,16 +98,16 @@ namespace Realm.Editor.UI
             layout.childForceExpandWidth = false;
         }
 
-        private static Text FindOrCreateStatusLabel(Transform parent, Font font)
+        private static TextMeshProUGUI FindOrCreateStatusLabel(Transform parent, TMP_FontAsset font)
         {
             var existing = parent.Find("StatusLabel");
-            if (existing != null && existing.TryGetComponent(out Text existingText))
+            if (existing != null && existing.TryGetComponent(out TextMeshProUGUI existingText))
             {
                 EnsureStatusLabel(existingText, font);
                 return existingText;
             }
 
-            var label = new GameObject("StatusLabel", typeof(RectTransform), typeof(CanvasRenderer), typeof(Text));
+            var label = new GameObject("StatusLabel", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
             Undo.RegisterCreatedObjectUndo(label, "Create Arkitect Dock Status Label");
             label.transform.SetParent(parent, false);
             ApplyUiLayer(label);
@@ -118,16 +119,20 @@ namespace Realm.Editor.UI
             rect.anchoredPosition = new Vector2(0f, 8f);
             rect.sizeDelta = new Vector2(0f, 28f);
 
-            var text = label.GetComponent<Text>();
+            var text = label.GetComponent<TextMeshProUGUI>();
             EnsureStatusLabel(text, font);
             return text;
         }
 
-        private static void EnsureStatusLabel(Text text, Font font)
+        private static void EnsureStatusLabel(TextMeshProUGUI text, TMP_FontAsset font)
         {
-            text.font = font;
+            if (font != null)
+            {
+                text.font = font;
+            }
+
             text.fontSize = 18;
-            text.alignment = TextAnchor.MiddleCenter;
+            text.alignment = TextAlignmentOptions.Center;
             text.color = new Color(0.82f, 0.89f, 0.97f, 1f);
             if (string.IsNullOrWhiteSpace(text.text))
             {
@@ -135,7 +140,7 @@ namespace Realm.Editor.UI
             }
         }
 
-        private static GameObject FindOrCreateButtonTemplate(RectTransform parent, Font font)
+        private static GameObject FindOrCreateButtonTemplate(RectTransform parent, TMP_FontAsset font)
         {
             var existing = parent.Find("AbilityButtonTemplate");
             if (existing != null)
@@ -162,7 +167,7 @@ namespace Realm.Editor.UI
             layout.preferredWidth = 64f;
             layout.preferredHeight = 64f;
 
-            var labelObject = new GameObject("Label", typeof(RectTransform), typeof(CanvasRenderer), typeof(Text));
+            var labelObject = new GameObject("Label", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
             labelObject.transform.SetParent(button.transform, false);
             ApplyUiLayer(labelObject);
 
@@ -172,11 +177,15 @@ namespace Realm.Editor.UI
             labelRect.offsetMin = Vector2.zero;
             labelRect.offsetMax = Vector2.zero;
 
-            var text = labelObject.GetComponent<Text>();
+            var text = labelObject.GetComponent<TextMeshProUGUI>();
             text.text = "Ability";
-            text.font = font;
+            if (font != null)
+            {
+                text.font = font;
+            }
+
             text.fontSize = 14;
-            text.alignment = TextAnchor.MiddleCenter;
+            text.alignment = TextAlignmentOptions.Center;
             text.color = new Color(0.86f, 0.91f, 0.98f, 1f);
 
             var buttonComponent = button.GetComponent<Button>();
@@ -186,7 +195,7 @@ namespace Realm.Editor.UI
             return button;
         }
 
-        private static void EnsureButtonLabel(Button button, Font font)
+        private static void EnsureButtonLabel(Button button, TMP_FontAsset font)
         {
             if (button == null)
             {
@@ -199,16 +208,20 @@ namespace Realm.Editor.UI
                 return;
             }
 
-            if (!labelTransform.TryGetComponent(out Text text))
+            if (!labelTransform.TryGetComponent(out TextMeshProUGUI text))
             {
                 return;
             }
 
-            text.font = font;
-            text.fontStyle = FontStyle.Bold;
+            if (font != null)
+            {
+                text.font = font;
+            }
+
+            text.fontStyle = FontStyles.Bold;
         }
 
-        private static void ApplyBinderBindings(ArkitectUIManager manager, RectTransform container, GameObject template, Text statusLabel)
+        private static void ApplyBinderBindings(ArkitectUIManager manager, RectTransform container, GameObject template, TextMeshProUGUI statusLabel)
         {
             var binder = manager != null ? manager.GetComponent<BuilderDockAbilityBinder>() : null;
             if (binder == null)
@@ -235,9 +248,9 @@ namespace Realm.Editor.UI
             PrefabUtility.SaveAsPrefabAssetAndConnect(root, PrefabPath, InteractionMode.AutomatedAction);
         }
 
-        private static Font LoadLegacyFont()
+        private static TMP_FontAsset LoadDefaultFontAsset()
         {
-            return Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            return TMP_Settings.defaultFontAsset;
         }
 
         private static void ApplyUiLayer(GameObject target)

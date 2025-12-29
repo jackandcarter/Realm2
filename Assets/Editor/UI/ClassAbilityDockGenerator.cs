@@ -1,5 +1,6 @@
 using System.IO;
 using Client.UI.HUD.Dock;
+using TMPro;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.UI;
@@ -14,7 +15,7 @@ namespace Realm.Editor.UI
         [MenuItem(MenuRoot + "/Generate Class Ability Dock", priority = 130)]
         public static void GenerateClassDock()
         {
-            var font = LoadLegacyFont();
+            var font = LoadDefaultFontAsset();
             var dock = FindOrCreateDockRoot();
 
             var rootRect = dock.GetComponent<RectTransform>();
@@ -131,7 +132,7 @@ namespace Realm.Editor.UI
             layout.childForceExpandWidth = false;
         }
 
-        private static void CreateWeaponButton(RectTransform parent, string name, string label, Font font, bool isSpecial)
+        private static void CreateWeaponButton(RectTransform parent, string name, string label, TMP_FontAsset font, bool isSpecial)
         {
             var existing = parent.Find(name);
             if (existing != null)
@@ -151,7 +152,7 @@ namespace Realm.Editor.UI
             layout.preferredWidth = 120f;
             layout.preferredHeight = 48f;
 
-            var labelObject = new GameObject("Label", typeof(RectTransform), typeof(CanvasRenderer), typeof(Text));
+            var labelObject = new GameObject("Label", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
             labelObject.transform.SetParent(button.transform, false);
             ApplyUiLayer(labelObject);
 
@@ -161,19 +162,23 @@ namespace Realm.Editor.UI
             labelRect.offsetMin = Vector2.zero;
             labelRect.offsetMax = Vector2.zero;
 
-            var text = labelObject.GetComponent<Text>();
+            var text = labelObject.GetComponent<TextMeshProUGUI>();
             text.text = label;
-            text.font = font;
+            if (font != null)
+            {
+                text.font = font;
+            }
+
             text.fontSize = 18;
-            text.fontStyle = FontStyle.Bold;
-            text.alignment = TextAnchor.MiddleCenter;
+            text.fontStyle = FontStyles.Bold;
+            text.alignment = TextAlignmentOptions.Center;
             text.color = new Color(0.86f, 0.91f, 0.98f, 1f);
 
             var buttonComponent = button.GetComponent<Button>();
             buttonComponent.interactable = !isSpecial;
         }
 
-        private static AbilityDockItem FindOrCreateAbilityItemTemplate(RectTransform parent, Font font)
+        private static AbilityDockItem FindOrCreateAbilityItemTemplate(RectTransform parent, TMP_FontAsset font)
         {
             var existing = parent.Find("AbilityDockItemTemplate");
             if (existing != null && existing.TryGetComponent(out AbilityDockItem existingItem))
@@ -195,7 +200,7 @@ namespace Realm.Editor.UI
             var image = item.GetComponent<Image>();
             image.color = new Color(0.15f, 0.2f, 0.3f, 0.9f);
 
-            var labelObject = new GameObject("Label", typeof(RectTransform), typeof(CanvasRenderer), typeof(Text));
+            var labelObject = new GameObject("Label", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
             labelObject.transform.SetParent(item.transform, false);
             ApplyUiLayer(labelObject);
 
@@ -205,11 +210,15 @@ namespace Realm.Editor.UI
             labelRect.offsetMin = Vector2.zero;
             labelRect.offsetMax = Vector2.zero;
 
-            var text = labelObject.GetComponent<Text>();
+            var text = labelObject.GetComponent<TextMeshProUGUI>();
             text.text = "Ability";
-            text.font = font;
+            if (font != null)
+            {
+                text.font = font;
+            }
+
             text.fontSize = 14;
-            text.alignment = TextAnchor.MiddleCenter;
+            text.alignment = TextAlignmentOptions.Center;
             text.color = new Color(0.84f, 0.92f, 0.99f, 1f);
 
             var itemComponent = item.GetComponent<AbilityDockItem>();
@@ -219,7 +228,7 @@ namespace Realm.Editor.UI
             return itemComponent;
         }
 
-        private static void EnsureAbilityItemBindings(AbilityDockItem item, Font font)
+        private static void EnsureAbilityItemBindings(AbilityDockItem item, TMP_FontAsset font)
         {
             if (item == null)
             {
@@ -227,7 +236,7 @@ namespace Realm.Editor.UI
             }
 
             var image = item.GetComponent<Image>();
-            var label = item.GetComponentInChildren<Text>();
+            var label = item.GetComponentInChildren<TextMeshProUGUI>();
             var canvasGroup = item.GetComponent<CanvasGroup>();
 
             var serialized = new SerializedObject(item);
@@ -236,7 +245,7 @@ namespace Realm.Editor.UI
             serialized.FindProperty("canvasGroup").objectReferenceValue = canvasGroup;
             serialized.ApplyModifiedPropertiesWithoutUndo();
 
-            if (label != null)
+            if (label != null && font != null)
             {
                 label.font = font;
             }
@@ -267,9 +276,9 @@ namespace Realm.Editor.UI
             PrefabUtility.SaveAsPrefabAssetAndConnect(root, PrefabPath, InteractionMode.AutomatedAction);
         }
 
-        private static Font LoadLegacyFont()
+        private static TMP_FontAsset LoadDefaultFontAsset()
         {
-            return Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            return TMP_Settings.defaultFontAsset;
         }
 
         private static void ApplyUiLayer(GameObject target)

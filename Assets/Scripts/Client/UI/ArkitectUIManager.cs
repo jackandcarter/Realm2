@@ -5,6 +5,7 @@ using Building;
 using Client.CharacterCreation;
 using Client.Builder;
 using Client.UI.HUD;
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -43,7 +44,7 @@ namespace Client.UI
         private readonly List<TabBinding> _tabs = new List<TabBinding>();
         private GameObject _activePanel;
         private bool _hasPermissions = true;
-        private static Font _legacyFont;
+        private static TMP_FontAsset _defaultFont;
 
         private const string PanelsRegistryId = "arkitect.ui.panels";
         private const string TabBarRegistryId = "arkitect.ui.tabbar";
@@ -454,22 +455,22 @@ namespace Client.UI
             }
 
             var title = panelTransform.Find("Title");
-            if (title != null && title.TryGetComponent(out Text titleText) && string.IsNullOrWhiteSpace(titleText.text))
+            if (title != null && title.TryGetComponent(out TMP_Text titleText) && string.IsNullOrWhiteSpace(titleText.text))
             {
                 titleText.text = SplitTitle(panelTransform.name);
             }
 
-            if (title != null && title.TryGetComponent(out Text resolvedTitle))
+            if (title != null && title.TryGetComponent(out TMP_Text resolvedTitle))
             {
                 resolvedTitle.color = new Color(0.898f, 0.768f, 1f, 1f);
-                resolvedTitle.fontStyle = FontStyle.Bold;
+                resolvedTitle.fontStyle = FontStyles.Bold;
                 resolvedTitle.fontSize = 28;
-                resolvedTitle.alignment = TextAnchor.UpperLeft;
-                resolvedTitle.font = resolvedTitle.font == null ? GetLegacyFont() : resolvedTitle.font;
+                resolvedTitle.alignment = TextAlignmentOptions.TopLeft;
+                resolvedTitle.font = resolvedTitle.font == null ? GetDefaultFontAsset() : resolvedTitle.font;
             }
 
             var body = panelTransform.Find("Description");
-            if (body != null && body.TryGetComponent(out Text bodyText))
+            if (body != null && body.TryGetComponent(out TMP_Text bodyText))
             {
                 if (string.IsNullOrWhiteSpace(bodyText.text) || bodyText.text == "Description")
                 {
@@ -477,10 +478,10 @@ namespace Client.UI
                 }
 
                 bodyText.color = new Color(0.788f, 0.862f, 0.976f, 1f);
-                bodyText.fontStyle = FontStyle.Normal;
+                bodyText.fontStyle = FontStyles.Normal;
                 bodyText.fontSize = 20;
-                bodyText.alignment = TextAnchor.UpperLeft;
-                bodyText.font = bodyText.font == null ? GetLegacyFont() : bodyText.font;
+                bodyText.alignment = TextAlignmentOptions.TopLeft;
+                bodyText.font = bodyText.font == null ? GetDefaultFontAsset() : bodyText.font;
             }
         }
 
@@ -516,25 +517,25 @@ namespace Client.UI
                 return;
             }
 
-            if (labelTransform.TryGetComponent(out Text text))
+            if (labelTransform.TryGetComponent(out TMP_Text text))
             {
                 text.text = label;
-                text.fontStyle = FontStyle.Bold;
+                text.fontStyle = FontStyles.Bold;
                 text.fontSize = 22;
-                text.alignment = TextAnchor.MiddleCenter;
+                text.alignment = TextAlignmentOptions.Center;
                 text.color = new Color(0.839f, 0.925f, 0.992f, 1f);
-                text.font = text.font == null ? GetLegacyFont() : text.font;
+                text.font = text.font == null ? GetDefaultFontAsset() : text.font;
             }
         }
 
-        private static Font GetLegacyFont()
+        private static TMP_FontAsset GetDefaultFontAsset()
         {
-            if (_legacyFont == null)
+            if (_defaultFont == null)
             {
-                _legacyFont = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+                _defaultFont = TMP_Settings.defaultFontAsset;
             }
 
-            return _legacyFont;
+            return _defaultFont;
         }
 
         private string SplitTitle(string panelName)
