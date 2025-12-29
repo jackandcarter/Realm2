@@ -1,11 +1,11 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Realm.Abilities;
 using Realm.Data;
 using Realm.EditorTools;
 using UnityEditor;
 using UnityEngine;
+using AbilityDefinition = Realm.Abilities.AbilityDefinition;
 
 namespace Realm.Editor.DesignerTools
 {
