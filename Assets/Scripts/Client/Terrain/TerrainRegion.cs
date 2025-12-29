@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using Digger.Modules.Core.Sources;
 using UnityEngine;
+using UnityTerrain = UnityEngine.Terrain;
 
 namespace Client.Terrain
 {
@@ -10,22 +11,33 @@ namespace Client.Terrain
         private const float DefaultChunkSize = 256f;
 
         [Header("Identity")]
+        [Tooltip("Unique identifier for this terrain region (e.g., shard or map chunk key).")]
         [SerializeField] private string regionId;
+        [Tooltip("Optional zone identifier used to group regions for streaming or gameplay rules.")]
         [SerializeField] private string zoneId;
 
         [Header("Terrains")]
+        [Tooltip("When enabled, compute world bounds from the referenced Unity Terrains.")]
         [SerializeField] private bool useTerrainBounds = true;
-        [SerializeField] private List<Terrain> terrains = new();
+        [Tooltip("Unity Terrain objects that define the bounds and surface of this region.")]
+        [SerializeField] private List<UnityTerrain> terrains = new();
+        [Tooltip("Fallback bounds used when terrain bounds are disabled or no terrains are assigned.")]
         [SerializeField] private Bounds manualWorldBounds = new(Vector3.zero, new Vector3(1024f, 512f, 1024f));
 
         [Header("Chunking")]
+        [Tooltip("Offset applied before chunk coordinates are computed in local space.")]
         [SerializeField] private Vector2 chunkOriginOffset = Vector2.zero;
+        [Tooltip("Override for chunk size; set to a value > 0 to ignore the digger system size.")]
         [SerializeField] private float chunkSizeOverride = DefaultChunkSize;
+        [Tooltip("Optional Digger system used to determine default chunk size.")]
         [SerializeField] private DiggerSystem diggerSystem;
 
         [Header("Map")]
+        [Tooltip("World-space rectangle used to place the region on 2D maps.")]
         [SerializeField] private Rect mapWorldBounds = new(-512f, -512f, 1024f, 1024f);
+        [Tooltip("Texture used for the minimap representation of this region.")]
         [SerializeField] private Texture2D miniMapTexture;
+        [Tooltip("Texture used for the world map representation of this region.")]
         [SerializeField] private Texture2D worldMapTexture;
 
         public string RegionId => regionId;
@@ -33,7 +45,7 @@ namespace Client.Terrain
         public Rect MapWorldBounds => mapWorldBounds;
         public Texture2D MiniMapTexture => miniMapTexture;
         public Texture2D WorldMapTexture => worldMapTexture;
-        public IReadOnlyList<Terrain> Terrains => terrains;
+        public IReadOnlyList<UnityTerrain> Terrains => terrains;
 
         public Bounds GetWorldBounds()
         {
@@ -117,9 +129,9 @@ namespace Client.Terrain
 
         public void RefreshTerrainsFromChildren()
         {
-            terrains ??= new List<Terrain>();
+            terrains ??= new List<UnityTerrain>();
             terrains.Clear();
-            terrains.AddRange(GetComponentsInChildren<Terrain>(includeInactive: true));
+            terrains.AddRange(GetComponentsInChildren<UnityTerrain>(includeInactive: true));
         }
 
         private void OnValidate()
