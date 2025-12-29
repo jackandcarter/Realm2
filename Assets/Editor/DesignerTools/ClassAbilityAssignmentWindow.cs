@@ -4,8 +4,7 @@ using System.Linq;
 using Realm.EditorTools;
 using UnityEditor;
 using UnityEngine;
-using AbilityUnlockConditionType = Realm.Data.AbilityUnlockConditionType;
-using ClassDefinition = Realm.Data.ClassDefinition;
+using Realm.Data;
 
 namespace Realm.Editor.DesignerTools
 {

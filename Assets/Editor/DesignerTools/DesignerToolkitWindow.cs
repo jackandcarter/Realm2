@@ -5,7 +5,6 @@ using Realm.Data;
 using UnityEditor;
 using UnityEngine;
 using AbilityDefinition = Realm.Abilities.AbilityDefinition;
-using StatProfileDefinition = Realm.Data.StatProfileDefinition;
 
 namespace Realm.Editor.DesignerTools
 {
