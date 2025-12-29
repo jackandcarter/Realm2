@@ -43,6 +43,7 @@ namespace Client.UI
         private readonly List<TabBinding> _tabs = new List<TabBinding>();
         private GameObject _activePanel;
         private bool _hasPermissions = true;
+        private static Font _legacyFont;
 
         private const string PanelsRegistryId = "arkitect.ui.panels";
         private const string TabBarRegistryId = "arkitect.ui.tabbar";
@@ -464,6 +465,7 @@ namespace Client.UI
                 resolvedTitle.fontStyle = FontStyle.Bold;
                 resolvedTitle.fontSize = 28;
                 resolvedTitle.alignment = TextAnchor.UpperLeft;
+                resolvedTitle.font = resolvedTitle.font == null ? GetLegacyFont() : resolvedTitle.font;
             }
 
             var body = panelTransform.Find("Description");
@@ -478,6 +480,7 @@ namespace Client.UI
                 bodyText.fontStyle = FontStyle.Normal;
                 bodyText.fontSize = 20;
                 bodyText.alignment = TextAnchor.UpperLeft;
+                bodyText.font = bodyText.font == null ? GetLegacyFont() : bodyText.font;
             }
         }
 
@@ -520,7 +523,18 @@ namespace Client.UI
                 text.fontSize = 22;
                 text.alignment = TextAnchor.MiddleCenter;
                 text.color = new Color(0.839f, 0.925f, 0.992f, 1f);
+                text.font = text.font == null ? GetLegacyFont() : text.font;
             }
+        }
+
+        private static Font GetLegacyFont()
+        {
+            if (_legacyFont == null)
+            {
+                _legacyFont = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            }
+
+            return _legacyFont;
         }
 
         private string SplitTitle(string panelName)
