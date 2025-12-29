@@ -148,7 +148,7 @@ namespace Realm.Editor.DesignerTools
                 CreateAsset<StatCategory>("StatCategory", profile.StatCategoriesFolder));
 
             DrawCreateRow("Stat Profile", profile.StatProfilesFolder, "StatProfile", () =>
-                CreateAsset<StatProfileDefinition>("StatProfile", profile.StatProfilesFolder));
+                CreateAsset<Realm.Data.StatProfileDefinition>("StatProfile", profile.StatProfilesFolder));
 
             DrawCreateRow("Class Definition", profile.ClassDefinitionsFolder, "ClassDefinition", () =>
                 CreateAsset<ClassDefinition>("ClassDefinition", profile.ClassDefinitionsFolder));
@@ -166,7 +166,7 @@ namespace Realm.Editor.DesignerTools
             {
                 if (GUILayout.Button("Stat Profile Studio", GUILayout.Width(170f)))
                 {
-                    StatProfileCreatorWindow.ShowWindow();
+                    Realm.Editor.DesignerTools.StatProfileCreatorWindow.ShowWindow();
                 }
 
                 if (GUILayout.Button("Class Ability Planner", GUILayout.Width(170f)))
