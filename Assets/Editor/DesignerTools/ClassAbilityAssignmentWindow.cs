@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using Realm.EditorTools;
 using UnityEditor;
 using UnityEngine;
@@ -19,6 +18,9 @@ namespace Realm.Editor.DesignerTools
         private string _classSearch = string.Empty;
         private string _abilitySearch = string.Empty;
         private GUIStyle _wrapStyle;
+        private const int AbilityUnlockLevelIndex = 0;
+        private const int AbilityUnlockQuestIndex = 1;
+        private const int AbilityUnlockItemIndex = 2;
 
         [MenuItem("Tools/Designer/Class Ability Planner", priority = 100)]
         public static void ShowWindow()
@@ -233,28 +235,24 @@ namespace Realm.Editor.DesignerTools
 
                 var conditionProp = element.FindPropertyRelative("conditionType");
                 EditorGUILayout.PropertyField(conditionProp);
-                var condition = (AbilityUnlockConditionType)conditionProp.enumValueIndex;
+                var condition = conditionProp.enumValueIndex;
 
                 switch (condition)
                 {
-                    case AbilityUnlockConditionType.Level:
+                    case AbilityUnlockLevelIndex:
                         EditorGUILayout.PropertyField(element.FindPropertyRelative("requiredLevel"));
                         break;
-                    case AbilityUnlockConditionType.Quest:
+                    case AbilityUnlockQuestIndex:
                         EditorGUILayout.PropertyField(element.FindPropertyRelative("questId"));
                         break;
-                    case AbilityUnlockConditionType.Item:
+                    case AbilityUnlockItemIndex:
                         EditorGUILayout.PropertyField(element.FindPropertyRelative("itemId"));
                         break;
                 }
 
                 EditorGUILayout.PropertyField(element.FindPropertyRelative("notes"));
 
-                var unlockData = _classes[_selectedClassIndex].AbilityUnlocks.ElementAtOrDefault(index);
-                if (unlockData != null)
-                {
-                    EditorGUILayout.LabelField("Summary", unlockData.DescribeCondition(), EditorStyles.miniLabel);
-                }
+                EditorGUILayout.LabelField("Summary", DescribeCondition(element), EditorStyles.miniLabel);
             }
         }
 
@@ -292,13 +290,41 @@ namespace Realm.Editor.DesignerTools
                     unlocksProperty.InsertArrayElementAtIndex(index);
                     var element = unlocksProperty.GetArrayElementAtIndex(index);
                     element.FindPropertyRelative("ability").objectReferenceValue = selectedAbility;
-                    element.FindPropertyRelative("conditionType").enumValueIndex = (int)AbilityUnlockConditionType.Level;
+                    element.FindPropertyRelative("conditionType").enumValueIndex = AbilityUnlockLevelIndex;
                     element.FindPropertyRelative("requiredLevel").intValue = 1;
                     element.FindPropertyRelative("questId").stringValue = string.Empty;
                     element.FindPropertyRelative("itemId").stringValue = string.Empty;
                     element.FindPropertyRelative("notes").stringValue = string.Empty;
                 }
             }
+        }
+
+        private static string DescribeCondition(SerializedProperty unlockProperty)
+        {
+            if (unlockProperty == null)
+            {
+                return "Unlock condition unspecified";
+            }
+
+            var conditionProp = unlockProperty.FindPropertyRelative("conditionType");
+            var conditionIndex = conditionProp != null ? conditionProp.enumValueIndex : -1;
+            var requiredLevel = unlockProperty.FindPropertyRelative("requiredLevel")?.intValue ?? 0;
+            var questId = unlockProperty.FindPropertyRelative("questId")?.stringValue;
+            var itemId = unlockProperty.FindPropertyRelative("itemId")?.stringValue;
+
+            return conditionIndex switch
+            {
+                AbilityUnlockLevelIndex => requiredLevel <= 1
+                    ? "Unlocked at start"
+                    : $"Unlocks at level {requiredLevel}",
+                AbilityUnlockQuestIndex => string.IsNullOrWhiteSpace(questId)
+                    ? "Quest unlock (unspecified)"
+                    : $"Quest: {questId}",
+                AbilityUnlockItemIndex => string.IsNullOrWhiteSpace(itemId)
+                    ? "Item unlock (unspecified)"
+                    : $"Item: {itemId}",
+                _ => "Unlock condition unspecified"
+            };
         }
 
         private void LoadSelectedClass()
