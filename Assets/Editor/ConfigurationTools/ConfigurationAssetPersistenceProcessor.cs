@@ -67,6 +67,11 @@ namespace Realm.Editor.Configuration
                 return false;
             }
 
+            if (AssetDatabase.GetMainAssetTypeAtPath(assetPath) == typeof(SceneAsset))
+            {
+                return false;
+            }
+
             var loaded = AssetDatabase.LoadAllAssetsAtPath(assetPath);
             if (loaded == null || loaded.Length == 0)
             {
