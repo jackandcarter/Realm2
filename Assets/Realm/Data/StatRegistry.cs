@@ -20,15 +20,35 @@ namespace Realm.Data
         [SerializeField]
         private List<AbilityDefinition> abilities = new();
 
+        [SerializeField]
+        private List<WeaponTypeDefinition> weaponTypes = new();
+
+        [SerializeField]
+        private List<ArmorTypeDefinition> armorTypes = new();
+
+        [SerializeField]
+        private List<WeaponDefinition> weapons = new();
+
+        [SerializeField]
+        private List<ArmorDefinition> armors = new();
+
         private Dictionary<string, StatDefinition> _statsByGuid;
         private Dictionary<string, StatCategory> _categoriesByGuid;
         private Dictionary<string, ClassDefinition> _classesByGuid;
         private Dictionary<string, AbilityDefinition> _abilitiesByGuid;
+        private Dictionary<string, WeaponTypeDefinition> _weaponTypesByGuid;
+        private Dictionary<string, ArmorTypeDefinition> _armorTypesByGuid;
+        private Dictionary<string, WeaponDefinition> _weaponsByGuid;
+        private Dictionary<string, ArmorDefinition> _armorsByGuid;
 
         public IReadOnlyList<StatDefinition> StatDefinitions => statDefinitions;
         public IReadOnlyList<StatCategory> Categories => categories;
         public IReadOnlyList<ClassDefinition> Classes => classes;
         public IReadOnlyList<AbilityDefinition> Abilities => abilities;
+        public IReadOnlyList<WeaponTypeDefinition> WeaponTypes => weaponTypes;
+        public IReadOnlyList<ArmorTypeDefinition> ArmorTypes => armorTypes;
+        public IReadOnlyList<WeaponDefinition> Weapons => weapons;
+        public IReadOnlyList<ArmorDefinition> Armors => armors;
 
         protected override void OnEnable()
         {
@@ -43,6 +63,10 @@ namespace Realm.Data
             SanitizeList(categories);
             SanitizeList(classes);
             SanitizeList(abilities);
+            SanitizeList(weaponTypes);
+            SanitizeList(armorTypes);
+            SanitizeList(weapons);
+            SanitizeList(armors);
             BuildLookups();
         }
 
@@ -52,6 +76,10 @@ namespace Realm.Data
             _categoriesByGuid = BuildLookup(categories);
             _classesByGuid = BuildLookup(classes);
             _abilitiesByGuid = BuildLookup(abilities);
+            _weaponTypesByGuid = BuildLookup(weaponTypes);
+            _armorTypesByGuid = BuildLookup(armorTypes);
+            _weaponsByGuid = BuildLookup(weapons);
+            _armorsByGuid = BuildLookup(armors);
         }
 
         public bool TryGetStat(string guid, out StatDefinition definition)
@@ -74,6 +102,26 @@ namespace Realm.Data
             return TryGetFromLookup(_abilitiesByGuid, guid, out abilityDefinition);
         }
 
+        public bool TryGetWeaponType(string guid, out WeaponTypeDefinition weaponType)
+        {
+            return TryGetFromLookup(_weaponTypesByGuid, guid, out weaponType);
+        }
+
+        public bool TryGetArmorType(string guid, out ArmorTypeDefinition armorType)
+        {
+            return TryGetFromLookup(_armorTypesByGuid, guid, out armorType);
+        }
+
+        public bool TryGetWeapon(string guid, out WeaponDefinition weapon)
+        {
+            return TryGetFromLookup(_weaponsByGuid, guid, out weapon);
+        }
+
+        public bool TryGetArmor(string guid, out ArmorDefinition armor)
+        {
+            return TryGetFromLookup(_armorsByGuid, guid, out armor);
+        }
+
         public StatDefinition GetStat(string guid)
         {
             return GetFromLookup(_statsByGuid, guid, nameof(StatDefinition));
@@ -92,6 +140,26 @@ namespace Realm.Data
         public AbilityDefinition GetAbility(string guid)
         {
             return GetFromLookup(_abilitiesByGuid, guid, nameof(AbilityDefinition));
+        }
+
+        public WeaponTypeDefinition GetWeaponType(string guid)
+        {
+            return GetFromLookup(_weaponTypesByGuid, guid, nameof(WeaponTypeDefinition));
+        }
+
+        public ArmorTypeDefinition GetArmorType(string guid)
+        {
+            return GetFromLookup(_armorTypesByGuid, guid, nameof(ArmorTypeDefinition));
+        }
+
+        public WeaponDefinition GetWeapon(string guid)
+        {
+            return GetFromLookup(_weaponsByGuid, guid, nameof(WeaponDefinition));
+        }
+
+        public ArmorDefinition GetArmor(string guid)
+        {
+            return GetFromLookup(_armorsByGuid, guid, nameof(ArmorDefinition));
         }
 
         private static Dictionary<string, T> BuildLookup<T>(List<T> entries) where T : ScriptableObject, IGuidIdentified

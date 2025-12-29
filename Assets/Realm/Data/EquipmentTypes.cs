@@ -1,5 +1,17 @@
 namespace Realm.Data
 {
+    public enum EquipmentSlot
+    {
+        Head,
+        Chest,
+        Legs,
+        Hands,
+        Feet,
+        Accessory,
+        Weapon,
+        Tool
+    }
+
     public enum ArmorType
     {
         Cloth,

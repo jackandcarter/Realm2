@@ -16,6 +16,10 @@ namespace Realm.Editor.DesignerTools
         private const string StatProfileFilter = "t:Realm.Data.StatProfileDefinition";
         private const string ClassDefinitionFilter = "t:Realm.Data.ClassDefinition";
         private const string AbilityDefinitionFilter = "t:Realm.Abilities.AbilityDefinition";
+        private const string WeaponTypeDefinitionFilter = "t:Realm.Data.WeaponTypeDefinition";
+        private const string ArmorTypeDefinitionFilter = "t:Realm.Data.ArmorTypeDefinition";
+        private const string WeaponDefinitionFilter = "t:Realm.Data.WeaponDefinition";
+        private const string ArmorDefinitionFilter = "t:Realm.Data.ArmorDefinition";
 
         private Vector2 _scrollPosition;
 
@@ -69,7 +73,7 @@ namespace Realm.Editor.DesignerTools
         private static void DrawRegistrySection(DesignerToolkitProfile profile)
         {
             EditorGUILayout.LabelField("Registry", EditorStyles.boldLabel);
-            EditorGUILayout.HelpBox("The registry aggregates stat, class, and ability assets for runtime lookups. Sync it whenever new assets are created.", MessageType.Info);
+            EditorGUILayout.HelpBox("The registry aggregates stat, class, ability, and equipment assets for runtime lookups. Sync it whenever new assets are created.", MessageType.Info);
 
             EditorGUI.BeginChangeCheck();
             var registry = (StatRegistry)EditorGUILayout.ObjectField(new GUIContent("Stat Registry", "Registry asset used at runtime for stat, class, and ability lookups."), profile.StatRegistry, typeof(StatRegistry), false);
@@ -105,6 +109,10 @@ namespace Realm.Editor.DesignerTools
                 EditorGUILayout.LabelField("Registry Categories", $"{profile.StatRegistry.Categories.Count}");
                 EditorGUILayout.LabelField("Registry Classes", $"{profile.StatRegistry.Classes.Count}");
                 EditorGUILayout.LabelField("Registry Abilities", $"{profile.StatRegistry.Abilities.Count}");
+                EditorGUILayout.LabelField("Registry Weapon Types", $"{profile.StatRegistry.WeaponTypes.Count}");
+                EditorGUILayout.LabelField("Registry Armor Types", $"{profile.StatRegistry.ArmorTypes.Count}");
+                EditorGUILayout.LabelField("Registry Weapons", $"{profile.StatRegistry.Weapons.Count}");
+                EditorGUILayout.LabelField("Registry Armors", $"{profile.StatRegistry.Armors.Count}");
             }
         }
 
@@ -138,6 +146,26 @@ namespace Realm.Editor.DesignerTools
                 profile.AbilityDefinitionsFolder = value;
                 profile.SaveProfile();
             });
+            DrawFolderField(new GUIContent("Weapon Type Definitions Folder", "Default folder path for new WeaponTypeDefinition assets."), profile.WeaponTypeDefinitionsFolder, value =>
+            {
+                profile.WeaponTypeDefinitionsFolder = value;
+                profile.SaveProfile();
+            });
+            DrawFolderField(new GUIContent("Armor Type Definitions Folder", "Default folder path for new ArmorTypeDefinition assets."), profile.ArmorTypeDefinitionsFolder, value =>
+            {
+                profile.ArmorTypeDefinitionsFolder = value;
+                profile.SaveProfile();
+            });
+            DrawFolderField(new GUIContent("Weapon Definitions Folder", "Default folder path for new WeaponDefinition assets."), profile.WeaponDefinitionsFolder, value =>
+            {
+                profile.WeaponDefinitionsFolder = value;
+                profile.SaveProfile();
+            });
+            DrawFolderField(new GUIContent("Armor Definitions Folder", "Default folder path for new ArmorDefinition assets."), profile.ArmorDefinitionsFolder, value =>
+            {
+                profile.ArmorDefinitionsFolder = value;
+                profile.SaveProfile();
+            });
 
             EditorGUILayout.Space();
 
@@ -155,6 +183,18 @@ namespace Realm.Editor.DesignerTools
 
             DrawCreateRow(new GUIContent("Ability Definition", "Create a new AbilityDefinition in the configured folder."), profile.AbilityDefinitionsFolder, "AbilityDefinition", () =>
                 CreateAsset<AbilityDefinition>("AbilityDefinition", profile.AbilityDefinitionsFolder));
+
+            DrawCreateRow(new GUIContent("Weapon Type", "Create a new WeaponTypeDefinition in the configured folder."), profile.WeaponTypeDefinitionsFolder, "WeaponTypeDefinition", () =>
+                CreateAsset<WeaponTypeDefinition>("WeaponTypeDefinition", profile.WeaponTypeDefinitionsFolder));
+
+            DrawCreateRow(new GUIContent("Armor Type", "Create a new ArmorTypeDefinition in the configured folder."), profile.ArmorTypeDefinitionsFolder, "ArmorTypeDefinition", () =>
+                CreateAsset<ArmorTypeDefinition>("ArmorTypeDefinition", profile.ArmorTypeDefinitionsFolder));
+
+            DrawCreateRow(new GUIContent("Weapon", "Create a new WeaponDefinition in the configured folder."), profile.WeaponDefinitionsFolder, "WeaponDefinition", () =>
+                CreateAsset<WeaponDefinition>("WeaponDefinition", profile.WeaponDefinitionsFolder));
+
+            DrawCreateRow(new GUIContent("Armor", "Create a new ArmorDefinition in the configured folder."), profile.ArmorDefinitionsFolder, "ArmorDefinition", () =>
+                CreateAsset<ArmorDefinition>("ArmorDefinition", profile.ArmorDefinitionsFolder));
         }
 
         private static void DrawShortcutSection()
@@ -220,6 +260,10 @@ namespace Realm.Editor.DesignerTools
                 "StatProfile" => StatProfileFilter,
                 "ClassDefinition" => ClassDefinitionFilter,
                 "AbilityDefinition" => AbilityDefinitionFilter,
+                "WeaponTypeDefinition" => WeaponTypeDefinitionFilter,
+                "ArmorTypeDefinition" => ArmorTypeDefinitionFilter,
+                "WeaponDefinition" => WeaponDefinitionFilter,
+                "ArmorDefinition" => ArmorDefinitionFilter,
                 _ => string.Empty
             };
 
@@ -233,6 +277,10 @@ namespace Realm.Editor.DesignerTools
             profile.StatProfilesFolder = "Assets/ScriptableObjects/Stats";
             profile.ClassDefinitionsFolder = "Assets/ScriptableObjects/Classes";
             profile.AbilityDefinitionsFolder = "Assets/ScriptableObjects/Abilities";
+            profile.WeaponTypeDefinitionsFolder = "Assets/ScriptableObjects/Equipment/WeaponTypes";
+            profile.ArmorTypeDefinitionsFolder = "Assets/ScriptableObjects/Equipment/ArmorTypes";
+            profile.WeaponDefinitionsFolder = "Assets/ScriptableObjects/Equipment/Weapons";
+            profile.ArmorDefinitionsFolder = "Assets/ScriptableObjects/Equipment/Armors";
             profile.RegistryAssetPath = "Assets/ScriptableObjects/Stats/StatRegistry.asset";
             profile.SaveProfile();
         }
@@ -267,12 +315,20 @@ namespace Realm.Editor.DesignerTools
             var categories = LoadAssets<StatCategory>(StatCategoryFilter);
             var classes = LoadAssets<ClassDefinition>(ClassDefinitionFilter);
             var abilities = LoadAssets<AbilityDefinition>(AbilityDefinitionFilter);
+            var weaponTypes = LoadAssets<WeaponTypeDefinition>(WeaponTypeDefinitionFilter);
+            var armorTypes = LoadAssets<ArmorTypeDefinition>(ArmorTypeDefinitionFilter);
+            var weapons = LoadAssets<WeaponDefinition>(WeaponDefinitionFilter);
+            var armors = LoadAssets<ArmorDefinition>(ArmorDefinitionFilter);
 
             var serializedObject = new SerializedObject(registry);
             ApplyList(serializedObject, "statDefinitions", statDefinitions);
             ApplyList(serializedObject, "categories", categories);
             ApplyList(serializedObject, "classes", classes);
             ApplyList(serializedObject, "abilities", abilities);
+            ApplyList(serializedObject, "weaponTypes", weaponTypes);
+            ApplyList(serializedObject, "armorTypes", armorTypes);
+            ApplyList(serializedObject, "weapons", weapons);
+            ApplyList(serializedObject, "armors", armors);
             serializedObject.ApplyModifiedProperties();
             EditorUtility.SetDirty(registry);
             AssetDatabase.SaveAssets();
