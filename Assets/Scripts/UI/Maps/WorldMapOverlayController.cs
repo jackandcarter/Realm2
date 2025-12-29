@@ -8,6 +8,8 @@ using UnityEngine.UI;
 namespace Client.UI.Maps
 {
     [DisallowMultipleComponent]
+    [RequireComponent(typeof(CanvasGroup))]
+    [RequireComponent(typeof(RectTransform))]
     public class WorldMapOverlayController : MonoBehaviour
     {
         private const float DefaultAnimationDuration = 0.25f;
@@ -90,7 +92,7 @@ namespace Client.UI.Maps
 
             if (canvasGroup == null)
             {
-                canvasGroup = gameObject.AddComponent<CanvasGroup>();
+                Debug.LogWarning("WorldMapOverlayController requires a CanvasGroup component assigned in the scene.", this);
             }
 
             _parentRect = windowRoot != null ? windowRoot.parent as RectTransform : null;
@@ -100,7 +102,7 @@ namespace Client.UI.Maps
                 mapCanvasGroup = mapViewport.GetComponent<CanvasGroup>();
                 if (mapCanvasGroup == null)
                 {
-                    mapCanvasGroup = mapViewport.gameObject.AddComponent<CanvasGroup>();
+                    Debug.LogWarning("WorldMapOverlayController map viewport is missing a CanvasGroup.", mapViewport);
                 }
             }
 
@@ -339,12 +341,24 @@ namespace Client.UI.Maps
 
             if (handleType == typeof(WorldMapOverlayDragHandle))
             {
-                var component = handle.GetComponent<WorldMapOverlayDragHandle>() ?? handle.gameObject.AddComponent<WorldMapOverlayDragHandle>();
+                var component = handle.GetComponent<WorldMapOverlayDragHandle>();
+                if (component == null)
+                {
+                    Debug.LogWarning("WorldMapOverlayController drag handle is missing WorldMapOverlayDragHandle.", handle);
+                    return;
+                }
+
                 component.Initialize(this);
             }
             else if (handleType == typeof(WorldMapOverlayResizeHandle))
             {
-                var component = handle.GetComponent<WorldMapOverlayResizeHandle>() ?? handle.gameObject.AddComponent<WorldMapOverlayResizeHandle>();
+                var component = handle.GetComponent<WorldMapOverlayResizeHandle>();
+                if (component == null)
+                {
+                    Debug.LogWarning("WorldMapOverlayController resize handle is missing WorldMapOverlayResizeHandle.", handle);
+                    return;
+                }
+
                 component.Initialize(this);
             }
         }

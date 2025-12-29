@@ -6,6 +6,7 @@ using UnityEngine.UI;
 namespace Client.UI.HUD.Dock
 {
     [RequireComponent(typeof(Button))]
+    [RequireComponent(typeof(CanvasGroup))]
     public class AbilityDockItem : MonoBehaviour, IBeginDragHandler, IEndDragHandler, IDragHandler, IDropHandler
     {
         [SerializeField] private Image iconImage;
@@ -29,7 +30,7 @@ namespace Client.UI.HUD.Dock
 
             if (canvasGroup == null)
             {
-                canvasGroup = gameObject.AddComponent<CanvasGroup>();
+                Debug.LogWarning("AbilityDockItem is missing a CanvasGroup component.", this);
             }
 
             if (iconImage == null)
@@ -68,6 +69,11 @@ namespace Client.UI.HUD.Dock
                 return;
             }
 
+            if (canvasGroup == null)
+            {
+                return;
+            }
+
             _dragging = true;
             canvasGroup.alpha = 0.6f;
             canvasGroup.blocksRaycasts = false;
@@ -87,6 +93,11 @@ namespace Client.UI.HUD.Dock
         public void OnEndDrag(PointerEventData eventData)
         {
             if (_owner == null || !_dragging)
+            {
+                return;
+            }
+
+            if (canvasGroup == null)
             {
                 return;
             }

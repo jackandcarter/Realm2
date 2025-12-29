@@ -9,6 +9,7 @@ using UnityEngine.UI;
 namespace Client.UI.HUD.Dock
 {
     [DisallowMultipleComponent]
+    [RequireComponent(typeof(RectTransform))]
     public class ClassAbilityDockModule : MonoBehaviour, IClassUiModule
     {
         [Header("Class")]
@@ -36,6 +37,10 @@ namespace Client.UI.HUD.Dock
         public void Mount(Transform parent)
         {
             EnsureContainer();
+            if (_selfRect == null)
+            {
+                return;
+            }
             _selfRect.SetParent(parent, false);
             gameObject.SetActive(true);
             _mounted = true;
@@ -158,7 +163,8 @@ namespace Client.UI.HUD.Dock
                 _selfRect = GetComponent<RectTransform>();
                 if (_selfRect == null)
                 {
-                    _selfRect = gameObject.AddComponent<RectTransform>();
+                    Debug.LogError("ClassAbilityDockModule requires a RectTransform component.", this);
+                    return;
                 }
             }
 
@@ -175,6 +181,12 @@ namespace Client.UI.HUD.Dock
             if (entries == null || entries.Count == 0)
             {
                 AbilityDockLayoutStore.SaveLayout(_resolvedClassId, Array.Empty<string>());
+                return;
+            }
+
+            if (itemPrefab == null)
+            {
+                Debug.LogWarning("ClassAbilityDockModule is missing an AbilityDockItem prefab.", this);
                 return;
             }
 
@@ -210,6 +222,10 @@ namespace Client.UI.HUD.Dock
                 }
 
                 var item = CreateItem();
+                if (item == null)
+                {
+                    continue;
+                }
                 item.Bind(entry, ResolveIcon(entry.AbilityId));
                 _items.Add(item);
             }
@@ -227,27 +243,8 @@ namespace Client.UI.HUD.Dock
             }
             else
             {
-                var go = new GameObject("AbilityDockItem");
-                go.transform.SetParent(itemContainer, false);
-                var rect = go.AddComponent<RectTransform>();
-                rect.sizeDelta = new Vector2(96f, 96f);
-                var image = go.AddComponent<Image>();
-                image.sprite = fallbackIcon;
-                image.color = Color.white;
-                var textGo = new GameObject("Label");
-                textGo.transform.SetParent(go.transform, false);
-                var textRect = textGo.AddComponent<RectTransform>();
-                textRect.anchorMin = Vector2.zero;
-                textRect.anchorMax = Vector2.one;
-                textRect.offsetMin = Vector2.zero;
-                textRect.offsetMax = Vector2.zero;
-                var text = textGo.AddComponent<Text>();
-                text.alignment = TextAnchor.LowerCenter;
-                text.font = Resources.GetBuiltinResource<Font>("Arial.ttf");
-                text.color = Color.white;
-                var button = go.AddComponent<Button>();
-                button.transition = Selectable.Transition.None;
-                item = go.AddComponent<AbilityDockItem>();
+                Debug.LogWarning("ClassAbilityDockModule is missing an AbilityDockItem prefab.", this);
+                return null;
             }
 
             item.Initialize(this);

@@ -53,8 +53,12 @@ namespace Client.Builder
                 abilityController.AbilitySet = builderAbilities;
             }
 
-            EnsureContainer();
-            EnsureStatusLabel();
+            if (!EnsureContainer() || !EnsureStatusLabel())
+            {
+                Debug.LogWarning("BuilderDockAbilityBinder UI is not fully wired. Assign references in the prefab/scene.", this);
+                enabled = false;
+                return;
+            }
             BuildButtons();
         }
 
@@ -137,7 +141,10 @@ namespace Client.Builder
                 }
 
                 var binding = CreateButton(ability);
-                _buttons.Add(binding);
+                if (binding != null)
+                {
+                    _buttons.Add(binding);
+                }
             }
 
             RefreshButtons();
@@ -145,20 +152,26 @@ namespace Client.Builder
 
         private ButtonBinding CreateButton(BuilderAbilityDefinition definition)
         {
-            var buttonRoot = buttonPrefab != null
-                ? Instantiate(buttonPrefab, buttonContainer)
-                : CreateDefaultButtonObject(definition.DisplayName);
+            if (buttonContainer == null || buttonPrefab == null)
+            {
+                Debug.LogWarning("BuilderDockAbilityBinder is missing a button container or prefab.", this);
+                return null;
+            }
+
+            var buttonRoot = Instantiate(buttonPrefab, buttonContainer);
 
             var button = buttonRoot.GetComponent<Button>();
             if (button == null)
             {
-                button = buttonRoot.AddComponent<Button>();
+                Debug.LogWarning("BuilderDockAbilityBinder button prefab is missing a Button component.", buttonRoot);
+                return null;
             }
 
             var image = buttonRoot.GetComponent<Image>();
             if (image == null)
             {
-                image = buttonRoot.AddComponent<Image>();
+                Debug.LogWarning("BuilderDockAbilityBinder button prefab is missing an Image component.", buttonRoot);
+                return null;
             }
 
             image.sprite = definition.GetIcon();
@@ -168,34 +181,6 @@ namespace Client.Builder
             button.interactable = false;
 
             return new ButtonBinding(definition, button, image);
-        }
-
-        private GameObject CreateDefaultButtonObject(string label)
-        {
-            var go = new GameObject(string.IsNullOrWhiteSpace(label) ? "Ability" : label);
-            go.transform.SetParent(buttonContainer, false);
-
-            var rect = go.AddComponent<RectTransform>();
-            rect.sizeDelta = new Vector2(96f, 96f);
-
-            var image = go.AddComponent<Image>();
-            image.color = disabledColor;
-
-            var textObj = new GameObject("Label");
-            textObj.transform.SetParent(go.transform, false);
-            var textRect = textObj.AddComponent<RectTransform>();
-            textRect.anchorMin = Vector2.zero;
-            textRect.anchorMax = Vector2.one;
-            textRect.offsetMin = Vector2.zero;
-            textRect.offsetMax = Vector2.zero;
-
-            var text = textObj.AddComponent<Text>();
-            text.text = label;
-            text.alignment = TextAnchor.MiddleCenter;
-            text.color = Color.black;
-            text.font = Resources.GetBuiltinResource<Font>("Arial.ttf");
-
-            return go;
         }
 
         private void ClearButtons()
@@ -291,11 +276,11 @@ namespace Client.Builder
             }
         }
 
-        private void EnsureContainer()
+        private bool EnsureContainer()
         {
             if (buttonContainer != null)
             {
-                return;
+                return true;
             }
 
             var existing = transform.Find("AbilityButtons");
@@ -306,19 +291,15 @@ namespace Client.Builder
 
             if (buttonContainer == null)
             {
-                var go = new GameObject("AbilityButtons");
-                go.transform.SetParent(transform, false);
-                buttonContainer = go.AddComponent<RectTransform>();
-                buttonContainer.anchorMin = new Vector2(0f, 0f);
-                buttonContainer.anchorMax = new Vector2(1f, 1f);
-                buttonContainer.offsetMin = new Vector2(8f, 32f);
-                buttonContainer.offsetMax = new Vector2(-8f, -8f);
+                Debug.LogWarning("BuilderDockAbilityBinder is missing the AbilityButtons container.", this);
+                return false;
             }
 
             var layout = buttonContainer.GetComponent<HorizontalLayoutGroup>();
             if (layout == null)
             {
-                layout = buttonContainer.gameObject.AddComponent<HorizontalLayoutGroup>();
+                Debug.LogWarning("BuilderDockAbilityBinder AbilityButtons container is missing a HorizontalLayoutGroup.", buttonContainer);
+                return false;
             }
 
             layout.spacing = 12f;
@@ -327,29 +308,30 @@ namespace Client.Builder
             layout.childForceExpandWidth = false;
             layout.childControlHeight = true;
             layout.childControlWidth = true;
+
+            return true;
         }
 
-        private void EnsureStatusLabel()
+        private bool EnsureStatusLabel()
         {
             if (statusLabel != null)
             {
-                return;
+                return true;
             }
 
-            var go = new GameObject("StatusLabel");
-            go.transform.SetParent(transform, false);
-            var rect = go.AddComponent<RectTransform>();
-            rect.anchorMin = new Vector2(0f, 0f);
-            rect.anchorMax = new Vector2(1f, 0f);
-            rect.pivot = new Vector2(0.5f, 0f);
-            rect.sizeDelta = new Vector2(0f, 24f);
-            rect.anchoredPosition = new Vector2(0f, 4f);
+            var existing = transform.Find("StatusLabel");
+            if (existing != null)
+            {
+                statusLabel = existing.GetComponent<Text>();
+            }
 
-            statusLabel = go.AddComponent<Text>();
-            statusLabel.alignment = TextAnchor.MiddleCenter;
-            statusLabel.font = Resources.GetBuiltinResource<Font>("Arial.ttf");
-            statusLabel.color = Color.white;
-            statusLabel.text = string.Empty;
+            if (statusLabel == null)
+            {
+                Debug.LogWarning("BuilderDockAbilityBinder is missing a StatusLabel Text reference.", this);
+                return false;
+            }
+
+            return true;
         }
 
         private void SetStatusMessage(string message)

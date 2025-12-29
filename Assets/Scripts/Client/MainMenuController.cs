@@ -17,7 +17,31 @@ namespace Client
     public class MainMenuController : MonoBehaviour
     {
         [Header("UI Setup")]
-        [SerializeField] private bool autoCreateUi = true;
+        [SerializeField] private Canvas _loginCanvas;
+        [SerializeField] private Text _loginMessage;
+        [SerializeField] private InputField _emailInput;
+        [SerializeField] private InputField _passwordInput;
+        [SerializeField] private Button _loginButton;
+
+        [SerializeField] private Canvas _realmCanvas;
+        [SerializeField] private RectTransform _realmListRoot;
+        [SerializeField] private Button _reloadRealmsButton;
+        [SerializeField] private Text _realmMessage;
+        [SerializeField] private Button _realmEntryTemplate;
+
+        [SerializeField] private Canvas _characterCanvas;
+        [SerializeField] private RectTransform _characterListRoot;
+        [SerializeField] private InputField _characterNameInput;
+        [SerializeField] private Button _createCharacterButton;
+        [SerializeField] private Text _characterMessage;
+        [SerializeField] private Text _characterCreatedAtLabel;
+        [SerializeField] private Text _characterRaceLabel;
+        [SerializeField] private Text _characterClassLabel;
+        [SerializeField] private Text _characterLocationLabel;
+        [SerializeField] private Button _playCharacterButton;
+        [SerializeField] private Button _characterEntryTemplate;
+        [SerializeField] private CharacterCreationPanel _characterCreationPanelPrefab;
+        [SerializeField] private RectTransform _characterCreationPanelMount;
 
         [Header("API Settings")]
         [SerializeField] private ApiEnvironmentConfig environmentConfig;
@@ -30,30 +54,6 @@ namespace Client
         private RealmService _realmService;
         private CharacterService _characterService;
         private CharacterProgressionClient _progressionClient;
-
-        [SerializeField] private Canvas _loginCanvas;
-        private InputField _emailInput;
-        private InputField _passwordInput;
-        private Button _loginButton;
-        private Text _loginMessage;
-
-        [SerializeField] private Canvas _realmCanvas;
-        private RectTransform _realmListRoot;
-        private Button _reloadRealmsButton;
-        private Text _realmMessage;
-
-        [SerializeField] private Canvas _characterCanvas;
-        [SerializeField] private CharacterCreationPanel _characterCreationPanelPrefab;
-        [SerializeField] private RectTransform _characterCreationPanelMount;
-        private RectTransform _characterListRoot;
-        private InputField _characterNameInput;
-        private Button _createCharacterButton;
-        private Text _characterMessage;
-        private Text _characterCreatedAtLabel;
-        private Text _characterRaceLabel;
-        private Text _characterClassLabel;
-        private Text _characterLocationLabel;
-        private Button _playCharacterButton;
 
         private readonly List<GameObject> _spawnedRealmEntries = new();
         private readonly List<GameObject> _spawnedCharacterEntries = new();
@@ -99,9 +99,12 @@ namespace Client
 
         private void EnsureUi()
         {
-            EnsureCanvas(ref _loginCanvas, "LoginCanvas", CreateLoginCanvas);
-            EnsureCanvas(ref _realmCanvas, "RealmCanvas", CreateRealmCanvas);
-            EnsureCanvas(ref _characterCanvas, "CharacterCanvas", CreateCharacterCanvas);
+            ResolveCanvas(ref _loginCanvas, "LoginCanvas");
+            ResolveCanvas(ref _realmCanvas, "RealmCanvas");
+            ResolveCanvas(ref _characterCanvas, "CharacterCanvas");
+
+            WireUiEvents();
+            ValidateUiReferences();
 
             if (_characterCreationPanelMount == null && _characterCanvas != null)
             {
@@ -124,25 +127,83 @@ namespace Client
             }
         }
 
-        private void EnsureCanvas(ref Canvas canvasField, string canvasName, Func<Canvas> factory)
+        private void WireUiEvents()
+        {
+            if (_loginButton != null)
+            {
+                _loginButton.onClick.RemoveListener(OnLoginClicked);
+                _loginButton.onClick.AddListener(OnLoginClicked);
+            }
+
+            if (_reloadRealmsButton != null)
+            {
+                _reloadRealmsButton.onClick.RemoveAllListeners();
+                _reloadRealmsButton.onClick.AddListener(() => StartCoroutine(LoadRealms()));
+            }
+
+            if (_playCharacterButton != null)
+            {
+                _playCharacterButton.onClick.RemoveListener(OnPlaySelectedCharacter);
+                _playCharacterButton.onClick.AddListener(OnPlaySelectedCharacter);
+                _playCharacterButton.interactable = false;
+            }
+
+            if (_createCharacterButton != null)
+            {
+                _createCharacterButton.onClick.RemoveListener(OnCreateCharacterClicked);
+                _createCharacterButton.onClick.AddListener(OnCreateCharacterClicked);
+            }
+        }
+
+        private void ValidateUiReferences()
+        {
+            if (_loginCanvas == null)
+            {
+                Debug.LogWarning("MainMenuController is missing LoginCanvas. Assign it in the scene or prefab.", this);
+            }
+
+            if (_loginMessage == null)
+            {
+                Debug.LogWarning("MainMenuController is missing LoginMessage text reference.", this);
+            }
+
+            if (_emailInput == null || _passwordInput == null)
+            {
+                Debug.LogWarning("MainMenuController is missing login input fields.", this);
+            }
+
+            if (_loginButton == null)
+            {
+                Debug.LogWarning("MainMenuController is missing LoginButton.", this);
+            }
+
+            if (_realmCanvas == null)
+            {
+                Debug.LogWarning("MainMenuController is missing RealmCanvas.", this);
+            }
+
+            if (_realmListRoot == null || _realmEntryTemplate == null)
+            {
+                Debug.LogWarning("MainMenuController is missing realm list root or entry template.", this);
+            }
+
+            if (_characterCanvas == null)
+            {
+                Debug.LogWarning("MainMenuController is missing CharacterCanvas.", this);
+            }
+
+            if (_characterListRoot == null || _characterEntryTemplate == null)
+            {
+                Debug.LogWarning("MainMenuController is missing character list root or entry template.", this);
+            }
+        }
+
+        private void ResolveCanvas(ref Canvas canvasField, string canvasName)
         {
             if (canvasField == null)
             {
                 canvasField = FindCanvas(canvasName);
             }
-
-            if (canvasField != null || !Application.isPlaying && !autoCreateUi)
-            {
-                return;
-            }
-
-            if (!autoCreateUi)
-            {
-                Debug.LogWarning($"MainMenuController is missing a reference to '{canvasName}' and auto-create is disabled.");
-                return;
-            }
-
-            canvasField = factory();
         }
 
         private void EnsureEventSystem()
@@ -150,21 +211,14 @@ namespace Client
             var existing = UnityEngine.Object.FindFirstObjectByType<EventSystem>();
             if (existing == null)
             {
-                var eventSystemGo = new GameObject("EventSystem");
-                eventSystemGo.transform.SetParent(transform, false);
-                eventSystemGo.AddComponent<EventSystem>();
-#if ENABLE_INPUT_SYSTEM
-                eventSystemGo.AddComponent<InputSystemUIInputModule>();
-#else
-                eventSystemGo.AddComponent<StandaloneInputModule>();
-#endif
+                Debug.LogWarning("MainMenuController requires an EventSystem in the scene. Add one in edit mode.", this);
                 return;
             }
 
 #if ENABLE_INPUT_SYSTEM
             if (existing.GetComponent<InputSystemUIInputModule>() == null)
             {
-                existing.gameObject.AddComponent<InputSystemUIInputModule>();
+                Debug.LogWarning("EventSystem is missing an InputSystemUIInputModule. Add it in edit mode.", existing);
             }
 
             var legacyModule = existing.GetComponent<StandaloneInputModule>();
@@ -182,261 +236,16 @@ namespace Client
 #endif
         }
 
-        private Canvas CreateLoginCanvas()
-        {
-            var canvas = CreateCanvas("LoginCanvas", 0);
-
-            var panel = CreatePanel(canvas.transform, "LoginPanel");
-            var layout = panel.gameObject.AddComponent<VerticalLayoutGroup>();
-            layout.padding = new RectOffset(32, 32, 32, 32);
-            layout.spacing = 12f;
-            layout.childForceExpandHeight = false;
-            layout.childAlignment = TextAnchor.MiddleCenter;
-
-            _loginMessage = CreateMessageText(panel, "Enter the email tied to your Realm account.");
-            _emailInput = CreateInputField(panel, "EmailInput", "Email");
-            _passwordInput = CreateInputField(panel, "PasswordInput", "Password", true);
-            _loginButton = CreateButton(panel, "LoginButton", "Login");
-            _loginButton.onClick.AddListener(OnLoginClicked);
-
-            return canvas;
-        }
-
-        private Canvas CreateRealmCanvas()
-        {
-            var canvas = CreateCanvas("RealmCanvas", 1);
-
-            var panel = CreatePanel(canvas.transform, "RealmPanel");
-            var layout = panel.gameObject.AddComponent<VerticalLayoutGroup>();
-            layout.padding = new RectOffset(32, 32, 32, 32);
-            layout.spacing = 8f;
-            layout.childForceExpandHeight = false;
-
-            _realmMessage = CreateMessageText(panel, "Select a realm to continue.");
-            _reloadRealmsButton = CreateButton(panel, "RefreshRealmsButton", "Refresh Realms");
-            _reloadRealmsButton.onClick.AddListener(() => StartCoroutine(LoadRealms()));
-
-            _realmListRoot = CreateListRoot(panel, "RealmList");
-
-            return canvas;
-        }
-
-        private Canvas CreateCharacterCanvas()
-        {
-            var canvas = CreateCanvas("CharacterCanvas", 2);
-
-            var panel = CreatePanel(canvas.transform, "CharacterPanel");
-            var layout = panel.gameObject.AddComponent<VerticalLayoutGroup>();
-            layout.padding = new RectOffset(32, 32, 32, 32);
-            layout.spacing = 8f;
-            layout.childForceExpandHeight = false;
-
-            _characterMessage = CreateMessageText(panel, "Choose your hero or create a new one.");
-            _characterListRoot = CreateListRoot(panel, "CharacterList");
-
-            var detailPanel = CreateDetailPanel(panel, "CharacterDetails");
-            _characterCreatedAtLabel = CreateDetailLabel(detailPanel, "CreatedAtLabel", "Created: —");
-            _characterRaceLabel = CreateDetailLabel(detailPanel, "RaceLabel", "Race: —");
-            _characterClassLabel = CreateDetailLabel(detailPanel, "ClassLabel", "Class: —");
-            _characterLocationLabel = CreateDetailLabel(detailPanel, "LocationLabel", "Last Known Location: —");
-
-            _playCharacterButton = CreateButton(panel, "EnterRealmButton", "Enter Realm");
-            _playCharacterButton.onClick.AddListener(OnPlaySelectedCharacter);
-            _playCharacterButton.interactable = false;
-
-            _characterNameInput = CreateInputField(panel, "CharacterNameInput", "Character Name");
-            _createCharacterButton = CreateButton(panel, "CreateCharacterButton", "Create Character");
-            _createCharacterButton.onClick.AddListener(OnCreateCharacterClicked);
-
-            return canvas;
-        }
-
-        private Canvas CreateCanvas(string name, int sortingOrder)
-        {
-            var go = new GameObject(name)
-            {
-                layer = LayerMask.NameToLayer("UI")
-            };
-            go.transform.SetParent(transform, false);
-            var canvas = go.AddComponent<Canvas>();
-            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            canvas.sortingOrder = sortingOrder;
-            var scaler = go.AddComponent<CanvasScaler>();
-            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-            scaler.referenceResolution = new Vector2(1920, 1080);
-            go.AddComponent<GraphicRaycaster>();
-            return canvas;
-        }
-
-        private RectTransform CreatePanel(Transform parent, string name)
-        {
-            var panelGo = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
-            panelGo.transform.SetParent(parent, false);
-            var rect = (RectTransform)panelGo.transform;
-            rect.anchorMin = new Vector2(0.5f, 0.5f);
-            rect.anchorMax = new Vector2(0.5f, 0.5f);
-            rect.pivot = new Vector2(0.5f, 0.5f);
-            rect.sizeDelta = new Vector2(600, 500);
-            panelGo.GetComponent<Image>().color = new Color(0f, 0f, 0f, 0.5f);
-            return rect;
-        }
-
-        private Text CreateMessageText(Transform parent, string defaultText)
-        {
-            var textGo = new GameObject("Message", typeof(RectTransform), typeof(CanvasRenderer), typeof(Text));
-            textGo.transform.SetParent(parent, false);
-            var rect = (RectTransform)textGo.transform;
-            rect.sizeDelta = new Vector2(0, 60);
-            var text = textGo.GetComponent<Text>();
-            text.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            text.text = defaultText;
-            text.alignment = TextAnchor.MiddleCenter;
-            text.color = Color.white;
-            var layout = textGo.AddComponent<LayoutElement>();
-            layout.preferredHeight = 60f;
-            return text;
-        }
-
-        private InputField CreateInputField(Transform parent, string name, string placeholder, bool isPassword = false)
-        {
-            var inputGo = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(InputField));
-            inputGo.transform.SetParent(parent, false);
-            inputGo.GetComponent<Image>().color = new Color(1f, 1f, 1f, 0.9f);
-            var layout = inputGo.AddComponent<LayoutElement>();
-            layout.preferredHeight = 48f;
-            layout.preferredWidth = 400f;
-
-            var rect = (RectTransform)inputGo.transform;
-            rect.sizeDelta = new Vector2(400, 48);
-
-            var textGo = new GameObject("Text", typeof(RectTransform), typeof(CanvasRenderer), typeof(Text));
-            textGo.transform.SetParent(inputGo.transform, false);
-            ConfigureTextRect((RectTransform)textGo.transform);
-            var textComponent = textGo.GetComponent<Text>();
-            textComponent.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            textComponent.text = string.Empty;
-            textComponent.color = Color.black;
-            textComponent.alignment = TextAnchor.MiddleLeft;
-
-            var placeholderGo = new GameObject("Placeholder", typeof(RectTransform), typeof(CanvasRenderer), typeof(Text));
-            placeholderGo.transform.SetParent(inputGo.transform, false);
-            ConfigureTextRect((RectTransform)placeholderGo.transform);
-            var placeholderText = placeholderGo.GetComponent<Text>();
-            placeholderText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            placeholderText.text = placeholder;
-            placeholderText.color = new Color(0.6f, 0.6f, 0.6f, 0.75f);
-            placeholderText.alignment = TextAnchor.MiddleLeft;
-
-            var input = inputGo.GetComponent<InputField>();
-            input.textComponent = textComponent;
-            input.placeholder = placeholderText;
-            input.contentType = isPassword ? InputField.ContentType.Password : InputField.ContentType.Standard;
-            input.lineType = InputField.LineType.SingleLine;
-
-            return input;
-        }
-
-        private Button CreateButton(Transform parent, string name, string label)
-        {
-            var buttonGo = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
-            buttonGo.transform.SetParent(parent, false);
-            buttonGo.GetComponent<Image>().color = new Color(1f, 1f, 1f, 0.9f);
-            var layout = buttonGo.AddComponent<LayoutElement>();
-            layout.preferredHeight = 48f;
-            layout.preferredWidth = 400f;
-
-            var rect = (RectTransform)buttonGo.transform;
-            rect.sizeDelta = new Vector2(400, 48);
-
-            var textGo = new GameObject("Text", typeof(RectTransform), typeof(CanvasRenderer), typeof(Text));
-            textGo.transform.SetParent(buttonGo.transform, false);
-            ConfigureTextRect((RectTransform)textGo.transform);
-            var text = textGo.GetComponent<Text>();
-            text.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            text.text = label;
-            text.color = Color.black;
-            text.alignment = TextAnchor.MiddleCenter;
-
-            return buttonGo.GetComponent<Button>();
-        }
-
-        private RectTransform CreateListRoot(Transform parent, string name)
-        {
-            var listGo = new GameObject(name, typeof(RectTransform));
-            listGo.transform.SetParent(parent, false);
-            var rect = (RectTransform)listGo.transform;
-            rect.sizeDelta = new Vector2(0, 300);
-            var layout = listGo.gameObject.AddComponent<VerticalLayoutGroup>();
-            layout.spacing = 6f;
-            layout.childForceExpandHeight = false;
-            layout.childControlHeight = true;
-            layout.childAlignment = TextAnchor.UpperCenter;
-
-            var fitter = listGo.gameObject.AddComponent<ContentSizeFitter>();
-            fitter.verticalFit = ContentSizeFitter.FitMode.MinSize;
-
-            var layoutElement = listGo.gameObject.AddComponent<LayoutElement>();
-            layoutElement.preferredHeight = 300f;
-            return rect;
-        }
-
-        private RectTransform CreateDetailPanel(Transform parent, string name)
-        {
-            var panelGo = new GameObject(name, typeof(RectTransform));
-            panelGo.transform.SetParent(parent, false);
-            var rect = (RectTransform)panelGo.transform;
-            rect.sizeDelta = new Vector2(0, 120);
-
-            var layout = panelGo.AddComponent<VerticalLayoutGroup>();
-            layout.spacing = 4f;
-            layout.childForceExpandHeight = false;
-            layout.childAlignment = TextAnchor.UpperLeft;
-
-            var fitter = panelGo.AddComponent<ContentSizeFitter>();
-            fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
-
-            var layoutElement = panelGo.AddComponent<LayoutElement>();
-            layoutElement.preferredHeight = 120f;
-            layoutElement.minHeight = 100f;
-
-            return rect;
-        }
-
-        private Text CreateDetailLabel(Transform parent, string name, string defaultText)
-        {
-            var textGo = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(Text));
-            textGo.transform.SetParent(parent, false);
-            var rect = (RectTransform)textGo.transform;
-            rect.anchorMin = new Vector2(0, 1);
-            rect.anchorMax = new Vector2(1, 1);
-            rect.pivot = new Vector2(0, 1);
-            rect.sizeDelta = new Vector2(0, 24);
-
-            var text = textGo.GetComponent<Text>();
-            text.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            text.text = defaultText;
-            text.alignment = TextAnchor.MiddleLeft;
-            text.color = Color.white;
-
-            var layout = textGo.AddComponent<LayoutElement>();
-            layout.preferredHeight = 24f;
-            layout.flexibleWidth = 1f;
-
-            return text;
-        }
-
-        private void ConfigureTextRect(RectTransform rect)
-        {
-            rect.anchorMin = Vector2.zero;
-            rect.anchorMax = Vector2.one;
-            rect.offsetMin = new Vector2(10, 6);
-            rect.offsetMax = new Vector2(-10, -6);
-        }
-
         private void OnLoginClicked()
         {
+            if (_loginButton == null || _loginMessage == null || _emailInput == null || _passwordInput == null)
+            {
+                Debug.LogWarning("MainMenuController login UI is not fully wired. Assign references in the scene or prefab.", this);
+                return;
+            }
+
             _loginButton.interactable = false;
-            _loginMessage.text = "Authenticating...";
+            SetMessage(_loginMessage, "Authenticating...");
             StartCoroutine(LoginRoutine());
         }
 
@@ -447,21 +256,25 @@ namespace Client
                 _passwordInput.text,
                 response =>
                 {
-                    _loginMessage.text = "Login successful!";
+                    SetMessage(_loginMessage, "Login successful!");
                     ShowCanvas(_realmCanvas);
                     StartCoroutine(LoadRealms());
                 },
                 error =>
                 {
                     _loginButton.interactable = true;
-                    _loginMessage.text = error.Message;
+                    SetMessage(_loginMessage, error.Message);
                 });
         }
 
         private IEnumerator LoadRealms()
         {
-            _realmMessage.text = "Loading realms...";
-            _reloadRealmsButton.interactable = false;
+            SetMessage(_realmMessage, "Loading realms...");
+
+            if (_reloadRealmsButton != null)
+            {
+                _reloadRealmsButton.interactable = false;
+            }
             ClearList(_spawnedRealmEntries);
 
             yield return _realmService.GetRealms(
@@ -469,23 +282,29 @@ namespace Client
                 {
                     if (realms.Count == 0)
                     {
-                        _realmMessage.text = "No realms available.";
+                        SetMessage(_realmMessage, "No realms available.");
                         return;
                     }
 
-                    _realmMessage.text = "Choose a realm:";
+                    SetMessage(_realmMessage, "Choose a realm:");
                     foreach (var realm in realms)
                     {
                         var entry = CreateRealmButton(realm);
-                        _spawnedRealmEntries.Add(entry.gameObject);
+                        if (entry != null)
+                        {
+                            _spawnedRealmEntries.Add(entry.gameObject);
+                        }
                     }
                 },
                 error =>
                 {
-                    _realmMessage.text = error.Message;
+                    SetMessage(_realmMessage, error.Message);
                 });
 
-            _reloadRealmsButton.interactable = true;
+            if (_reloadRealmsButton != null)
+            {
+                _reloadRealmsButton.interactable = true;
+            }
         }
 
         private Button CreateRealmButton(RealmInfo realm)
@@ -496,8 +315,13 @@ namespace Client
             var button = CreateListButton(
                 _realmListRoot,
                 $"Realm_{realm.id}",
-                $"{realm.name} • {membershipLabel}"
+                $"{realm.name} • {membershipLabel}",
+                _realmEntryTemplate
             );
+            if (button == null)
+            {
+                return null;
+            }
             button.onClick.AddListener(() => OnRealmSelected(realm));
             return button;
         }
@@ -505,7 +329,7 @@ namespace Client
         private void OnRealmSelected(RealmInfo realm)
         {
             SessionManager.SetRealm(realm.id);
-            _characterMessage.text = $"Loading characters for {realm.name}...";
+            SetMessage(_characterMessage, $"Loading characters for {realm.name}...");
             ShowCanvas(_characterCanvas);
             StartCoroutine(LoadCharacters(realm));
         }
@@ -513,7 +337,10 @@ namespace Client
         private IEnumerator LoadCharacters(RealmInfo realm)
         {
             ClearList(_spawnedCharacterEntries);
-            _createCharacterButton.interactable = false;
+            if (_createCharacterButton != null)
+            {
+                _createCharacterButton.interactable = false;
+            }
             DisplayCharacterDetails(null);
 
             yield return _characterService.GetCharacters(
@@ -523,14 +350,14 @@ namespace Client
                     var characters = roster.characters ?? Array.Empty<CharacterInfo>();
                     if (characters.Length == 0)
                     {
-                        _characterMessage.text = "No characters found. Create a new hero.";
+                        SetMessage(_characterMessage, "No characters found. Create a new hero.");
                     }
                     else
                     {
                         var roleLabel = string.IsNullOrWhiteSpace(roster.membership?.role)
                             ? ""
                             : $" ({roster.membership.role})";
-                        _characterMessage.text = $"Select a character for {realm.name}{roleLabel}:";
+                        SetMessage(_characterMessage, $"Select a character for {realm.name}{roleLabel}:");
                         foreach (var character in characters)
                         {
                             ClassUnlockRepository.TrackCharacter(character);
@@ -556,16 +383,26 @@ namespace Client
                                         }));
                             }
                             var entry = CreateCharacterButton(character);
-                            _spawnedCharacterEntries.Add(entry.gameObject);
+                            if (entry != null)
+                            {
+                                _spawnedCharacterEntries.Add(entry.gameObject);
+                            }
                         }
                     }
 
-                    _createCharacterButton.interactable = true;
+                    if (_createCharacterButton != null)
+                    {
+                        _createCharacterButton.interactable = true;
+                    }
                 },
                 error =>
                 {
-                    _characterMessage.text = error.Message;
-                    _createCharacterButton.interactable = true;
+                    SetMessage(_characterMessage, error.Message);
+
+                    if (_createCharacterButton != null)
+                    {
+                        _createCharacterButton.interactable = true;
+                    }
                 });
         }
 
@@ -581,7 +418,11 @@ namespace Client
                 label = $"{label} [{statusBadge}]";
             }
 
-            var button = CreateListButton(_characterListRoot, $"Character_{character.id}", label);
+            var button = CreateListButton(_characterListRoot, $"Character_{character.id}", label, _characterEntryTemplate);
+            if (button == null)
+            {
+                return null;
+            }
             if (status.RequiresAttention)
             {
                 var image = button.GetComponent<Image>();
@@ -596,8 +437,11 @@ namespace Client
 
         private void BeginPlayForCharacter(CharacterInfo character)
         {
-            _characterMessage.text = "Connecting to realm...";
-            _createCharacterButton.interactable = false;
+            SetMessage(_characterMessage, "Connecting to realm...");
+            if (_createCharacterButton != null)
+            {
+                _createCharacterButton.interactable = false;
+            }
             StartCoroutine(SelectCharacterRoutine(character));
         }
 
@@ -607,34 +451,35 @@ namespace Client
 
             if (character == null)
             {
-                _characterMessage.text = classStatus.Message;
+                SetMessage(_characterMessage, classStatus.Message);
                 return;
             }
 
             if (!classStatus.CanPlay)
             {
-                _characterMessage.text = classStatus.Message;
+                SetMessage(_characterMessage, classStatus.Message);
                 return;
             }
 
             var builderUnlocked = ClassUnlockRepository.IsClassUnlocked(character.id, ClassUnlockUtility.BuilderClassId);
-            _characterMessage.text = builderUnlocked
+            SetMessage(_characterMessage,
+                builderUnlocked
                 ? $"Ready to enter as {character.name}."
-                : $"{character.name} must unlock the Builder class before accessing Builder mode.";
+                : $"{character.name} must unlock the Builder class before accessing Builder mode.");
         }
 
         private void OnPlaySelectedCharacter()
         {
             if (_selectedCharacter == null)
             {
-                _characterMessage.text = "Select a character first.";
+                SetMessage(_characterMessage, "Select a character first.");
                 return;
             }
 
             var classStatus = CharacterClassStatusUtility.Evaluate(_selectedCharacter);
             if (!classStatus.CanPlay)
             {
-                _characterMessage.text = classStatus.Message;
+                SetMessage(_characterMessage, classStatus.Message);
                 return;
             }
 
@@ -683,6 +528,14 @@ namespace Client
             if (label != null)
             {
                 label.text = value;
+            }
+        }
+
+        private static void SetMessage(Text label, string message)
+        {
+            if (label != null)
+            {
+                label.text = message;
             }
         }
 
@@ -759,8 +612,11 @@ namespace Client
                 },
                 error =>
                 {
-                    _characterMessage.text = error.Message;
-                    _createCharacterButton.interactable = true;
+                    SetMessage(_characterMessage, error.Message);
+                    if (_createCharacterButton != null)
+                    {
+                        _createCharacterButton.interactable = true;
+                    }
                 });
         }
 
@@ -768,13 +624,13 @@ namespace Client
         {
             if (string.IsNullOrWhiteSpace(SessionManager.SelectedRealmId))
             {
-                _characterMessage.text = "Please select a realm first.";
+                SetMessage(_characterMessage, "Please select a realm first.");
                 return;
             }
 
             if (string.IsNullOrWhiteSpace(_characterNameInput?.text))
             {
-                _characterMessage.text = "Enter a character name before creating.";
+                SetMessage(_characterMessage, "Enter a character name before creating.");
                 return;
             }
 
@@ -798,14 +654,17 @@ namespace Client
             }
 
             _characterCreationPanelInstance.Refresh();
-            _characterMessage.text = "Choose a race to finalize your hero.";
+            SetMessage(_characterMessage, "Choose a race to finalize your hero.");
         }
 
         private void BeginImmediateCharacterCreation()
         {
             var name = _characterNameInput != null ? _characterNameInput.text : string.Empty;
-            _characterMessage.text = "Creating character...";
-            _createCharacterButton.interactable = false;
+            SetMessage(_characterMessage, "Creating character...");
+            if (_createCharacterButton != null)
+            {
+                _createCharacterButton.interactable = false;
+            }
             StartCoroutine(CreateCharacterRoutine(SessionManager.SelectedRealmId, name));
         }
 
@@ -843,18 +702,30 @@ namespace Client
                     }
 
                     var descriptorText = descriptors.Count > 0 ? string.Join(" ", descriptors) + " " : string.Empty;
-                    _characterMessage.text = $"Created {descriptorText}{character.name}. Select to enter the world.";
-                    _characterNameInput.text = string.Empty;
+                    SetMessage(_characterMessage, $"Created {descriptorText}{character.name}. Select to enter the world.");
+                    if (_characterNameInput != null)
+                    {
+                        _characterNameInput.text = string.Empty;
+                    }
                     ClassUnlockRepository.TrackCharacter(character);
                     var entry = CreateCharacterButton(character);
-                    _spawnedCharacterEntries.Add(entry.gameObject);
+                    if (entry != null)
+                    {
+                        _spawnedCharacterEntries.Add(entry.gameObject);
+                    }
                     DisplayCharacterDetails(character);
-                    _createCharacterButton.interactable = true;
+                    if (_createCharacterButton != null)
+                    {
+                        _createCharacterButton.interactable = true;
+                    }
                 },
                 error =>
                 {
-                    _characterMessage.text = error.Message;
-                    _createCharacterButton.interactable = true;
+                    SetMessage(_characterMessage, error.Message);
+                    if (_createCharacterButton != null)
+                    {
+                        _createCharacterButton.interactable = true;
+                    }
                 },
                 selection);
         }
@@ -916,7 +787,7 @@ namespace Client
         {
             if (race?.Definition != null)
             {
-                _characterMessage.text = $"Customizing {race.Definition.DisplayName}. Choose a starting class.";
+                SetMessage(_characterMessage, $"Customizing {race.Definition.DisplayName}. Choose a starting class.");
             }
         }
 
@@ -924,7 +795,7 @@ namespace Client
         {
             if (classDefinition != null)
             {
-                _characterMessage.text = $"Starting class set to {classDefinition.DisplayName}.";
+                SetMessage(_characterMessage, $"Starting class set to {classDefinition.DisplayName}.");
             }
         }
 
@@ -932,48 +803,67 @@ namespace Client
         {
             if (string.IsNullOrWhiteSpace(SessionManager.SelectedRealmId))
             {
-                _characterMessage.text = "Please select a realm first.";
+                SetMessage(_characterMessage, "Please select a realm first.");
                 return;
             }
 
             if (string.IsNullOrWhiteSpace(_characterNameInput?.text))
             {
-                _characterMessage.text = "Enter a character name before confirming.";
+                SetMessage(_characterMessage, "Enter a character name before confirming.");
                 return;
             }
 
             if (selection.Race == null)
             {
-                _characterMessage.text = "Select a race to continue.";
+                SetMessage(_characterMessage, "Select a race to continue.");
                 return;
             }
 
             if (selection.Class == null)
             {
-                _characterMessage.text = "Select a starting class to continue.";
+                SetMessage(_characterMessage, "Select a starting class to continue.");
                 return;
             }
 
             HideCharacterCreationPanel();
-            _characterMessage.text = $"Creating {selection.Race.DisplayName}...";
-            _createCharacterButton.interactable = false;
+            SetMessage(_characterMessage, $"Creating {selection.Race.DisplayName}...");
+            if (_createCharacterButton != null)
+            {
+                _createCharacterButton.interactable = false;
+            }
             StartCoroutine(CreateCharacterRoutine(SessionManager.SelectedRealmId, _characterNameInput.text, selection));
         }
 
         private void OnCharacterCreationCancelled()
         {
             HideCharacterCreationPanel();
-            _characterMessage.text = "Character creation cancelled.";
+            SetMessage(_characterMessage, "Character creation cancelled.");
         }
 
-        private Button CreateListButton(RectTransform parent, string name, string label)
+        private Button CreateListButton(RectTransform parent, string name, string label, Button templateOverride = null)
         {
-            var button = CreateButton(parent, name, label);
-            var image = button.GetComponent<Image>();
-            image.color = new Color(0.9f, 0.9f, 0.9f, 0.95f);
-            var layout = button.GetComponent<LayoutElement>();
-            layout.preferredWidth = 450f;
-            return button;
+            var template = templateOverride != null ? templateOverride : _realmEntryTemplate;
+            if (parent == null || template == null)
+            {
+                Debug.LogWarning("MainMenuController list entry template is missing.", this);
+                return null;
+            }
+
+            var instance = Application.isPlaying ? Instantiate(template, parent) : UnityEngine.Object.Instantiate(template, parent);
+            instance.gameObject.name = name;
+            instance.gameObject.SetActive(true);
+
+            var labelText = instance.GetComponentInChildren<Text>(true);
+            if (labelText != null)
+            {
+                labelText.text = label;
+            }
+            else
+            {
+                Debug.LogWarning($"List entry '{name}' is missing a Text component to set the label.", instance);
+            }
+
+            return instance;
         }
 
         private void ClearList(List<GameObject> entries)
