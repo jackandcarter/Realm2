@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Realm.Data;
 using UnityEngine;
 
 namespace Realm.Abilities
@@ -132,8 +133,11 @@ namespace Realm.Abilities
     }
 
     [CreateAssetMenu(menuName = "Realm/Abilities/Ability Definition", fileName = "NewAbilityDefinition")]
-    public class AbilityDefinition : ScriptableObject
+    public class AbilityDefinition : ScriptableObject, IGuidIdentified
     {
+        [SerializeField, Tooltip("Stable unique identifier for this ability. Auto-generated if empty.")]
+        private string guid;
+
         public string AbilityName = "New Ability";
         [TextArea] public string Description;
         public Sprite Icon;
@@ -144,6 +148,22 @@ namespace Realm.Abilities
         public AbilityHitboxConfig Hitbox = new AbilityHitboxConfig();
         public AbilityComboChain Combo = new AbilityComboChain();
         public List<AbilityEffect> Effects = new List<AbilityEffect>();
+
+        public string Guid => guid;
+
+        private void OnValidate()
+        {
+            if (string.IsNullOrWhiteSpace(guid))
+            {
+                guid = System.Guid.NewGuid().ToString("N");
+#if UNITY_EDITOR
+                UnityEditor.EditorUtility.SetDirty(this);
+#endif
+            }
+
+            AbilityName = string.IsNullOrWhiteSpace(AbilityName) ? name : AbilityName.Trim();
+            Description = Description?.Trim();
+        }
 
         public string BuildSummary()
         {
