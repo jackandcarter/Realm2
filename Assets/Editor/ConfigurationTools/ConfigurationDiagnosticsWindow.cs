@@ -26,6 +26,8 @@ namespace Realm.Editor.Configuration
         {
             DrawToolbar();
 
+            EditorGUILayout.HelpBox("Scan configuration assets for missing GUIDs, duplicates, and broken references. Use Repair to auto-fix supported issues.", MessageType.Info);
+
             if (_issues.Count == 0)
             {
                 EditorGUILayout.HelpBox("No configuration issues detected.", MessageType.Info);
@@ -46,14 +48,14 @@ namespace Realm.Editor.Configuration
         {
             using (new EditorGUILayout.HorizontalScope(EditorStyles.toolbar))
             {
-                if (GUILayout.Button("Scan", EditorStyles.toolbarButton, GUILayout.Width(80f)))
+                if (GUILayout.Button(new GUIContent("Scan", "Scan all ConfigurationAsset instances for validation issues."), EditorStyles.toolbarButton, GUILayout.Width(80f)))
                 {
                     Scan();
                 }
 
                 using (new EditorGUI.DisabledScope(_issues.Count == 0))
                 {
-                    if (GUILayout.Button("Repair All", EditorStyles.toolbarButton, GUILayout.Width(100f)))
+                    if (GUILayout.Button(new GUIContent("Repair All", "Apply automatic fixes to every repairable issue."), EditorStyles.toolbarButton, GUILayout.Width(100f)))
                     {
                         RepairAll();
                     }
@@ -72,14 +74,14 @@ namespace Realm.Editor.Configuration
 
                 using (new EditorGUILayout.HorizontalScope())
                 {
-                    if (GUILayout.Button("Ping", GUILayout.Width(80f)))
+                    if (GUILayout.Button(new GUIContent("Ping", "Highlight this asset in the Project window."), GUILayout.Width(80f)))
                     {
                         PingAsset(issue.AssetPath);
                     }
 
                     using (new EditorGUI.DisabledScope(issue.FixAction == null))
                     {
-                        if (GUILayout.Button("Repair", GUILayout.Width(80f)))
+                        if (GUILayout.Button(new GUIContent("Repair", "Apply the recommended fix for this issue."), GUILayout.Width(80f)))
                         {
                             issue.FixAction?.Invoke();
                             PostFixRefresh();

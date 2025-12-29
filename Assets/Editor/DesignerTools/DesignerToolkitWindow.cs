@@ -52,12 +52,12 @@ namespace Realm.Editor.DesignerTools
         {
             using (new EditorGUILayout.HorizontalScope(EditorStyles.toolbar))
             {
-                if (GUILayout.Button("Save Profile", EditorStyles.toolbarButton, GUILayout.Width(100f)))
+                if (GUILayout.Button(new GUIContent("Save Profile", "Persist the current toolkit folder paths and registry selection."), EditorStyles.toolbarButton, GUILayout.Width(100f)))
                 {
                     profile.SaveProfile();
                 }
 
-                if (GUILayout.Button("Reset Defaults", EditorStyles.toolbarButton, GUILayout.Width(110f)))
+                if (GUILayout.Button(new GUIContent("Reset Defaults", "Restore the toolkit profile to the default folders and registry settings."), EditorStyles.toolbarButton, GUILayout.Width(110f)))
                 {
                     ResetDefaults(profile);
                 }
@@ -72,7 +72,7 @@ namespace Realm.Editor.DesignerTools
             EditorGUILayout.HelpBox("The registry aggregates stat, class, and ability assets for runtime lookups. Sync it whenever new assets are created.", MessageType.Info);
 
             EditorGUI.BeginChangeCheck();
-            var registry = (StatRegistry)EditorGUILayout.ObjectField("Stat Registry", profile.StatRegistry, typeof(StatRegistry), false);
+            var registry = (StatRegistry)EditorGUILayout.ObjectField(new GUIContent("Stat Registry", "Registry asset used at runtime for stat, class, and ability lookups."), profile.StatRegistry, typeof(StatRegistry), false);
             if (EditorGUI.EndChangeCheck())
             {
                 profile.StatRegistry = registry;
@@ -83,7 +83,7 @@ namespace Realm.Editor.DesignerTools
             {
                 using (new EditorGUI.DisabledScope(profile.StatRegistry != null))
                 {
-                    if (GUILayout.Button("Create Registry", GUILayout.Width(140f)))
+                    if (GUILayout.Button(new GUIContent("Create Registry", "Create a new StatRegistry asset in the configured folder."), GUILayout.Width(140f)))
                     {
                         profile.StatRegistry = CreateRegistryAsset(profile);
                         profile.SaveProfile();
@@ -92,7 +92,7 @@ namespace Realm.Editor.DesignerTools
 
                 using (new EditorGUI.DisabledScope(profile.StatRegistry == null))
                 {
-                    if (GUILayout.Button("Sync Registry", GUILayout.Width(140f)))
+                    if (GUILayout.Button(new GUIContent("Sync Registry", "Scan the project and refresh the registry asset with current data."), GUILayout.Width(140f)))
                     {
                         SyncRegistry(profile.StatRegistry);
                     }
@@ -113,27 +113,27 @@ namespace Realm.Editor.DesignerTools
             EditorGUILayout.LabelField("Asset Creation", EditorStyles.boldLabel);
             EditorGUILayout.HelpBox("Define default folders for new assets. Use the Create buttons to generate new ScriptableObjects in those locations.", MessageType.Info);
 
-            DrawFolderField("Stat Definitions Folder", profile.StatDefinitionsFolder, value =>
+            DrawFolderField(new GUIContent("Stat Definitions Folder", "Default folder path for new StatDefinition assets."), profile.StatDefinitionsFolder, value =>
             {
                 profile.StatDefinitionsFolder = value;
                 profile.SaveProfile();
             });
-            DrawFolderField("Stat Categories Folder", profile.StatCategoriesFolder, value =>
+            DrawFolderField(new GUIContent("Stat Categories Folder", "Default folder path for new StatCategory assets."), profile.StatCategoriesFolder, value =>
             {
                 profile.StatCategoriesFolder = value;
                 profile.SaveProfile();
             });
-            DrawFolderField("Stat Profiles Folder", profile.StatProfilesFolder, value =>
+            DrawFolderField(new GUIContent("Stat Profiles Folder", "Default folder path for new StatProfileDefinition assets."), profile.StatProfilesFolder, value =>
             {
                 profile.StatProfilesFolder = value;
                 profile.SaveProfile();
             });
-            DrawFolderField("Class Definitions Folder", profile.ClassDefinitionsFolder, value =>
+            DrawFolderField(new GUIContent("Class Definitions Folder", "Default folder path for new ClassDefinition assets."), profile.ClassDefinitionsFolder, value =>
             {
                 profile.ClassDefinitionsFolder = value;
                 profile.SaveProfile();
             });
-            DrawFolderField("Ability Definitions Folder", profile.AbilityDefinitionsFolder, value =>
+            DrawFolderField(new GUIContent("Ability Definitions Folder", "Default folder path for new AbilityDefinition assets."), profile.AbilityDefinitionsFolder, value =>
             {
                 profile.AbilityDefinitionsFolder = value;
                 profile.SaveProfile();
@@ -141,19 +141,19 @@ namespace Realm.Editor.DesignerTools
 
             EditorGUILayout.Space();
 
-            DrawCreateRow("Stat Definition", profile.StatDefinitionsFolder, "StatDefinition", () =>
+            DrawCreateRow(new GUIContent("Stat Definition", "Create a new StatDefinition in the configured folder."), profile.StatDefinitionsFolder, "StatDefinition", () =>
                 CreateAsset<StatDefinition>("StatDefinition", profile.StatDefinitionsFolder));
 
-            DrawCreateRow("Stat Category", profile.StatCategoriesFolder, "StatCategory", () =>
+            DrawCreateRow(new GUIContent("Stat Category", "Create a new StatCategory in the configured folder."), profile.StatCategoriesFolder, "StatCategory", () =>
                 CreateAsset<StatCategory>("StatCategory", profile.StatCategoriesFolder));
 
-            DrawCreateRow("Stat Profile", profile.StatProfilesFolder, "StatProfile", () =>
+            DrawCreateRow(new GUIContent("Stat Profile", "Create a new StatProfileDefinition in the configured folder."), profile.StatProfilesFolder, "StatProfile", () =>
                 CreateAsset<Realm.Data.StatProfileDefinition>("StatProfile", profile.StatProfilesFolder));
 
-            DrawCreateRow("Class Definition", profile.ClassDefinitionsFolder, "ClassDefinition", () =>
+            DrawCreateRow(new GUIContent("Class Definition", "Create a new ClassDefinition in the configured folder."), profile.ClassDefinitionsFolder, "ClassDefinition", () =>
                 CreateAsset<ClassDefinition>("ClassDefinition", profile.ClassDefinitionsFolder));
 
-            DrawCreateRow("Ability Definition", profile.AbilityDefinitionsFolder, "AbilityDefinition", () =>
+            DrawCreateRow(new GUIContent("Ability Definition", "Create a new AbilityDefinition in the configured folder."), profile.AbilityDefinitionsFolder, "AbilityDefinition", () =>
                 CreateAsset<AbilityDefinition>("AbilityDefinition", profile.AbilityDefinitionsFolder));
         }
 
@@ -164,24 +164,24 @@ namespace Realm.Editor.DesignerTools
 
             using (new EditorGUILayout.HorizontalScope())
             {
-                if (GUILayout.Button("Stat Profile Studio", GUILayout.Width(170f)))
+                if (GUILayout.Button(new GUIContent("Stat Profile Studio", "Open the stat profile editor for curve and formula setup."), GUILayout.Width(170f)))
                 {
                     Realm.Editor.DesignerTools.StatProfileCreatorWindow.ShowWindow();
                 }
 
-                if (GUILayout.Button("Class Ability Planner", GUILayout.Width(170f)))
+                if (GUILayout.Button(new GUIContent("Class Ability Planner", "Assign abilities and unlock conditions per class."), GUILayout.Width(170f)))
                 {
                     ClassAbilityAssignmentWindow.ShowWindow();
                 }
 
-                if (GUILayout.Button("Ability Designer", GUILayout.Width(150f)))
+                if (GUILayout.Button(new GUIContent("Ability Designer", "Open the ability definition editor."), GUILayout.Width(150f)))
                 {
                     AbilityDesignerWindow.Open();
                 }
             }
         }
 
-        private static void DrawFolderField(string label, string currentValue, Action<string> onChange)
+        private static void DrawFolderField(GUIContent label, string currentValue, Action<string> onChange)
         {
             EditorGUI.BeginChangeCheck();
             var updatedValue = EditorGUILayout.TextField(label, currentValue);
@@ -191,18 +191,18 @@ namespace Realm.Editor.DesignerTools
             }
         }
 
-        private static void DrawCreateRow(string label, string folder, string typeName, Action onCreate)
+        private static void DrawCreateRow(GUIContent label, string folder, string typeName, Action onCreate)
         {
             using (new EditorGUILayout.HorizontalScope())
             {
-                EditorGUILayout.LabelField($"{label} Assets", GUILayout.Width(170f));
+                EditorGUILayout.LabelField(new GUIContent($"{label.text} Assets", label.tooltip), GUILayout.Width(170f));
                 EditorGUILayout.LabelField(CountAssets(typeName).ToString(), GUILayout.Width(60f));
                 GUILayout.FlexibleSpace();
-                if (GUILayout.Button($"Create {label}", GUILayout.Width(160f)))
+                if (GUILayout.Button(new GUIContent($"Create {label.text}", label.tooltip), GUILayout.Width(160f)))
                 {
                     if (string.IsNullOrWhiteSpace(folder))
                     {
-                        EditorUtility.DisplayDialog("Missing Folder", $"Provide a folder path before creating a {label}.", "OK");
+                        EditorUtility.DisplayDialog("Missing Folder", $"Provide a folder path before creating a {label.text}.", "OK");
                         return;
                     }
 
