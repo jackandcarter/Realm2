@@ -33,3 +33,17 @@ MonoBehaviour:
         DisplayName: Master Arkitect's Ledger
         Description: Unlocks advanced Arkitect schematics and reduces material costs for community commissions by 15%.
         Tooltip: Cross-referenced Arkitect ledgers harmonize supply lines across Empires, showcasing true Construction mastery.
+  - ClassId: necromancer
+    Levels:
+    - Level: 1
+      Abilities:
+      - AbilityId: ability.necromancer_reaper_combo
+        DisplayName: Reaper's Spiral
+        Description: Unleash a four-hit scythe combo that cleaves nearby enemies and leaves necrotic wounds.
+        Tooltip: Each swing widens the hitbox cone, rewarding precise timing and close-range aggression.
+    - Level: 3
+      Abilities:
+      - AbilityId: ability.necromancer_soul_bolt
+        DisplayName: Soul Bolt
+        Description: Fire a necrotic bolt at a distant enemy, dealing magic damage and fraying their defenses.
+        Tooltip: A reliable ranged finisher that scales with Black Magic for hybrid necromancers.

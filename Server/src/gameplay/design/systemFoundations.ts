@@ -204,9 +204,9 @@ export const coreClassDefinitions: ClassDefinition[] = [
     id: 'necromancer',
     name: 'Necromancer',
     role: 'damage',
-    primaryStats: ['stat.magic', 'stat.spirit'],
-    weaponProficiencies: ['scythe', 'staff'],
-    signatureAbilities: [],
+    primaryStats: ['stat.strength', 'stat.magic'],
+    weaponProficiencies: ['scythe', 'staff', 'sword'],
+    signatureAbilities: ['ability.necromancer_reaper_combo', 'ability.necromancer_soul_bolt'],
   },
   {
     id: 'technomancer',

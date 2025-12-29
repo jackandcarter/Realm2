@@ -22,6 +22,39 @@ export interface TargetingProfile {
   includeCaster?: boolean;
 }
 
+export type HitboxShape = 'sphere' | 'capsule' | 'box' | 'cone';
+
+export interface HitboxProfile {
+  shape: HitboxShape;
+  size?: { x: number; y: number; z: number };
+  radius?: number;
+  length?: number;
+  offset?: { x: number; y: number; z: number };
+  useCasterFacing?: boolean;
+  activeSeconds?: number;
+  requiresContact?: boolean;
+}
+
+export interface ComboStageDefinition {
+  id: string;
+  displayName?: string;
+  damageMultiplier?: number;
+  windowSeconds?: number;
+  animationTrigger?: string;
+  hitbox?: HitboxProfile;
+}
+
+export interface ComboChainDefinition {
+  stages: ComboStageDefinition[];
+  resetSeconds?: number;
+}
+
+export interface AbilityDeliveryProfile {
+  type: 'melee' | 'projectile' | 'area' | 'self';
+  rangeMeters?: number;
+  hitbox?: HitboxProfile;
+}
+
 export interface AbilityGraph {
   entryNodeId: string;
   nodes: AbilityGraphNode[];
@@ -79,6 +112,8 @@ export interface SerializedAbilityDefinition {
   id: string;
   name: string;
   summary?: string;
+  delivery?: AbilityDeliveryProfile;
+  combo?: ComboChainDefinition;
   graph: AbilityGraph;
 }
 
