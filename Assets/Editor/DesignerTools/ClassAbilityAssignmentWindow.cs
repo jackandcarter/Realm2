@@ -1,10 +1,11 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Realm.Data;
 using Realm.EditorTools;
 using UnityEditor;
 using UnityEngine;
+using AbilityUnlockConditionType = Realm.Data.AbilityUnlockConditionType;
+using ClassDefinition = Realm.Data.ClassDefinition;
 
 namespace Realm.Editor.DesignerTools
 {
