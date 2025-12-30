@@ -11,6 +11,9 @@ namespace Realm.Data
         [SerializeField, Tooltip("Stable unique identifier for this class. Auto-generated if empty.")]
         private string guid;
 
+        [SerializeField, Tooltip("Runtime class id used by unlock rules and class switching.")]
+        private string classId;
+
         [SerializeField]
         private string displayName;
 
@@ -42,6 +45,7 @@ namespace Realm.Data
         private List<ClassAbilityUnlock> abilityUnlocks = new();
 
         public string Guid => guid;
+        public string ClassId => classId;
         public string DisplayName => displayName;
         public string Description => description;
         public Sprite Icon => icon;
@@ -94,6 +98,7 @@ namespace Realm.Data
 #endif
             }
 
+            classId = string.IsNullOrWhiteSpace(classId) ? null : classId.Trim();
             displayName = string.IsNullOrWhiteSpace(displayName) ? name : displayName.Trim();
             description = description?.Trim();
 

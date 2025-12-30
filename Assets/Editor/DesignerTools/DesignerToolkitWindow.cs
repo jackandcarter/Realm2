@@ -218,6 +218,11 @@ namespace Realm.Editor.DesignerTools
                 {
                     AbilityDesignerWindow.Open();
                 }
+
+                if (GUILayout.Button(new GUIContent("Equipment Studio", "Open the equipment editor for weapons and armor."), GUILayout.Width(170f)))
+                {
+                    EquipmentDesignerWindow.ShowWindow();
+                }
             }
         }
 
