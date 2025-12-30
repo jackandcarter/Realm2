@@ -9,6 +9,7 @@ namespace Realm.Editor
     public class ClassDefinitionEditor : UnityEditor.Editor
     {
         private SerializedProperty _guidProperty;
+        private SerializedProperty _classIdProperty;
         private SerializedProperty _displayNameProperty;
         private SerializedProperty _descriptionProperty;
         private SerializedProperty _iconProperty;
@@ -23,6 +24,7 @@ namespace Realm.Editor
         private void OnEnable()
         {
             _guidProperty = serializedObject.FindProperty("guid");
+            _classIdProperty = serializedObject.FindProperty("classId");
             _displayNameProperty = serializedObject.FindProperty("displayName");
             _descriptionProperty = serializedObject.FindProperty("description");
             _iconProperty = serializedObject.FindProperty("icon");
@@ -45,6 +47,7 @@ namespace Realm.Editor
             }
 
             EditorGUILayout.LabelField("Presentation", EditorStyles.boldLabel);
+            EditorGUILayout.PropertyField(_classIdProperty, new GUIContent("Class Id", "Runtime id used for unlocks and equipment restrictions."));
             EditorGUILayout.PropertyField(_displayNameProperty);
             EditorGUILayout.PropertyField(_descriptionProperty);
             EditorGUILayout.PropertyField(_iconProperty);

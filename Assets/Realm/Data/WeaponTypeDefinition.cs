@@ -17,10 +17,14 @@ namespace Realm.Data
         [SerializeField, Tooltip("Optional sprite displayed alongside the weapon type.")]
         private Sprite icon;
 
+        [SerializeField, Tooltip("Equipment category used for class proficiency checks.")]
+        private WeaponType weaponType = WeaponType.Sword;
+
         public string Guid => guid;
         public string DisplayName => displayName;
         public string Description => description;
         public Sprite Icon => icon;
+        public WeaponType WeaponType => weaponType;
 
         protected override void OnValidate()
         {

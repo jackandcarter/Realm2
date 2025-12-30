@@ -17,18 +17,34 @@ namespace Realm.Data
         [SerializeField, Tooltip("Optional sprite displayed alongside the equipment.")]
         private Sprite icon;
 
+        [SerializeField, Tooltip("Icon used in inventory lists and tooltips. Falls back to the main icon if empty.")]
+        private Sprite inventoryIcon;
+
+        [SerializeField, Tooltip("Icon used in equipment and ability docks. Falls back to the inventory icon if empty.")]
+        private Sprite dockIcon;
+
         [SerializeField, Tooltip("Inventory slot this equipment occupies.")]
         private EquipmentSlot slot = EquipmentSlot.Weapon;
 
+        [SerializeField, Tooltip("Explicit class ids permitted to equip this item. Leave empty to allow all classes.")]
+        private List<string> requiredClassIds = new();
+
         [SerializeField, Tooltip("Optional class restrictions for equipping this item.")]
         private List<ClassDefinition> requiredClasses = new();
+
+        [SerializeField, Tooltip("Behaviors or effects applied while this equipment is equipped.")]
+        private List<EquipmentEquipEffect> equipEffects = new();
 
         public string Guid => guid;
         public string DisplayName => displayName;
         public string Description => description;
         public Sprite Icon => icon;
+        public Sprite InventoryIcon => inventoryIcon != null ? inventoryIcon : icon;
+        public Sprite DockIcon => dockIcon != null ? dockIcon : InventoryIcon;
         public EquipmentSlot Slot => slot;
+        public IReadOnlyList<string> RequiredClassIds => requiredClassIds;
         public IReadOnlyList<ClassDefinition> RequiredClasses => requiredClasses;
+        public IReadOnlyList<EquipmentEquipEffect> EquipEffects => equipEffects;
 
         protected override void OnValidate()
         {
@@ -44,6 +60,56 @@ namespace Realm.Data
 
             displayName = string.IsNullOrWhiteSpace(displayName) ? name : displayName.Trim();
             description = description?.Trim();
+            NormalizeRequiredClassIds();
+        }
+
+        private void NormalizeRequiredClassIds()
+        {
+            var normalized = new List<string>();
+
+            if (requiredClassIds != null)
+            {
+                foreach (var entry in requiredClassIds)
+                {
+                    var trimmed = string.IsNullOrWhiteSpace(entry) ? null : entry.Trim();
+                    if (!string.IsNullOrWhiteSpace(trimmed) && !ContainsIgnoreCase(normalized, trimmed))
+                    {
+                        normalized.Add(trimmed);
+                    }
+                }
+            }
+
+            if (requiredClasses != null)
+            {
+                foreach (var classDefinition in requiredClasses)
+                {
+                    var classId = classDefinition != null ? classDefinition.ClassId : null;
+                    if (!string.IsNullOrWhiteSpace(classId) && !ContainsIgnoreCase(normalized, classId))
+                    {
+                        normalized.Add(classId);
+                    }
+                }
+            }
+
+            requiredClassIds = normalized;
+        }
+
+        private static bool ContainsIgnoreCase(List<string> entries, string value)
+        {
+            if (entries == null || string.IsNullOrWhiteSpace(value))
+            {
+                return false;
+            }
+
+            for (var i = 0; i < entries.Count; i++)
+            {
+                if (string.Equals(entries[i], value, System.StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
     }
 }
