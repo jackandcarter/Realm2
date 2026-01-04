@@ -269,16 +269,16 @@ export interface ProfessionDefinition {
 }
 
 export const professionDefinitions: ProfessionDefinition[] = [
-  { id: 'farmer', name: 'Farmer', outputs: ['crops', 'herbs'] },
-  { id: 'gatherer', name: 'Gatherer', outputs: ['ore', 'wood', 'rare-essence'] },
-  { id: 'blacksmith', name: 'Blacksmith', outputs: ['weapons', 'armor-plates'], inputs: ['ore'] },
-  { id: 'tailor', name: 'Tailor', outputs: ['cloth-armor'], inputs: ['cloth'] },
-  { id: 'carpenter', name: 'Carpenter', outputs: ['wooden-structures'], inputs: ['wood'] },
-  { id: 'painter', name: 'Painter', outputs: ['decor'], inputs: ['pigment'] },
-  { id: 'mechanic', name: 'Mechanic', outputs: ['gadgets'], inputs: ['ore', 'tech-shards'] },
+  { id: 'farmer', name: 'Farmer', outputs: ['resource.crops', 'resource.herbs'] },
+  { id: 'gatherer', name: 'Gatherer', outputs: ['resource.ore', 'resource.wood', 'resource.rare-essence'] },
+  { id: 'blacksmith', name: 'Blacksmith', outputs: ['resource.iron-plate'], inputs: ['resource.ore'] },
+  { id: 'tailor', name: 'Tailor', outputs: ['resource.cloth'], inputs: ['resource.cloth', 'resource.leather'] },
+  { id: 'carpenter', name: 'Carpenter', outputs: ['resource.wood-beam-small', 'resource.wood-beam-medium'], inputs: ['resource.wood'] },
+  { id: 'painter', name: 'Painter', outputs: ['resource.pigment'], inputs: ['resource.pigment'] },
+  { id: 'mechanic', name: 'Mechanic', outputs: ['resource.tech-shards'], inputs: ['resource.ore', 'resource.tech-shards'] },
 ];
 
-export const equipmentSlots = ['head', 'chest', 'legs', 'hands', 'feet', 'accessory', 'tool'] as const;
+export const equipmentSlots = ['weapon', 'head', 'chest', 'legs', 'hands', 'feet', 'accessory', 'tool'] as const;
 
 export type EquipmentSlot = (typeof equipmentSlots)[number];
 
@@ -298,6 +298,252 @@ export const equipmentArchetypes: EquipmentDefinition[] = [
   { id: 'armor.robe', name: 'Mystic Robe', slot: 'chest', category: 'armor', subtype: 'cloth' },
   { id: 'consumable.potion', name: 'Restorative Potion', slot: 'tool', category: 'consumable', subtype: 'healing' },
   { id: 'key.chrono-shard', name: 'Chrono Nexus Shard', slot: 'accessory', category: 'key-item', subtype: 'artifact' },
+];
+
+export type ResourceCategory = 'raw' | 'processed' | 'crafted' | 'consumable' | 'quest';
+
+export interface ResourceDefinition {
+  id: string;
+  name: string;
+  category: ResourceCategory;
+}
+
+export const resourceDefinitions: ResourceDefinition[] = [
+  { id: 'resource.wood', name: 'Timber', category: 'raw' },
+  { id: 'resource.ore', name: 'Iron Ore', category: 'raw' },
+  { id: 'resource.rare-essence', name: 'Rare Essence', category: 'raw' },
+  { id: 'resource.herbs', name: 'Herbs', category: 'raw' },
+  { id: 'resource.crops', name: 'Crops', category: 'raw' },
+  { id: 'resource.cloth', name: 'Woven Cloth', category: 'processed' },
+  { id: 'resource.leather', name: 'Tanned Leather', category: 'processed' },
+  { id: 'resource.pigment', name: 'Pigment', category: 'processed' },
+  { id: 'resource.tech-shards', name: 'Tech Shards', category: 'raw' },
+  { id: 'resource.wood-beam-small', name: 'Small Wood Beam', category: 'crafted' },
+  { id: 'resource.wood-beam-medium', name: 'Medium Wood Beam', category: 'crafted' },
+  { id: 'resource.wood-beam-large', name: 'Large Wood Beam', category: 'crafted' },
+  { id: 'resource.iron-plate', name: 'Iron Plate', category: 'crafted' },
+  { id: 'resource.mana-resin', name: 'Mana Resin', category: 'crafted' },
+  { id: 'resource.health-tonic', name: 'Health Tonic', category: 'consumable' },
+  { id: 'resource.stamina-tonic', name: 'Stamina Tonic', category: 'consumable' },
+  { id: 'resource.quest-chrono-shard', name: 'Chrono Shard Fragment', category: 'quest' },
+];
+
+export interface EquipmentCatalogEntry extends EquipmentDefinition {
+  tier: 'starter' | 'standard' | 'rare' | 'legendary';
+  baseStats: Record<string, number>;
+}
+
+export const equipmentCatalog: EquipmentCatalogEntry[] = [
+  {
+    id: 'weapon.greatsword.starter',
+    name: 'Ironclad Greatsword',
+    slot: 'weapon',
+    category: 'weapon',
+    subtype: 'greatsword',
+    requiredClassIds: ['warrior'],
+    tier: 'starter',
+    baseStats: { 'stat.attackPower': 12, 'stat.vitality': 2 },
+  },
+  {
+    id: 'weapon.staff.initiate',
+    name: 'Initiate Staff',
+    slot: 'weapon',
+    category: 'weapon',
+    subtype: 'staff',
+    requiredClassIds: ['wizard', 'time-mage', 'sage'],
+    tier: 'starter',
+    baseStats: { 'stat.magic': 10, 'stat.spirit': 4 },
+  },
+  {
+    id: 'weapon.dagger.shadow',
+    name: 'Shadow Dagger',
+    slot: 'weapon',
+    category: 'weapon',
+    subtype: 'dagger',
+    requiredClassIds: ['rogue'],
+    tier: 'standard',
+    baseStats: { 'stat.attackPower': 8, 'stat.agility': 6 },
+  },
+  {
+    id: 'weapon.bow.ranger',
+    name: 'Ranger Longbow',
+    slot: 'weapon',
+    category: 'weapon',
+    subtype: 'bow',
+    requiredClassIds: ['ranger'],
+    tier: 'standard',
+    baseStats: { 'stat.attackPower': 9, 'stat.agility': 5 },
+  },
+  {
+    id: 'weapon.scythe.reaper',
+    name: 'Reaper Scythe',
+    slot: 'weapon',
+    category: 'weapon',
+    subtype: 'scythe',
+    requiredClassIds: ['necromancer'],
+    tier: 'rare',
+    baseStats: { 'stat.attackPower': 11, 'stat.magic': 5 },
+  },
+  {
+    id: 'weapon.pistol.tech',
+    name: 'Tech Pistol',
+    slot: 'weapon',
+    category: 'weapon',
+    subtype: 'pistol',
+    requiredClassIds: ['technomancer'],
+    tier: 'standard',
+    baseStats: { 'stat.attackPower': 7, 'stat.spirit': 3 },
+  },
+  {
+    id: 'weapon.toolkit.builder',
+    name: 'Builder Toolkit',
+    slot: 'weapon',
+    category: 'weapon',
+    subtype: 'toolkit',
+    requiredClassIds: ['builder'],
+    tier: 'starter',
+    baseStats: { 'stat.spirit': 6, 'stat.vitality': 2 },
+  },
+  {
+    id: 'armor.plate.vanguard',
+    name: 'Vanguard Plate',
+    slot: 'chest',
+    category: 'armor',
+    subtype: 'plate',
+    requiredClassIds: ['warrior'],
+    tier: 'standard',
+    baseStats: { 'stat.vitality': 8, 'stat.strength': 3 },
+  },
+  {
+    id: 'armor.leather.stalker',
+    name: 'Stalker Leathers',
+    slot: 'chest',
+    category: 'armor',
+    subtype: 'leather',
+    requiredClassIds: ['rogue', 'ranger'],
+    tier: 'standard',
+    baseStats: { 'stat.agility': 6, 'stat.attackPower': 2 },
+  },
+  {
+    id: 'armor.robe.arcane',
+    name: 'Arcane Robe',
+    slot: 'chest',
+    category: 'armor',
+    subtype: 'cloth',
+    requiredClassIds: ['wizard', 'time-mage', 'sage', 'mythologist'],
+    tier: 'standard',
+    baseStats: { 'stat.magic': 6, 'stat.spirit': 4 },
+  },
+  {
+    id: 'consumable.health-tonic',
+    name: 'Health Tonic',
+    slot: 'tool',
+    category: 'consumable',
+    subtype: 'healing',
+    tier: 'starter',
+    baseStats: { 'stat.healFlat': 120 },
+  },
+  {
+    id: 'consumable.stamina-tonic',
+    name: 'Stamina Tonic',
+    slot: 'tool',
+    category: 'consumable',
+    subtype: 'stamina',
+    tier: 'starter',
+    baseStats: { 'stat.staminaRestore': 80 },
+  },
+  {
+    id: 'key.chrono-shard',
+    name: 'Chrono Nexus Shard',
+    slot: 'accessory',
+    category: 'key-item',
+    subtype: 'artifact',
+    tier: 'legendary',
+    baseStats: {},
+  },
+];
+
+export interface CraftingRecipeInput {
+  resourceId: string;
+  quantity: number;
+}
+
+export interface CraftingRecipeDefinition {
+  id: string;
+  name: string;
+  professionId: string;
+  inputs: CraftingRecipeInput[];
+  outputResourceId: string;
+  outputQuantity: number;
+}
+
+export const craftingRecipeDefinitions: CraftingRecipeDefinition[] = [
+  {
+    id: 'recipe.wood-beam-small',
+    name: 'Small Wood Beam',
+    professionId: 'carpenter',
+    inputs: [
+      { resourceId: 'resource.wood', quantity: 6 },
+      { resourceId: 'resource.mana-resin', quantity: 1 },
+    ],
+    outputResourceId: 'resource.wood-beam-small',
+    outputQuantity: 2,
+  },
+  {
+    id: 'recipe.wood-beam-medium',
+    name: 'Medium Wood Beam',
+    professionId: 'carpenter',
+    inputs: [
+      { resourceId: 'resource.wood', quantity: 10 },
+      { resourceId: 'resource.mana-resin', quantity: 2 },
+    ],
+    outputResourceId: 'resource.wood-beam-medium',
+    outputQuantity: 1,
+  },
+  {
+    id: 'recipe.wood-beam-large',
+    name: 'Large Wood Beam',
+    professionId: 'carpenter',
+    inputs: [
+      { resourceId: 'resource.wood', quantity: 16 },
+      { resourceId: 'resource.mana-resin', quantity: 3 },
+    ],
+    outputResourceId: 'resource.wood-beam-large',
+    outputQuantity: 1,
+  },
+  {
+    id: 'recipe.iron-plate',
+    name: 'Iron Plate',
+    professionId: 'blacksmith',
+    inputs: [
+      { resourceId: 'resource.ore', quantity: 8 },
+      { resourceId: 'resource.mana-resin', quantity: 1 },
+    ],
+    outputResourceId: 'resource.iron-plate',
+    outputQuantity: 2,
+  },
+  {
+    id: 'recipe.health-tonic',
+    name: 'Health Tonic',
+    professionId: 'farmer',
+    inputs: [
+      { resourceId: 'resource.herbs', quantity: 4 },
+      { resourceId: 'resource.crops', quantity: 2 },
+    ],
+    outputResourceId: 'resource.health-tonic',
+    outputQuantity: 1,
+  },
+  {
+    id: 'recipe.stamina-tonic',
+    name: 'Stamina Tonic',
+    professionId: 'farmer',
+    inputs: [
+      { resourceId: 'resource.herbs', quantity: 3 },
+      { resourceId: 'resource.crops', quantity: 3 },
+    ],
+    outputResourceId: 'resource.stamina-tonic',
+    outputQuantity: 1,
+  },
 ];
 
 export interface LocationDefinition {
