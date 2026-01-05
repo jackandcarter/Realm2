@@ -29,6 +29,8 @@ namespace Digger.Modules.Core.Editor
         private List<Type> operationEditors;
         private readonly BiomePaintOperation biomePaintOperation = new BiomePaintOperation();
         private readonly NoiseShapeOperation noiseShapeOperation = new NoiseShapeOperation();
+        private readonly ThermalErosionOperation thermalErosionOperation = new ThermalErosionOperation();
+        private readonly HydraulicCarveOperation hydraulicCarveOperation = new HydraulicCarveOperation();
 
         private BiomePreset biomePreset;
         private int biomeSeed;
@@ -36,6 +38,8 @@ namespace Digger.Modules.Core.Editor
         private bool biomeUseHeightErosion = true;
         private bool biomeUseSlopeErosion = true;
         private bool biomeUseNoiseShape;
+        private bool biomeUseThermalErosion = true;
+        private bool biomeUseHydraulicCarve = true;
         private int biomeShapeSeed;
         private int biomeShapeOctaves = 4;
         private float biomeShapeFrequency = 0.05f;
@@ -453,6 +457,11 @@ namespace Digger.Modules.Core.Editor
                 biomeShapeTerraceSteps = EditorGUILayout.IntSlider("Terrace Steps", biomeShapeTerraceSteps, 0, 12);
             }
 
+            EditorGUILayout.Space();
+            EditorGUILayout.LabelField("Erosion Passes", EditorStyles.boldLabel);
+            biomeUseThermalErosion = EditorGUILayout.Toggle("Thermal Erosion", biomeUseThermalErosion);
+            biomeUseHydraulicCarve = EditorGUILayout.Toggle("Hydraulic Carve", biomeUseHydraulicCarve);
+
             if (!biomePreset) {
                 EditorGUILayout.HelpBox("Assign a BiomePreset to paint biome layers on the terrain.", MessageType.Info);
             } else {
@@ -643,12 +652,24 @@ namespace Digger.Modules.Core.Editor
                     if (biomeUseNoiseShape) {
                         ApplyNoiseShapeToRegion(region, targetDiggers, noiseShapeSettings);
                     }
+                    if (biomeUseThermalErosion) {
+                        ApplyThermalErosionToRegion(region, targetDiggers);
+                    }
+                    if (biomeUseHydraulicCarve) {
+                        ApplyHydraulicCarveToRegion(region, targetDiggers);
+                    }
                     ApplyBiomeToRegion(region, targetDiggers, overrides);
                 }
             } else {
                 foreach (var digger in targetDiggers) {
                     if (biomeUseNoiseShape) {
                         ApplyNoiseShapeToTerrain(digger, noiseShapeSettings);
+                    }
+                    if (biomeUseThermalErosion) {
+                        ApplyThermalErosionToTerrain(digger);
+                    }
+                    if (biomeUseHydraulicCarve) {
+                        ApplyHydraulicCarveToTerrain(digger);
                     }
                     ApplyBiomeToTerrain(digger, overrides);
                 }
@@ -685,6 +706,32 @@ namespace Digger.Modules.Core.Editor
             noiseShapeOperation.RidgeSharpness = settings.RidgeSharpness;
             noiseShapeOperation.TerraceSteps = settings.TerraceSteps;
             digger.Modify(noiseShapeOperation);
+        }
+
+        private void ApplyThermalErosionToTerrain(DiggerSystem digger)
+        {
+            if (!digger || !digger.Terrain || !digger.Terrain.terrainData) {
+                return;
+            }
+
+            var terrainSize = digger.Terrain.terrainData.size;
+            thermalErosionOperation.Position = digger.Terrain.transform.position + terrainSize * 0.5f;
+            thermalErosionOperation.Size = terrainSize * 0.5f;
+            thermalErosionOperation.Brush = BrushType.RoundedCube;
+            digger.Modify(thermalErosionOperation);
+        }
+
+        private void ApplyHydraulicCarveToTerrain(DiggerSystem digger)
+        {
+            if (!digger || !digger.Terrain || !digger.Terrain.terrainData) {
+                return;
+            }
+
+            var terrainSize = digger.Terrain.terrainData.size;
+            hydraulicCarveOperation.Position = digger.Terrain.transform.position + terrainSize * 0.5f;
+            hydraulicCarveOperation.Size = terrainSize * 0.5f;
+            hydraulicCarveOperation.Brush = BrushType.RoundedCube;
+            digger.Modify(hydraulicCarveOperation);
         }
 
         private void ApplyBiomeToTerrain(DiggerSystem digger, BiomePaintOverrides overrides)
@@ -737,6 +784,78 @@ namespace Digger.Modules.Core.Editor
                 }
 
                 ApplyNoiseShapeToRegionForDigger(region, digger, settings, minChunkX, maxChunkX, minChunkZ, maxChunkZ);
+            }
+        }
+
+        private void ApplyThermalErosionToRegion(TerrainRegion region, IEnumerable<DiggerSystem> diggers)
+        {
+            if (region == null) {
+                return;
+            }
+
+            var terrains = region.Terrains?.Where(terrain => terrain != null).ToList();
+            if (terrains == null || terrains.Count == 0) {
+                return;
+            }
+
+            var bounds = region.GetWorldBounds();
+            if (!region.TryGetChunkCoordinates(bounds.min, out var minChunk, out _) ||
+                !region.TryGetChunkCoordinates(bounds.max, out var maxChunk, out _)) {
+                return;
+            }
+
+            var minChunkX = Mathf.Min(minChunk.x, maxChunk.x);
+            var maxChunkX = Mathf.Max(minChunk.x, maxChunk.x);
+            var minChunkZ = Mathf.Min(minChunk.y, maxChunk.y);
+            var maxChunkZ = Mathf.Max(minChunk.y, maxChunk.y);
+
+            var terrainSet = new HashSet<Terrain>(terrains);
+            foreach (var digger in diggers) {
+                if (!digger || !digger.Terrain || !digger.Terrain.terrainData) {
+                    continue;
+                }
+
+                if (!terrainSet.Contains(digger.Terrain)) {
+                    continue;
+                }
+
+                ApplyThermalErosionToRegionForDigger(region, digger, minChunkX, maxChunkX, minChunkZ, maxChunkZ);
+            }
+        }
+
+        private void ApplyHydraulicCarveToRegion(TerrainRegion region, IEnumerable<DiggerSystem> diggers)
+        {
+            if (region == null) {
+                return;
+            }
+
+            var terrains = region.Terrains?.Where(terrain => terrain != null).ToList();
+            if (terrains == null || terrains.Count == 0) {
+                return;
+            }
+
+            var bounds = region.GetWorldBounds();
+            if (!region.TryGetChunkCoordinates(bounds.min, out var minChunk, out _) ||
+                !region.TryGetChunkCoordinates(bounds.max, out var maxChunk, out _)) {
+                return;
+            }
+
+            var minChunkX = Mathf.Min(minChunk.x, maxChunk.x);
+            var maxChunkX = Mathf.Max(minChunk.x, maxChunk.x);
+            var minChunkZ = Mathf.Min(minChunk.y, maxChunk.y);
+            var maxChunkZ = Mathf.Max(minChunk.y, maxChunk.y);
+
+            var terrainSet = new HashSet<Terrain>(terrains);
+            foreach (var digger in diggers) {
+                if (!digger || !digger.Terrain || !digger.Terrain.terrainData) {
+                    continue;
+                }
+
+                if (!terrainSet.Contains(digger.Terrain)) {
+                    continue;
+                }
+
+                ApplyHydraulicCarveToRegionForDigger(region, digger, minChunkX, maxChunkX, minChunkZ, maxChunkZ);
             }
         }
 
@@ -813,6 +932,82 @@ namespace Digger.Modules.Core.Editor
                         NoiseFrequency = settings.Frequency,
                         RidgeSharpness = settings.RidgeSharpness,
                         TerraceSteps = settings.TerraceSteps
+                    };
+
+                    digger.ModifyChunks(operation, chunkPositions);
+                }
+            }
+        }
+
+        private void ApplyThermalErosionToRegionForDigger(TerrainRegion region, DiggerSystem digger,
+            int minChunkX, int maxChunkX, int minChunkZ, int maxChunkZ)
+        {
+            var terrain = digger.Terrain;
+            var terrainSize = terrain.terrainData.size;
+            var terrainCenterY = terrain.transform.position.y + terrainSize.y * 0.5f;
+            var chunkSize = region.GetChunkSize();
+            var brushSize = new Vector3(chunkSize * 0.5f, terrainSize.y * 0.5f, chunkSize * 0.5f);
+
+            for (var x = minChunkX; x <= maxChunkX; x++) {
+                for (var z = minChunkZ; z <= maxChunkZ; z++) {
+                    var chunkCoords = new Vector2Int(x, z);
+                    var chunkCenter = region.GetChunkWorldCenter(chunkCoords, terrainCenterY);
+                    if (!region.ContainsWorldPosition(chunkCenter)) {
+                        continue;
+                    }
+
+                    if (!digger.IsChunkBelongingToMe(new Vector3i(x, 0, z))) {
+                        continue;
+                    }
+
+                    var chunkPositions = BuildChunkPositionsForColumn(digger, x, z);
+                    if (chunkPositions.Count == 0) {
+                        continue;
+                    }
+
+                    var operation = new ThermalErosionOperation
+                    {
+                        Position = chunkCenter,
+                        Size = brushSize,
+                        Brush = BrushType.RoundedCube
+                    };
+
+                    digger.ModifyChunks(operation, chunkPositions);
+                }
+            }
+        }
+
+        private void ApplyHydraulicCarveToRegionForDigger(TerrainRegion region, DiggerSystem digger,
+            int minChunkX, int maxChunkX, int minChunkZ, int maxChunkZ)
+        {
+            var terrain = digger.Terrain;
+            var terrainSize = terrain.terrainData.size;
+            var terrainCenterY = terrain.transform.position.y + terrainSize.y * 0.5f;
+            var chunkSize = region.GetChunkSize();
+            var brushSize = new Vector3(chunkSize * 0.5f, terrainSize.y * 0.5f, chunkSize * 0.5f);
+
+            for (var x = minChunkX; x <= maxChunkX; x++) {
+                for (var z = minChunkZ; z <= maxChunkZ; z++) {
+                    var chunkCoords = new Vector2Int(x, z);
+                    var chunkCenter = region.GetChunkWorldCenter(chunkCoords, terrainCenterY);
+                    if (!region.ContainsWorldPosition(chunkCenter)) {
+                        continue;
+                    }
+
+                    if (!digger.IsChunkBelongingToMe(new Vector3i(x, 0, z))) {
+                        continue;
+                    }
+
+                    var chunkPositions = BuildChunkPositionsForColumn(digger, x, z);
+                    if (chunkPositions.Count == 0) {
+                        continue;
+                    }
+
+                    var operation = new HydraulicCarveOperation
+                    {
+                        Position = chunkCenter,
+                        Size = brushSize,
+                        Brush = BrushType.RoundedCube
                     };
 
                     digger.ModifyChunks(operation, chunkPositions);
