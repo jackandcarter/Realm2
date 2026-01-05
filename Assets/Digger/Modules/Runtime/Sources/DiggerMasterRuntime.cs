@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using Client.Biomes;
 using Digger.Modules.Core.Sources;
 using Digger.Modules.Core.Sources.Operations;
 using Unity.Jobs;
@@ -24,6 +25,7 @@ namespace Digger.Modules.Runtime.Sources
 
         private readonly BasicOperation basicOperation = new BasicOperation();
         private readonly KernelOperation kernelOperation = new KernelOperation();
+        private readonly BiomePaintOperation biomePaintOperation = new BiomePaintOperation();
 
         /// <summary>
         /// True when a modification is currently being done asynchronously.
@@ -49,6 +51,32 @@ namespace Digger.Modules.Runtime.Sources
             foreach (var diggerSystem in diggerSystems) {
                 diggerSystem.Modify(operation);
             }
+        }
+
+        /// <summary>
+        /// Modify the terrain at runtime by applying a biome preset.
+        /// </summary>
+        /// <param name="preset">Biome preset to apply</param>
+        /// <param name="position">Position where you want to edit the terrain</param>
+        /// <param name="size">Brush size</param>
+        /// <param name="brush">Brush type</param>
+        /// <param name="opacity">Strength/intensity of edit</param>
+        /// <param name="opacityIsTarget">If true when painting texture, the weight of the texture will be directly set to the given opacity</param>
+        public void Modify(BiomePreset preset, Vector3 position, Vector3 size, BrushType brush = BrushType.Sphere, float opacity = 1f, bool opacityIsTarget = false)
+        {
+            if (!preset)
+            {
+                Debug.LogError("Biome preset is required to perform a biome paint operation.");
+                return;
+            }
+
+            biomePaintOperation.Preset = preset;
+            biomePaintOperation.Position = position;
+            biomePaintOperation.Size = size;
+            biomePaintOperation.Brush = brush;
+            biomePaintOperation.Opacity = opacity;
+            biomePaintOperation.OpacityIsTarget = opacityIsTarget;
+            Modify(biomePaintOperation);
         }
 
 
@@ -128,6 +156,34 @@ namespace Digger.Modules.Runtime.Sources
 
             isRunningAsync = false;
             callback?.Invoke();
+        }
+
+        /// <summary>
+        /// Modify the terrain at runtime by applying a biome preset asynchronously.
+        /// </summary>
+        /// <param name="preset">Biome preset to apply</param>
+        /// <param name="position">Position where you want to edit the terrain</param>
+        /// <param name="size">Brush size</param>
+        /// <param name="brush">Brush type</param>
+        /// <param name="opacity">Strength/intensity of edit</param>
+        /// <param name="opacityIsTarget">If true when painting texture, the weight of the texture will be directly set to the given opacity</param>
+        /// <param name="callback">A callback function that will be called once modification is done</param>
+        public IEnumerator ModifyAsync(BiomePreset preset, Vector3 position, Vector3 size, BrushType brush = BrushType.Sphere, float opacity = 1f,
+            bool opacityIsTarget = false, Action callback = null)
+        {
+            if (!preset)
+            {
+                Debug.LogError("Biome preset is required to perform a biome paint operation.");
+                yield break;
+            }
+
+            biomePaintOperation.Preset = preset;
+            biomePaintOperation.Position = position;
+            biomePaintOperation.Size = size;
+            biomePaintOperation.Brush = brush;
+            biomePaintOperation.Opacity = opacity;
+            biomePaintOperation.OpacityIsTarget = opacityIsTarget;
+            yield return ModifyAsync(biomePaintOperation, callback);
         }
 
         /// <summary>
