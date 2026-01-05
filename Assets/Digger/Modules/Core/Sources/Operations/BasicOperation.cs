@@ -39,7 +39,7 @@ namespace Digger.Modules.Core.Sources.Operations
                 Action = Params.Action,
                 Intensity = Params.Opacity,
                 IsTargetIntensity = Params.OpacityIsTarget,
-                Center = Params.Position - chunk.AbsoluteWorldPosition,
+                Center = new float3(Params.Position.x, Params.Position.y, Params.Position.z) - chunk.AbsoluteWorldPosition,
                 Size = Params.Size,
                 UpsideDown = Params.StalagmiteUpsideDown,
                 TextureIndex = (uint)Params.TextureIndex,

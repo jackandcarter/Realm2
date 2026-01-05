@@ -79,7 +79,7 @@ namespace Digger.Modules.Core.Sources.Operations
                 Heights = new NativeArray<float>(chunk.HeightArray, Allocator.TempJob),
                 Layers = layerArray,
                 Brush = Brush,
-                Center = Position - chunk.AbsoluteWorldPosition,
+                Center = new float3(Position.x, Position.y, Position.z) - chunk.AbsoluteWorldPosition,
                 Size = Size,
                 Intensity = Opacity,
                 IsTargetIntensity = OpacityIsTarget,

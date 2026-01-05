@@ -37,7 +37,7 @@ namespace Digger.Modules.Core.Sources.Operations
                 NewHolesConcurrentCounter = new NativeArray<int>(1, Allocator.TempJob),
                 Brush = Brush,
                 Intensity = Intensity,
-                Center = Position - chunk.AbsoluteWorldPosition,
+                Center = new float3(Position.x, Position.y, Position.z) - chunk.AbsoluteWorldPosition,
                 Size = Size,
                 NoiseSeed = NoiseSeed,
                 NoiseOctaves = NoiseOctaves,

@@ -46,7 +46,7 @@ namespace Digger.Modules.Core.Sources.Operations
                 Voxels = voxels,
                 VoxelsOut = voxelsOut,
                 Intensity = Params.Opacity,
-                Center = Params.Position - chunk.AbsoluteWorldPosition,
+                Center = new float3(Params.Position.x, Params.Position.y, Params.Position.z) - chunk.AbsoluteWorldPosition,
                 Radius = Params.Size.x,
                 ChunkAltitude = chunk.WorldPosition.y,
                 Heights = heights,
