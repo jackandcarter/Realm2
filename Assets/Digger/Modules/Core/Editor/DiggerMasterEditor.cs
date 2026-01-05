@@ -41,6 +41,7 @@ namespace Digger.Modules.Core.Editor
         private bool biomeUseNoiseShape;
         private bool biomeUseThermalErosion = true;
         private bool biomeUseHydraulicCarve = true;
+        private float biomeSeamBlendWidth;
         private int biomeShapeSeed;
         private int biomeShapeOctaves = 4;
         private float biomeShapeFrequency = 0.05f;
@@ -60,6 +61,7 @@ namespace Digger.Modules.Core.Editor
         private string biomeZoneIdFilter;
         private readonly List<TerrainRegion> biomeExplicitRegions = new List<TerrainRegion>();
         private readonly List<Terrain> biomeExplicitTerrains = new List<Terrain>();
+        private readonly KernelOperation biomeSeamSmoothOperation = new KernelOperation();
 
         private int selectedOperationEditorIndex {
             get => EditorPrefs.GetInt("diggerMaster_selectedOperationEditorIndex", 0);
@@ -444,6 +446,7 @@ namespace Digger.Modules.Core.Editor
             biomePreset = (BiomePreset)EditorGUILayout.ObjectField("Biome Preset", biomePreset, typeof(BiomePreset), false);
             biomeSeed = EditorGUILayout.IntField("Noise Seed", biomeSeed);
             biomeNoiseScale = Mathf.Max(0f, EditorGUILayout.FloatField("Noise Scale", biomeNoiseScale));
+            biomeSeamBlendWidth = Mathf.Max(0f, EditorGUILayout.FloatField("Seam Blend Width", biomeSeamBlendWidth));
             biomeUseHeightErosion = EditorGUILayout.Toggle("Height Erosion", biomeUseHeightErosion);
             biomeUseSlopeErosion = EditorGUILayout.Toggle("Slope Erosion", biomeUseSlopeErosion);
 
@@ -653,7 +656,8 @@ namespace Digger.Modules.Core.Editor
             };
 
             var diggers = FindObjectsByType<DiggerSystem>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
-            var targetDiggers = FilterDiggersByTerrain(diggers);
+            var targetDiggers = FilterDiggersByTerrain(diggers).Where(digger => digger != null).ToList();
+            var targetDiggersSet = new HashSet<DiggerSystem>(targetDiggers);
 
             if (biomeLimitToRegions) {
                 var selection = new TerrainRegionSelection
@@ -683,7 +687,7 @@ namespace Digger.Modules.Core.Editor
                     if (biomePreset.Caves.Enabled) {
                         ApplyCaveCarveToRegion(region, targetDiggers, biomePreset.Caves);
                     }
-                    ApplyBiomeToRegion(region, targetDiggers, overrides);
+                    ApplyBiomeToRegion(region, targetDiggersSet, overrides, biomeSeamBlendWidth);
                 }
             } else {
                 foreach (var digger in targetDiggers) {
@@ -699,7 +703,7 @@ namespace Digger.Modules.Core.Editor
                     if (biomePreset.Caves.Enabled) {
                         ApplyCaveCarveToTerrain(digger, biomePreset.Caves);
                     }
-                    ApplyBiomeToTerrain(digger, overrides);
+                    ApplyBiomeToTerrain(digger, overrides, targetDiggersSet, biomeSeamBlendWidth);
                 }
             }
 
@@ -782,21 +786,29 @@ namespace Digger.Modules.Core.Editor
             digger.Modify(caveCarveOperation);
         }
 
-        private void ApplyBiomeToTerrain(DiggerSystem digger, BiomePaintOverrides overrides)
+        private void ApplyBiomeToTerrain(DiggerSystem digger, BiomePaintOverrides overrides, HashSet<DiggerSystem> targetDiggers, float seamBlendWidth)
         {
             if (!digger || !digger.Terrain || !digger.Terrain.terrainData) {
                 return;
             }
 
             var terrainSize = digger.Terrain.terrainData.size;
-            biomePaintOperation.Preset = biomePreset;
-            biomePaintOperation.Position = digger.Terrain.transform.position + terrainSize * 0.5f;
-            biomePaintOperation.Size = terrainSize * 0.5f;
-            biomePaintOperation.Brush = BrushType.RoundedCube;
-            biomePaintOperation.Opacity = 1f;
-            biomePaintOperation.OpacityIsTarget = true;
-            biomePaintOperation.Overrides = overrides;
-            digger.Modify(biomePaintOperation);
+            var bounds = new Bounds(digger.Terrain.transform.position + terrainSize * 0.5f, terrainSize);
+            if (seamBlendWidth > 0f) {
+                bounds.Expand(new Vector3(seamBlendWidth * 2f, 0f, seamBlendWidth * 2f));
+            }
+
+            var minChunk = digger.ToChunkPosition(bounds.min);
+            var maxChunk = digger.ToChunkPosition(bounds.max);
+            var minChunkX = Mathf.Min(minChunk.x, maxChunk.x);
+            var maxChunkX = Mathf.Max(minChunk.x, maxChunk.x);
+            var minChunkZ = Mathf.Min(minChunk.z, maxChunk.z);
+            var maxChunkZ = Mathf.Max(minChunk.z, maxChunk.z);
+            var maxChunkScale = Mathf.Max(digger.HeightmapScale.x, digger.HeightmapScale.z);
+            var seamBlendChunks = GetSeamBlendChunkCount(digger.SizeOfMesh * maxChunkScale, seamBlendWidth);
+
+            ApplyBiomeToTerrainForDigger(digger, overrides, targetDiggers, minChunkX, maxChunkX, minChunkZ, maxChunkZ);
+            ApplySeamSmoothToTerrainForDigger(digger, targetDiggers, minChunkX, maxChunkX, minChunkZ, maxChunkZ, seamBlendChunks, seamBlendWidth);
         }
 
         private void ApplyNoiseShapeToRegion(TerrainRegion region, IEnumerable<DiggerSystem> diggers, NoiseShapeSettings settings)
@@ -940,7 +952,7 @@ namespace Digger.Modules.Core.Editor
             }
         }
 
-        private void ApplyBiomeToRegion(TerrainRegion region, IEnumerable<DiggerSystem> diggers, BiomePaintOverrides overrides)
+        private void ApplyBiomeToRegion(TerrainRegion region, HashSet<DiggerSystem> diggers, BiomePaintOverrides overrides, float seamBlendWidth)
         {
             if (region == null) {
                 return;
@@ -952,8 +964,12 @@ namespace Digger.Modules.Core.Editor
             }
 
             var bounds = region.GetWorldBounds();
-            if (!region.TryGetChunkCoordinates(bounds.min, out var minChunk, out _) ||
-                !region.TryGetChunkCoordinates(bounds.max, out var maxChunk, out _)) {
+            var expandedBounds = bounds;
+            if (seamBlendWidth > 0f) {
+                expandedBounds.Expand(new Vector3(seamBlendWidth * 2f, 0f, seamBlendWidth * 2f));
+            }
+            if (!region.TryGetChunkCoordinates(expandedBounds.min, out var minChunk, out _) ||
+                !region.TryGetChunkCoordinates(expandedBounds.max, out var maxChunk, out _)) {
                 return;
             }
 
@@ -963,7 +979,8 @@ namespace Digger.Modules.Core.Editor
             var maxChunkZ = Mathf.Max(minChunk.y, maxChunk.y);
 
             var terrainSet = new HashSet<Terrain>(terrains);
-            foreach (var digger in diggers) {
+            var regionDiggers = diggers.Where(digger => digger && digger.Terrain && terrainSet.Contains(digger.Terrain)).ToList();
+            foreach (var digger in regionDiggers) {
                 if (!digger || !digger.Terrain || !digger.Terrain.terrainData) {
                     continue;
                 }
@@ -972,7 +989,14 @@ namespace Digger.Modules.Core.Editor
                     continue;
                 }
 
-                ApplyBiomeToRegionForDigger(region, digger, overrides, minChunkX, maxChunkX, minChunkZ, maxChunkZ);
+                ApplyBiomeToRegionForDigger(region, digger, overrides, minChunkX, maxChunkX, minChunkZ, maxChunkZ, diggers, expandedBounds);
+            }
+
+            var seamBlendChunks = GetSeamBlendChunkCount(region.GetChunkSize(), seamBlendWidth);
+            if (seamBlendChunks > 0) {
+                foreach (var digger in regionDiggers) {
+                    ApplySeamSmoothToRegionForDigger(region, digger, diggers, minChunkX, maxChunkX, minChunkZ, maxChunkZ, seamBlendChunks, seamBlendWidth, expandedBounds);
+                }
             }
         }
 
@@ -1097,30 +1121,45 @@ namespace Digger.Modules.Core.Editor
         }
 
         private void ApplyBiomeToRegionForDigger(TerrainRegion region, DiggerSystem digger, BiomePaintOverrides overrides,
-            int minChunkX, int maxChunkX, int minChunkZ, int maxChunkZ)
+            int minChunkX, int maxChunkX, int minChunkZ, int maxChunkZ, HashSet<DiggerSystem> targetDiggers, Bounds expandedBounds)
         {
             var terrain = digger.Terrain;
             var terrainSize = terrain.terrainData.size;
-            var terrainCenterY = terrain.transform.position.y + terrainSize.y * 0.5f;
             var chunkSize = region.GetChunkSize();
             var brushSize = new Vector3(chunkSize * 0.5f, terrainSize.y * 0.5f, chunkSize * 0.5f);
 
             for (var x = minChunkX; x <= maxChunkX; x++) {
                 for (var z = minChunkZ; z <= maxChunkZ; z++) {
                     var chunkCoords = new Vector2Int(x, z);
-                    var chunkCenter = region.GetChunkWorldCenter(chunkCoords, terrainCenterY);
-                    if (!region.ContainsWorldPosition(chunkCenter)) {
+                    var chunkCenter = region.GetChunkWorldCenter(chunkCoords, region.transform.position.y);
+                    if (!ContainsWorldPosition(expandedBounds, chunkCenter)) {
                         continue;
                     }
 
-                    if (!digger.IsChunkBelongingToMe(new Vector3i(x, 0, z))) {
+                    var chunkPosition = new Vector3i(x, 0, z);
+                    var targetDigger = digger;
+                    if (!digger.IsChunkBelongingToMe(chunkPosition)) {
+                        var neighbor = digger.GetNeighborAt(chunkPosition);
+                        if (!neighbor || !targetDiggers.Contains(neighbor)) {
+                            continue;
+                        }
+
+                        targetDigger = neighbor;
+                        chunkPosition = neighbor.ToChunkPosition(digger.ToWorldPosition(chunkPosition));
+                    }
+
+                    if (!targetDigger.IsChunkBelongingToMe(chunkPosition)) {
                         continue;
                     }
 
-                    var chunkPositions = BuildChunkPositionsForColumn(digger, x, z);
+                    var chunkPositions = BuildChunkPositionsForColumn(targetDigger, chunkPosition.x, chunkPosition.z);
                     if (chunkPositions.Count == 0) {
                         continue;
                     }
+
+                    var targetTerrain = targetDigger.Terrain;
+                    var targetTerrainCenterY = targetTerrain.transform.position.y + targetTerrain.terrainData.size.y * 0.5f;
+                    chunkCenter = new Vector3(chunkCenter.x, targetTerrainCenterY, chunkCenter.z);
 
                     var operation = new BiomePaintOperation
                     {
@@ -1133,9 +1172,231 @@ namespace Digger.Modules.Core.Editor
                         Overrides = overrides
                     };
 
-                    digger.ModifyChunks(operation, chunkPositions);
+                    targetDigger.ModifyChunks(operation, chunkPositions);
                 }
             }
+        }
+
+        private void ApplyBiomeToTerrainForDigger(DiggerSystem digger, BiomePaintOverrides overrides, HashSet<DiggerSystem> targetDiggers,
+            int minChunkX, int maxChunkX, int minChunkZ, int maxChunkZ)
+        {
+            var terrain = digger.Terrain;
+            var terrainSize = terrain.terrainData.size;
+            var terrainCenterY = terrain.transform.position.y + terrainSize.y * 0.5f;
+            var chunkWorldSizeX = digger.SizeOfMesh * digger.HeightmapScale.x;
+            var chunkWorldSizeZ = digger.SizeOfMesh * digger.HeightmapScale.z;
+            var brushSize = new Vector3(chunkWorldSizeX * 0.5f, terrainSize.y * 0.5f, chunkWorldSizeZ * 0.5f);
+
+            for (var x = minChunkX; x <= maxChunkX; x++) {
+                for (var z = minChunkZ; z <= maxChunkZ; z++) {
+                    var sourceChunkPosition = new Vector3i(x, 0, z);
+                    var chunkCenter = GetChunkWorldCenter(digger, sourceChunkPosition, terrainCenterY);
+
+                    var targetDigger = digger;
+                    var targetChunkPosition = sourceChunkPosition;
+                    if (!digger.IsChunkBelongingToMe(targetChunkPosition)) {
+                        var neighbor = digger.GetNeighborAt(targetChunkPosition);
+                        if (!neighbor || !targetDiggers.Contains(neighbor)) {
+                            continue;
+                        }
+
+                        targetDigger = neighbor;
+                        targetChunkPosition = neighbor.ToChunkPosition(digger.ToWorldPosition(targetChunkPosition));
+                    }
+
+                    if (!targetDigger.IsChunkBelongingToMe(targetChunkPosition)) {
+                        continue;
+                    }
+
+                    var chunkPositions = BuildChunkPositionsForColumn(targetDigger, targetChunkPosition.x, targetChunkPosition.z);
+                    if (chunkPositions.Count == 0) {
+                        continue;
+                    }
+
+                    var targetTerrain = targetDigger.Terrain;
+                    var targetTerrainCenterY = targetTerrain.transform.position.y + targetTerrain.terrainData.size.y * 0.5f;
+                    chunkCenter = new Vector3(chunkCenter.x, targetTerrainCenterY, chunkCenter.z);
+
+                    var operation = new BiomePaintOperation
+                    {
+                        Preset = biomePreset,
+                        Position = chunkCenter,
+                        Size = brushSize,
+                        Brush = BrushType.RoundedCube,
+                        Opacity = 1f,
+                        OpacityIsTarget = true,
+                        Overrides = overrides
+                    };
+
+                    targetDigger.ModifyChunks(operation, chunkPositions);
+                }
+            }
+        }
+
+        private void ApplySeamSmoothToRegionForDigger(TerrainRegion region, DiggerSystem digger, HashSet<DiggerSystem> targetDiggers,
+            int minChunkX, int maxChunkX, int minChunkZ, int maxChunkZ, int seamBlendChunks, float seamBlendWidth, Bounds expandedBounds)
+        {
+            if (seamBlendChunks <= 0) {
+                return;
+            }
+
+            var brushRadius = Mathf.Max(seamBlendWidth * 0.5f, 0.01f);
+            var brushSize = new Vector3(brushRadius, brushRadius, brushRadius);
+
+            for (var x = minChunkX; x <= maxChunkX; x++) {
+                for (var z = minChunkZ; z <= maxChunkZ; z++) {
+                    var chunkCoords = new Vector2Int(x, z);
+                    var chunkCenter = region.GetChunkWorldCenter(chunkCoords, region.transform.position.y);
+                    if (!ContainsWorldPosition(expandedBounds, chunkCenter)) {
+                        continue;
+                    }
+
+                    var chunkPosition = new Vector3i(x, 0, z);
+                    var targetDigger = digger;
+                    if (!digger.IsChunkBelongingToMe(chunkPosition)) {
+                        var neighbor = digger.GetNeighborAt(chunkPosition);
+                        if (!neighbor || !targetDiggers.Contains(neighbor)) {
+                            continue;
+                        }
+
+                        targetDigger = neighbor;
+                        chunkPosition = neighbor.ToChunkPosition(digger.ToWorldPosition(chunkPosition));
+                    }
+
+                    if (!targetDigger.IsChunkBelongingToMe(chunkPosition)) {
+                        continue;
+                    }
+
+                    if (!IsChunkNearSeam(targetDigger, chunkPosition.x, chunkPosition.z, seamBlendChunks)) {
+                        continue;
+                    }
+
+                    var chunkPositions = BuildChunkPositionsForColumn(targetDigger, chunkPosition.x, chunkPosition.z);
+                    if (chunkPositions.Count == 0) {
+                        continue;
+                    }
+
+                    var targetTerrain = targetDigger.Terrain;
+                    var targetTerrainCenterY = targetTerrain.transform.position.y + targetTerrain.terrainData.size.y * 0.5f;
+                    chunkCenter = new Vector3(chunkCenter.x, targetTerrainCenterY, chunkCenter.z);
+
+                    biomeSeamSmoothOperation.Params = new ModificationParameters
+                    {
+                        Position = chunkCenter,
+                        Brush = BrushType.Sphere,
+                        Action = ActionType.Smooth,
+                        Opacity = 0.5f,
+                        Size = brushSize
+                    };
+
+                    targetDigger.ModifyChunks(biomeSeamSmoothOperation, chunkPositions);
+                }
+            }
+        }
+
+        private void ApplySeamSmoothToTerrainForDigger(DiggerSystem digger, HashSet<DiggerSystem> targetDiggers,
+            int minChunkX, int maxChunkX, int minChunkZ, int maxChunkZ, int seamBlendChunks, float seamBlendWidth)
+        {
+            if (seamBlendChunks <= 0) {
+                return;
+            }
+
+            var terrain = digger.Terrain;
+            var terrainSize = terrain.terrainData.size;
+            var terrainCenterY = terrain.transform.position.y + terrainSize.y * 0.5f;
+            var brushRadius = Mathf.Max(seamBlendWidth * 0.5f, 0.01f);
+            var brushSize = new Vector3(brushRadius, brushRadius, brushRadius);
+
+            for (var x = minChunkX; x <= maxChunkX; x++) {
+                for (var z = minChunkZ; z <= maxChunkZ; z++) {
+                    var sourceChunkPosition = new Vector3i(x, 0, z);
+                    var chunkCenter = GetChunkWorldCenter(digger, sourceChunkPosition, terrainCenterY);
+
+                    var targetDigger = digger;
+                    var targetChunkPosition = sourceChunkPosition;
+                    if (!digger.IsChunkBelongingToMe(targetChunkPosition)) {
+                        var neighbor = digger.GetNeighborAt(targetChunkPosition);
+                        if (!neighbor || !targetDiggers.Contains(neighbor)) {
+                            continue;
+                        }
+
+                        targetDigger = neighbor;
+                        targetChunkPosition = neighbor.ToChunkPosition(digger.ToWorldPosition(targetChunkPosition));
+                    }
+
+                    if (!targetDigger.IsChunkBelongingToMe(targetChunkPosition)) {
+                        continue;
+                    }
+
+                    if (!IsChunkNearSeam(targetDigger, targetChunkPosition.x, targetChunkPosition.z, seamBlendChunks)) {
+                        continue;
+                    }
+
+                    var chunkPositions = BuildChunkPositionsForColumn(targetDigger, targetChunkPosition.x, targetChunkPosition.z);
+                    if (chunkPositions.Count == 0) {
+                        continue;
+                    }
+
+                    var targetTerrain = targetDigger.Terrain;
+                    var targetTerrainCenterY = targetTerrain.transform.position.y + targetTerrain.terrainData.size.y * 0.5f;
+                    chunkCenter = new Vector3(chunkCenter.x, targetTerrainCenterY, chunkCenter.z);
+
+                    biomeSeamSmoothOperation.Params = new ModificationParameters
+                    {
+                        Position = chunkCenter,
+                        Brush = BrushType.Sphere,
+                        Action = ActionType.Smooth,
+                        Opacity = 0.5f,
+                        Size = brushSize
+                    };
+
+                    targetDigger.ModifyChunks(biomeSeamSmoothOperation, chunkPositions);
+                }
+            }
+        }
+
+        private static Vector3 GetChunkWorldCenter(DiggerSystem digger, Vector3i chunkPosition, float terrainCenterY)
+        {
+            var origin = digger.ToWorldPosition(chunkPosition);
+            var scale = digger.HeightmapScale;
+            var halfSize = new Vector3(digger.SizeOfMesh * scale.x * 0.5f, 0f, digger.SizeOfMesh * scale.z * 0.5f);
+            return new Vector3(origin.x + halfSize.x, terrainCenterY, origin.z + halfSize.z);
+        }
+
+        private static bool ContainsWorldPosition(Bounds bounds, Vector3 worldPosition)
+        {
+            var flattened = new Vector3(worldPosition.x, bounds.center.y, worldPosition.z);
+            return bounds.Contains(flattened);
+        }
+
+        private static int GetSeamBlendChunkCount(float chunkSize, float seamBlendWidth)
+        {
+            if (seamBlendWidth <= 0f || chunkSize <= 0f) {
+                return 0;
+            }
+
+            return Mathf.Max(1, Mathf.CeilToInt(seamBlendWidth / chunkSize));
+        }
+
+        private static bool IsChunkNearSeam(DiggerSystem digger, int chunkX, int chunkZ, int seamBlendChunks)
+        {
+            if (seamBlendChunks <= 0 || !digger || !digger.Terrain) {
+                return false;
+            }
+
+            if (digger.Terrain.leftNeighbor && chunkX <= seamBlendChunks - 1) {
+                return true;
+            }
+
+            if (digger.Terrain.rightNeighbor && chunkX >= digger.TerrainChunkWidth - seamBlendChunks + 1) {
+                return true;
+            }
+
+            if (digger.Terrain.bottomNeighbor && chunkZ <= seamBlendChunks - 1) {
+                return true;
+            }
+
+            return digger.Terrain.topNeighbor && chunkZ >= digger.TerrainChunkHeight - seamBlendChunks + 1;
         }
 
         private List<Vector3i> BuildChunkPositionsForColumn(DiggerSystem digger, int chunkX, int chunkZ)
