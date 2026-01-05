@@ -28,12 +28,19 @@ namespace Digger.Modules.Core.Editor
 
         private List<Type> operationEditors;
         private readonly BiomePaintOperation biomePaintOperation = new BiomePaintOperation();
+        private readonly NoiseShapeOperation noiseShapeOperation = new NoiseShapeOperation();
 
         private BiomePreset biomePreset;
         private int biomeSeed;
         private float biomeNoiseScale = 1f;
         private bool biomeUseHeightErosion = true;
         private bool biomeUseSlopeErosion = true;
+        private bool biomeUseNoiseShape;
+        private int biomeShapeSeed;
+        private int biomeShapeOctaves = 4;
+        private float biomeShapeFrequency = 0.05f;
+        private float biomeShapeRidgeSharpness;
+        private int biomeShapeTerraceSteps;
         private bool biomeShowPreview = true;
         private bool biomeShowNoisePreview = true;
         private Texture2D biomeHeightPreview;
@@ -435,6 +442,17 @@ namespace Digger.Modules.Core.Editor
             biomeUseHeightErosion = EditorGUILayout.Toggle("Height Erosion", biomeUseHeightErosion);
             biomeUseSlopeErosion = EditorGUILayout.Toggle("Slope Erosion", biomeUseSlopeErosion);
 
+            EditorGUILayout.Space();
+            EditorGUILayout.LabelField("Noise Shaping", EditorStyles.boldLabel);
+            biomeUseNoiseShape = EditorGUILayout.Toggle("Apply Noise Shape", biomeUseNoiseShape);
+            using (new EditorGUI.DisabledScope(!biomeUseNoiseShape)) {
+                biomeShapeSeed = EditorGUILayout.IntField("Seed", biomeShapeSeed);
+                biomeShapeOctaves = EditorGUILayout.IntSlider("Octaves", biomeShapeOctaves, 1, 8);
+                biomeShapeFrequency = Mathf.Max(0f, EditorGUILayout.FloatField("Frequency", biomeShapeFrequency));
+                biomeShapeRidgeSharpness = EditorGUILayout.Slider("Ridge Sharpness", biomeShapeRidgeSharpness, 0f, 4f);
+                biomeShapeTerraceSteps = EditorGUILayout.IntSlider("Terrace Steps", biomeShapeTerraceSteps, 0, 12);
+            }
+
             if (!biomePreset) {
                 EditorGUILayout.HelpBox("Assign a BiomePreset to paint biome layers on the terrain.", MessageType.Info);
             } else {
@@ -566,6 +584,15 @@ namespace Digger.Modules.Core.Editor
             operationEditor?.OnScene(this, sceneview);
         }
 
+        private struct NoiseShapeSettings
+        {
+            public int Seed;
+            public int Octaves;
+            public float Frequency;
+            public float RidgeSharpness;
+            public int TerraceSteps;
+        }
+
         private void ApplyBiome(bool regenerateSeed)
         {
             if (regenerateSeed) {
@@ -584,6 +611,14 @@ namespace Digger.Modules.Core.Editor
                 NoiseScale = biomeNoiseScale,
                 UseHeightErosion = biomeUseHeightErosion,
                 UseSlopeErosion = biomeUseSlopeErosion
+            };
+            var noiseShapeSettings = new NoiseShapeSettings
+            {
+                Seed = biomeShapeSeed,
+                Octaves = biomeShapeOctaves,
+                Frequency = biomeShapeFrequency,
+                RidgeSharpness = biomeShapeRidgeSharpness,
+                TerraceSteps = biomeShapeTerraceSteps
             };
 
             var diggers = FindObjectsByType<DiggerSystem>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
@@ -605,10 +640,16 @@ namespace Digger.Modules.Core.Editor
                 }
 
                 foreach (var region in regions) {
+                    if (biomeUseNoiseShape) {
+                        ApplyNoiseShapeToRegion(region, targetDiggers, noiseShapeSettings);
+                    }
                     ApplyBiomeToRegion(region, targetDiggers, overrides);
                 }
             } else {
                 foreach (var digger in targetDiggers) {
+                    if (biomeUseNoiseShape) {
+                        ApplyNoiseShapeToTerrain(digger, noiseShapeSettings);
+                    }
                     ApplyBiomeToTerrain(digger, overrides);
                 }
             }
@@ -627,6 +668,25 @@ namespace Digger.Modules.Core.Editor
             return diggers.Where(digger => digger && digger.Terrain && terrainSet.Contains(digger.Terrain));
         }
 
+        private void ApplyNoiseShapeToTerrain(DiggerSystem digger, NoiseShapeSettings settings)
+        {
+            if (!digger || !digger.Terrain || !digger.Terrain.terrainData) {
+                return;
+            }
+
+            var terrainSize = digger.Terrain.terrainData.size;
+            noiseShapeOperation.Position = digger.Terrain.transform.position + terrainSize * 0.5f;
+            noiseShapeOperation.Size = terrainSize * 0.5f;
+            noiseShapeOperation.Brush = BrushType.RoundedCube;
+            noiseShapeOperation.Intensity = 1f;
+            noiseShapeOperation.NoiseSeed = settings.Seed;
+            noiseShapeOperation.NoiseOctaves = settings.Octaves;
+            noiseShapeOperation.NoiseFrequency = settings.Frequency;
+            noiseShapeOperation.RidgeSharpness = settings.RidgeSharpness;
+            noiseShapeOperation.TerraceSteps = settings.TerraceSteps;
+            digger.Modify(noiseShapeOperation);
+        }
+
         private void ApplyBiomeToTerrain(DiggerSystem digger, BiomePaintOverrides overrides)
         {
             if (!digger || !digger.Terrain || !digger.Terrain.terrainData) {
@@ -642,6 +702,42 @@ namespace Digger.Modules.Core.Editor
             biomePaintOperation.OpacityIsTarget = true;
             biomePaintOperation.Overrides = overrides;
             digger.Modify(biomePaintOperation);
+        }
+
+        private void ApplyNoiseShapeToRegion(TerrainRegion region, IEnumerable<DiggerSystem> diggers, NoiseShapeSettings settings)
+        {
+            if (region == null) {
+                return;
+            }
+
+            var terrains = region.Terrains?.Where(terrain => terrain != null).ToList();
+            if (terrains == null || terrains.Count == 0) {
+                return;
+            }
+
+            var bounds = region.GetWorldBounds();
+            if (!region.TryGetChunkCoordinates(bounds.min, out var minChunk, out _) ||
+                !region.TryGetChunkCoordinates(bounds.max, out var maxChunk, out _)) {
+                return;
+            }
+
+            var minChunkX = Mathf.Min(minChunk.x, maxChunk.x);
+            var maxChunkX = Mathf.Max(minChunk.x, maxChunk.x);
+            var minChunkZ = Mathf.Min(minChunk.y, maxChunk.y);
+            var maxChunkZ = Mathf.Max(minChunk.y, maxChunk.y);
+
+            var terrainSet = new HashSet<Terrain>(terrains);
+            foreach (var digger in diggers) {
+                if (!digger || !digger.Terrain || !digger.Terrain.terrainData) {
+                    continue;
+                }
+
+                if (!terrainSet.Contains(digger.Terrain)) {
+                    continue;
+                }
+
+                ApplyNoiseShapeToRegionForDigger(region, digger, settings, minChunkX, maxChunkX, minChunkZ, maxChunkZ);
+            }
         }
 
         private void ApplyBiomeToRegion(TerrainRegion region, IEnumerable<DiggerSystem> diggers, BiomePaintOverrides overrides)
@@ -677,6 +773,50 @@ namespace Digger.Modules.Core.Editor
                 }
 
                 ApplyBiomeToRegionForDigger(region, digger, overrides, minChunkX, maxChunkX, minChunkZ, maxChunkZ);
+            }
+        }
+
+        private void ApplyNoiseShapeToRegionForDigger(TerrainRegion region, DiggerSystem digger, NoiseShapeSettings settings,
+            int minChunkX, int maxChunkX, int minChunkZ, int maxChunkZ)
+        {
+            var terrain = digger.Terrain;
+            var terrainSize = terrain.terrainData.size;
+            var terrainCenterY = terrain.transform.position.y + terrainSize.y * 0.5f;
+            var chunkSize = region.GetChunkSize();
+            var brushSize = new Vector3(chunkSize * 0.5f, terrainSize.y * 0.5f, chunkSize * 0.5f);
+
+            for (var x = minChunkX; x <= maxChunkX; x++) {
+                for (var z = minChunkZ; z <= maxChunkZ; z++) {
+                    var chunkCoords = new Vector2Int(x, z);
+                    var chunkCenter = region.GetChunkWorldCenter(chunkCoords, terrainCenterY);
+                    if (!region.ContainsWorldPosition(chunkCenter)) {
+                        continue;
+                    }
+
+                    if (!digger.IsChunkBelongingToMe(new Vector3i(x, 0, z))) {
+                        continue;
+                    }
+
+                    var chunkPositions = BuildChunkPositionsForColumn(digger, x, z);
+                    if (chunkPositions.Count == 0) {
+                        continue;
+                    }
+
+                    var operation = new NoiseShapeOperation
+                    {
+                        Position = chunkCenter,
+                        Size = brushSize,
+                        Brush = BrushType.RoundedCube,
+                        Intensity = 1f,
+                        NoiseSeed = settings.Seed,
+                        NoiseOctaves = settings.Octaves,
+                        NoiseFrequency = settings.Frequency,
+                        RidgeSharpness = settings.RidgeSharpness,
+                        TerraceSteps = settings.TerraceSteps
+                    };
+
+                    digger.ModifyChunks(operation, chunkPositions);
+                }
             }
         }
 
