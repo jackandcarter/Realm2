@@ -1,13 +1,7 @@
 {
-    "name": "Realm.Client",
+    "name": "Realm.Data",
     "rootNamespace": "",
-    "references": [
-        "Digger.Core",
-        "Realm.Data",
-        "Unity.InputSystem",
-        "Unity.Mathematics",
-        "Unity.TextMeshPro"
-    ],
+    "references": [],
     "includePlatforms": [],
     "excludePlatforms": [],
     "allowUnsafeCode": false,
