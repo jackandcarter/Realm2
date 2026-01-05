@@ -34,6 +34,18 @@ namespace Digger.Modules.Core.Editor
         private readonly CaveCarveOperation caveCarveOperation = new CaveCarveOperation();
 
         private BiomePreset biomePreset;
+        private int biomeSeed;
+        private float biomeNoiseScale = 1f;
+        private bool biomeUseHeightErosion = true;
+        private bool biomeUseSlopeErosion = true;
+        private bool biomeUseNoiseShape;
+        private bool biomeUseThermalErosion = true;
+        private bool biomeUseHydraulicCarve = true;
+        private int biomeShapeSeed;
+        private int biomeShapeOctaves = 4;
+        private float biomeShapeFrequency = 0.05f;
+        private float biomeShapeRidgeSharpness;
+        private int biomeShapeTerraceSteps;
         private bool biomeShowPreview = true;
         private bool biomeShowNoisePreview = true;
         private Texture2D biomeHeightPreview;
@@ -430,65 +442,26 @@ namespace Digger.Modules.Core.Editor
             EditorGUILayout.LabelField("Biome Painting", EditorStyles.boldLabel);
 
             biomePreset = (BiomePreset)EditorGUILayout.ObjectField("Biome Preset", biomePreset, typeof(BiomePreset), false);
-            if (biomePreset) {
-                var paintSettings = biomePreset.Paint;
-                EditorGUI.BeginChangeCheck();
-                paintSettings.NoiseSeed = EditorGUILayout.IntField("Noise Seed", paintSettings.NoiseSeed);
-                paintSettings.NoiseScale = Mathf.Max(0f, EditorGUILayout.FloatField("Noise Scale", paintSettings.NoiseScale));
-                paintSettings.UseHeightErosion = EditorGUILayout.Toggle("Height Erosion", paintSettings.UseHeightErosion);
-                paintSettings.UseSlopeErosion = EditorGUILayout.Toggle("Slope Erosion", paintSettings.UseSlopeErosion);
-                if (EditorGUI.EndChangeCheck()) {
-                    biomePreset.Paint = paintSettings;
-                    EditorUtility.SetDirty(biomePreset);
-                }
-            }
+            biomeSeed = EditorGUILayout.IntField("Noise Seed", biomeSeed);
+            biomeNoiseScale = Mathf.Max(0f, EditorGUILayout.FloatField("Noise Scale", biomeNoiseScale));
+            biomeUseHeightErosion = EditorGUILayout.Toggle("Height Erosion", biomeUseHeightErosion);
+            biomeUseSlopeErosion = EditorGUILayout.Toggle("Slope Erosion", biomeUseSlopeErosion);
 
             EditorGUILayout.Space();
             EditorGUILayout.LabelField("Noise Shaping", EditorStyles.boldLabel);
-            if (biomePreset) {
-                var noiseShape = biomePreset.NoiseShape;
-                EditorGUI.BeginChangeCheck();
-                noiseShape.Enabled = EditorGUILayout.Toggle("Apply Noise Shape", noiseShape.Enabled);
-                using (new EditorGUI.DisabledScope(!noiseShape.Enabled)) {
-                    noiseShape.Seed = EditorGUILayout.IntField("Seed", noiseShape.Seed);
-                    noiseShape.Octaves = EditorGUILayout.IntSlider("Octaves", noiseShape.Octaves, 1, 8);
-                    noiseShape.Frequency = Mathf.Max(0f, EditorGUILayout.FloatField("Frequency", noiseShape.Frequency));
-                    noiseShape.RidgeSharpness = EditorGUILayout.Slider("Ridge Sharpness", noiseShape.RidgeSharpness, 0f, 4f);
-                    noiseShape.TerraceSteps = EditorGUILayout.IntSlider("Terrace Steps", noiseShape.TerraceSteps, 0, 12);
-                }
-                if (EditorGUI.EndChangeCheck()) {
-                    biomePreset.NoiseShape = noiseShape;
-                    EditorUtility.SetDirty(biomePreset);
-                }
+            biomeUseNoiseShape = EditorGUILayout.Toggle("Apply Noise Shape", biomeUseNoiseShape);
+            using (new EditorGUI.DisabledScope(!biomeUseNoiseShape)) {
+                biomeShapeSeed = EditorGUILayout.IntField("Seed", biomeShapeSeed);
+                biomeShapeOctaves = EditorGUILayout.IntSlider("Octaves", biomeShapeOctaves, 1, 8);
+                biomeShapeFrequency = Mathf.Max(0f, EditorGUILayout.FloatField("Frequency", biomeShapeFrequency));
+                biomeShapeRidgeSharpness = EditorGUILayout.Slider("Ridge Sharpness", biomeShapeRidgeSharpness, 0f, 4f);
+                biomeShapeTerraceSteps = EditorGUILayout.IntSlider("Terrace Steps", biomeShapeTerraceSteps, 0, 12);
             }
 
             EditorGUILayout.Space();
             EditorGUILayout.LabelField("Erosion Passes", EditorStyles.boldLabel);
-            if (biomePreset) {
-                var thermal = biomePreset.ThermalErosion;
-                EditorGUI.BeginChangeCheck();
-                thermal.Enabled = EditorGUILayout.Toggle("Thermal Erosion", thermal.Enabled);
-                using (new EditorGUI.DisabledScope(!thermal.Enabled)) {
-                    thermal.Strength = EditorGUILayout.Slider("Strength", thermal.Strength, 0f, 2f);
-                    thermal.SlopeThreshold = EditorGUILayout.Slider("Slope Threshold", thermal.SlopeThreshold, 0f, 90f);
-                }
-                if (EditorGUI.EndChangeCheck()) {
-                    biomePreset.ThermalErosion = thermal;
-                    EditorUtility.SetDirty(biomePreset);
-                }
-
-                var hydraulic = biomePreset.HydraulicCarve;
-                EditorGUI.BeginChangeCheck();
-                hydraulic.Enabled = EditorGUILayout.Toggle("Hydraulic Carve", hydraulic.Enabled);
-                using (new EditorGUI.DisabledScope(!hydraulic.Enabled)) {
-                    hydraulic.Strength = EditorGUILayout.Slider("Strength", hydraulic.Strength, 0f, 2f);
-                    hydraulic.SlopeThreshold = EditorGUILayout.Slider("Slope Threshold", hydraulic.SlopeThreshold, 0f, 90f);
-                }
-                if (EditorGUI.EndChangeCheck()) {
-                    biomePreset.HydraulicCarve = hydraulic;
-                    EditorUtility.SetDirty(biomePreset);
-                }
-            }
+            biomeUseThermalErosion = EditorGUILayout.Toggle("Thermal Erosion", biomeUseThermalErosion);
+            biomeUseHydraulicCarve = EditorGUILayout.Toggle("Hydraulic Carve", biomeUseHydraulicCarve);
 
             EditorGUILayout.Space();
             EditorGUILayout.LabelField("Caves", EditorStyles.boldLabel);
@@ -642,28 +615,41 @@ namespace Digger.Modules.Core.Editor
             operationEditor?.OnScene(this, sceneview);
         }
 
+        private struct NoiseShapeSettings
+        {
+            public int Seed;
+            public int Octaves;
+            public float Frequency;
+            public float RidgeSharpness;
+            public int TerraceSteps;
+        }
+
         private void ApplyBiome(bool regenerateSeed)
         {
+            if (regenerateSeed) {
+                biomeSeed = UnityEngine.Random.Range(-100000, 100000);
+            }
+
             if (!biomePreset) {
                 EditorUtility.DisplayDialog("Biome preset required",
                     "Please assign a BiomePreset before applying a biome operation.", "Ok");
                 return;
             }
 
-            if (regenerateSeed) {
-                var paintSettings = biomePreset.Paint;
-                paintSettings.NoiseSeed = UnityEngine.Random.Range(-100000, 100000);
-                biomePreset.Paint = paintSettings;
-                EditorUtility.SetDirty(biomePreset);
-            }
-
-            var paint = biomePreset.Paint;
             var overrides = new BiomePaintOverrides
             {
-                NoiseSeed = paint.NoiseSeed,
-                NoiseScale = paint.NoiseScale,
-                UseHeightErosion = paint.UseHeightErosion,
-                UseSlopeErosion = paint.UseSlopeErosion
+                NoiseSeed = biomeSeed,
+                NoiseScale = biomeNoiseScale,
+                UseHeightErosion = biomeUseHeightErosion,
+                UseSlopeErosion = biomeUseSlopeErosion
+            };
+            var noiseShapeSettings = new NoiseShapeSettings
+            {
+                Seed = biomeShapeSeed,
+                Octaves = biomeShapeOctaves,
+                Frequency = biomeShapeFrequency,
+                RidgeSharpness = biomeShapeRidgeSharpness,
+                TerraceSteps = biomeShapeTerraceSteps
             };
 
             var diggers = FindObjectsByType<DiggerSystem>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
@@ -685,17 +671,14 @@ namespace Digger.Modules.Core.Editor
                 }
 
                 foreach (var region in regions) {
-                    var noiseShape = biomePreset.NoiseShape;
-                    if (noiseShape.Enabled) {
-                        ApplyNoiseShapeToRegion(region, targetDiggers, noiseShape);
+                    if (biomeUseNoiseShape) {
+                        ApplyNoiseShapeToRegion(region, targetDiggers, noiseShapeSettings);
                     }
-                    var thermal = biomePreset.ThermalErosion;
-                    if (thermal.Enabled) {
-                        ApplyThermalErosionToRegion(region, targetDiggers, thermal);
+                    if (biomeUseThermalErosion) {
+                        ApplyThermalErosionToRegion(region, targetDiggers);
                     }
-                    var hydraulic = biomePreset.HydraulicCarve;
-                    if (hydraulic.Enabled) {
-                        ApplyHydraulicCarveToRegion(region, targetDiggers, hydraulic);
+                    if (biomeUseHydraulicCarve) {
+                        ApplyHydraulicCarveToRegion(region, targetDiggers);
                     }
                     if (biomePreset.Caves.Enabled) {
                         ApplyCaveCarveToRegion(region, targetDiggers, biomePreset.Caves);
@@ -704,17 +687,14 @@ namespace Digger.Modules.Core.Editor
                 }
             } else {
                 foreach (var digger in targetDiggers) {
-                    var noiseShape = biomePreset.NoiseShape;
-                    if (noiseShape.Enabled) {
-                        ApplyNoiseShapeToTerrain(digger, noiseShape);
+                    if (biomeUseNoiseShape) {
+                        ApplyNoiseShapeToTerrain(digger, noiseShapeSettings);
                     }
-                    var thermal = biomePreset.ThermalErosion;
-                    if (thermal.Enabled) {
-                        ApplyThermalErosionToTerrain(digger, thermal);
+                    if (biomeUseThermalErosion) {
+                        ApplyThermalErosionToTerrain(digger);
                     }
-                    var hydraulic = biomePreset.HydraulicCarve;
-                    if (hydraulic.Enabled) {
-                        ApplyHydraulicCarveToTerrain(digger, hydraulic);
+                    if (biomeUseHydraulicCarve) {
+                        ApplyHydraulicCarveToTerrain(digger);
                     }
                     if (biomePreset.Caves.Enabled) {
                         ApplyCaveCarveToTerrain(digger, biomePreset.Caves);
@@ -737,7 +717,7 @@ namespace Digger.Modules.Core.Editor
             return diggers.Where(digger => digger && digger.Terrain && terrainSet.Contains(digger.Terrain));
         }
 
-        private void ApplyNoiseShapeToTerrain(DiggerSystem digger, BiomePreset.NoiseShapeSettings settings)
+        private void ApplyNoiseShapeToTerrain(DiggerSystem digger, NoiseShapeSettings settings)
         {
             if (!digger || !digger.Terrain || !digger.Terrain.terrainData) {
                 return;
@@ -756,7 +736,7 @@ namespace Digger.Modules.Core.Editor
             digger.Modify(noiseShapeOperation);
         }
 
-        private void ApplyThermalErosionToTerrain(DiggerSystem digger, BiomePreset.ThermalErosionSettings settings)
+        private void ApplyThermalErosionToTerrain(DiggerSystem digger)
         {
             if (!digger || !digger.Terrain || !digger.Terrain.terrainData) {
                 return;
@@ -766,12 +746,10 @@ namespace Digger.Modules.Core.Editor
             thermalErosionOperation.Position = digger.Terrain.transform.position + terrainSize * 0.5f;
             thermalErosionOperation.Size = terrainSize * 0.5f;
             thermalErosionOperation.Brush = BrushType.RoundedCube;
-            thermalErosionOperation.Strength = settings.Strength;
-            thermalErosionOperation.SlopeThreshold = settings.SlopeThreshold;
             digger.Modify(thermalErosionOperation);
         }
 
-        private void ApplyHydraulicCarveToTerrain(DiggerSystem digger, BiomePreset.HydraulicCarveSettings settings)
+        private void ApplyHydraulicCarveToTerrain(DiggerSystem digger)
         {
             if (!digger || !digger.Terrain || !digger.Terrain.terrainData) {
                 return;
@@ -781,8 +759,6 @@ namespace Digger.Modules.Core.Editor
             hydraulicCarveOperation.Position = digger.Terrain.transform.position + terrainSize * 0.5f;
             hydraulicCarveOperation.Size = terrainSize * 0.5f;
             hydraulicCarveOperation.Brush = BrushType.RoundedCube;
-            hydraulicCarveOperation.Strength = settings.Strength;
-            hydraulicCarveOperation.SlopeThreshold = settings.SlopeThreshold;
             digger.Modify(hydraulicCarveOperation);
         }
 
@@ -796,7 +772,7 @@ namespace Digger.Modules.Core.Editor
             caveCarveOperation.Position = digger.Terrain.transform.position + terrainSize * 0.5f;
             caveCarveOperation.Size = terrainSize * 0.5f;
             caveCarveOperation.Brush = BrushType.RoundedCube;
-            caveCarveOperation.NoiseSeed = biomePreset.Paint.NoiseSeed;
+            caveCarveOperation.NoiseSeed = biomeSeed;
             caveCarveOperation.NoiseScale = settings.NoiseScale;
             caveCarveOperation.Threshold = settings.Threshold;
             caveCarveOperation.MinDepth = settings.MinDepth;
@@ -823,8 +799,7 @@ namespace Digger.Modules.Core.Editor
             digger.Modify(biomePaintOperation);
         }
 
-        private void ApplyNoiseShapeToRegion(TerrainRegion region, IEnumerable<DiggerSystem> diggers,
-            BiomePreset.NoiseShapeSettings settings)
+        private void ApplyNoiseShapeToRegion(TerrainRegion region, IEnumerable<DiggerSystem> diggers, NoiseShapeSettings settings)
         {
             if (region == null) {
                 return;
@@ -860,8 +835,7 @@ namespace Digger.Modules.Core.Editor
             }
         }
 
-        private void ApplyThermalErosionToRegion(TerrainRegion region, IEnumerable<DiggerSystem> diggers,
-            BiomePreset.ThermalErosionSettings settings)
+        private void ApplyThermalErosionToRegion(TerrainRegion region, IEnumerable<DiggerSystem> diggers)
         {
             if (region == null) {
                 return;
@@ -893,12 +867,11 @@ namespace Digger.Modules.Core.Editor
                     continue;
                 }
 
-                ApplyThermalErosionToRegionForDigger(region, digger, settings, minChunkX, maxChunkX, minChunkZ, maxChunkZ);
+                ApplyThermalErosionToRegionForDigger(region, digger, minChunkX, maxChunkX, minChunkZ, maxChunkZ);
             }
         }
 
-        private void ApplyHydraulicCarveToRegion(TerrainRegion region, IEnumerable<DiggerSystem> diggers,
-            BiomePreset.HydraulicCarveSettings settings)
+        private void ApplyHydraulicCarveToRegion(TerrainRegion region, IEnumerable<DiggerSystem> diggers)
         {
             if (region == null) {
                 return;
@@ -930,7 +903,7 @@ namespace Digger.Modules.Core.Editor
                     continue;
                 }
 
-                ApplyHydraulicCarveToRegionForDigger(region, digger, settings, minChunkX, maxChunkX, minChunkZ, maxChunkZ);
+                ApplyHydraulicCarveToRegionForDigger(region, digger, minChunkX, maxChunkX, minChunkZ, maxChunkZ);
             }
         }
 
@@ -955,7 +928,7 @@ namespace Digger.Modules.Core.Editor
                     caveCarveOperation.Position = digger.Terrain.transform.position + terrainSize * 0.5f;
                     caveCarveOperation.Size = terrainSize * 0.5f;
                     caveCarveOperation.Brush = BrushType.RoundedCube;
-                    caveCarveOperation.NoiseSeed = biomePreset.Paint.NoiseSeed;
+                    caveCarveOperation.NoiseSeed = biomeSeed;
                     caveCarveOperation.NoiseScale = settings.NoiseScale;
                     caveCarveOperation.Threshold = settings.Threshold;
                     caveCarveOperation.MinDepth = settings.MinDepth;
@@ -1003,7 +976,7 @@ namespace Digger.Modules.Core.Editor
             }
         }
 
-        private void ApplyNoiseShapeToRegionForDigger(TerrainRegion region, DiggerSystem digger, BiomePreset.NoiseShapeSettings settings,
+        private void ApplyNoiseShapeToRegionForDigger(TerrainRegion region, DiggerSystem digger, NoiseShapeSettings settings,
             int minChunkX, int maxChunkX, int minChunkZ, int maxChunkZ)
         {
             var terrain = digger.Terrain;
@@ -1047,7 +1020,7 @@ namespace Digger.Modules.Core.Editor
             }
         }
 
-        private void ApplyThermalErosionToRegionForDigger(TerrainRegion region, DiggerSystem digger, BiomePreset.ThermalErosionSettings settings,
+        private void ApplyThermalErosionToRegionForDigger(TerrainRegion region, DiggerSystem digger,
             int minChunkX, int maxChunkX, int minChunkZ, int maxChunkZ)
         {
             var terrain = digger.Terrain;
@@ -1077,9 +1050,7 @@ namespace Digger.Modules.Core.Editor
                     {
                         Position = chunkCenter,
                         Size = brushSize,
-                        Brush = BrushType.RoundedCube,
-                        Strength = settings.Strength,
-                        SlopeThreshold = settings.SlopeThreshold
+                        Brush = BrushType.RoundedCube
                     };
 
                     digger.ModifyChunks(operation, chunkPositions);
@@ -1087,7 +1058,7 @@ namespace Digger.Modules.Core.Editor
             }
         }
 
-        private void ApplyHydraulicCarveToRegionForDigger(TerrainRegion region, DiggerSystem digger, BiomePreset.HydraulicCarveSettings settings,
+        private void ApplyHydraulicCarveToRegionForDigger(TerrainRegion region, DiggerSystem digger,
             int minChunkX, int maxChunkX, int minChunkZ, int maxChunkZ)
         {
             var terrain = digger.Terrain;
@@ -1117,9 +1088,7 @@ namespace Digger.Modules.Core.Editor
                     {
                         Position = chunkCenter,
                         Size = brushSize,
-                        Brush = BrushType.RoundedCube,
-                        Strength = settings.Strength,
-                        SlopeThreshold = settings.SlopeThreshold
+                        Brush = BrushType.RoundedCube
                     };
 
                     digger.ModifyChunks(operation, chunkPositions);
@@ -1261,17 +1230,15 @@ namespace Digger.Modules.Core.Editor
                 biomePreviewPreset = biomePreset;
             }
 
-            var paint = biomePreset ? biomePreset.Paint : BiomePreset.PaintSettings.Default;
-            var needsNoisePreview = paint.NoiseSeed != biomePreviewSeed ||
-                                    !Mathf.Approximately(paint.NoiseScale, biomePreviewNoiseScale);
+            var needsNoisePreview = biomeSeed != biomePreviewSeed || !Mathf.Approximately(biomeNoiseScale, biomePreviewNoiseScale);
             if (needsNoisePreview) {
                 if (biomeNoisePreview != null) {
                     DestroyImmediate(biomeNoisePreview);
                 }
 
-                biomeNoisePreview = BuildNoisePreviewTexture(paint.NoiseSeed, paint.NoiseScale);
-                biomePreviewSeed = paint.NoiseSeed;
-                biomePreviewNoiseScale = paint.NoiseScale;
+                biomeNoisePreview = BuildNoisePreviewTexture(biomeSeed, biomeNoiseScale);
+                biomePreviewSeed = biomeSeed;
+                biomePreviewNoiseScale = biomeNoiseScale;
             }
         }
 
