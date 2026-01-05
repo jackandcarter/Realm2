@@ -3,7 +3,8 @@
     "references": [
         "Unity.Mathematics",
         "Unity.Burst",
-        "JBooth.MicroSplat.Core"
+        "JBooth.MicroSplat.Core",
+        "Client.Biomes"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],
