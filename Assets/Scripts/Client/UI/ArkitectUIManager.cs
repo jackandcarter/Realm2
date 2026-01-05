@@ -25,12 +25,14 @@ namespace Client.UI
 
         [Header("Tab Buttons")]
         [SerializeField] private Button plotsTabButton;
+        [SerializeField] private Button terrainTabButton;
         [SerializeField] private Button materialsTabButton;
         [SerializeField] private Button blueprintsTabButton;
         [SerializeField] private Button commissionTabButton;
 
         [Header("Panels")]
         [SerializeField] private GameObject plotsPanel;
+        [SerializeField] private GameObject terrainPanel;
         [SerializeField] private GameObject materialsPanel;
         [SerializeField] private GameObject blueprintsPanel;
         [SerializeField] private GameObject commissionPanel;
@@ -49,6 +51,7 @@ namespace Client.UI
         private const string PanelsRegistryId = "arkitect.ui.panels";
         private const string TabBarRegistryId = "arkitect.ui.tabbar";
         private const string PlotsPanelRegistryId = "arkitect.ui.panel.plots";
+        private const string TerrainPanelRegistryId = "arkitect.ui.panel.terrain";
         private const string MaterialsPanelRegistryId = "arkitect.ui.panel.materials";
         private const string BlueprintsPanelRegistryId = "arkitect.ui.panel.blueprints";
         private const string CommissionsPanelRegistryId = "arkitect.ui.panel.commissions";
@@ -148,7 +151,7 @@ namespace Client.UI
 
             if (_activePanel == null)
             {
-                _activePanel = plotsPanel != null ? plotsPanel : materialsPanel ?? blueprintsPanel ?? commissionPanel;
+                _activePanel = plotsPanel != null ? plotsPanel : terrainPanel ?? materialsPanel ?? blueprintsPanel ?? commissionPanel;
             }
 
             if (_activePanel != null)
@@ -259,6 +262,7 @@ namespace Client.UI
         private void EnsureTabs()
         {
             EnsureButton(ref plotsTabButton, "PlotsTab", "Plots");
+            EnsureButton(ref terrainTabButton, "TerrainTab", "Terrain");
             EnsureButton(ref materialsTabButton, "MaterialsTab", "Materials");
             EnsureButton(ref blueprintsTabButton, "BlueprintsTab", "Blueprints");
             EnsureButton(ref commissionTabButton, "CommissionsTab", "Commissions");
@@ -290,6 +294,9 @@ namespace Client.UI
             EnsurePanel(ref plotsPanel, "PlotsPanel",
                 "Claim frontier plots and grow settlements to embody Realm's player-driven worldbuilding.",
                 PlotsPanelRegistryId);
+            EnsurePanel(ref terrainPanel, "TerrainPanel",
+                "Shape the land within your plots using Arkitect magicks and unlock new terrain rituals.",
+                TerrainPanelRegistryId);
             EnsurePanel(ref materialsPanel, "MaterialsPanel",
                 "Curate arcane reagents and technomantic alloys that empower construction and crafting.",
                 MaterialsPanelRegistryId);
@@ -346,6 +353,7 @@ namespace Client.UI
         {
             _tabs.Clear();
             RegisterTab(plotsTabButton, plotsPanel);
+            RegisterTab(terrainTabButton, terrainPanel);
             RegisterTab(materialsTabButton, materialsPanel);
             RegisterTab(blueprintsTabButton, blueprintsPanel);
             RegisterTab(commissionTabButton, commissionPanel);

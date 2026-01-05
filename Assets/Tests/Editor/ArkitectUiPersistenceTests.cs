@@ -91,6 +91,7 @@ namespace Tests.Editor
                 { "Panels", manager.transform.Find("Panels")?.gameObject },
                 { "TabBar", manager.transform.Find("TabBar")?.gameObject },
                 { "PlotsPanel", manager.transform.Find("Panels/PlotsPanel")?.gameObject },
+                { "TerrainPanel", manager.transform.Find("Panels/TerrainPanel")?.gameObject },
                 { "MaterialsPanel", manager.transform.Find("Panels/MaterialsPanel")?.gameObject },
                 { "BlueprintsPanel", manager.transform.Find("Panels/BlueprintsPanel")?.gameObject },
                 { "CommissionsPanel", manager.transform.Find("Panels/CommissionsPanel")?.gameObject }
