@@ -17,6 +17,7 @@ namespace Client.UI.HUD.Dock
 
         [Header("UI")]
         [SerializeField] private RectTransform itemContainer;
+        [SerializeField] private RectTransform mountContainer;
         [SerializeField] private AbilityDockItem itemPrefab;
         [SerializeField] private Sprite fallbackIcon;
         [SerializeField] private string iconResourceFolder = "UI/AbilityIcons";
@@ -41,7 +42,11 @@ namespace Client.UI.HUD.Dock
             {
                 return;
             }
-            _selfRect.SetParent(parent, false);
+            var targetParent = mountContainer != null ? mountContainer : parent;
+            if (targetParent != null && !_selfRect.IsChildOf(targetParent))
+            {
+                _selfRect.SetParent(targetParent, false);
+            }
             gameObject.SetActive(true);
             _mounted = true;
             PlayerClassStateManager.ActiveClassChanged += OnActiveClassChanged;
@@ -170,7 +175,7 @@ namespace Client.UI.HUD.Dock
 
             if (itemContainer == null)
             {
-                itemContainer = _selfRect;
+                itemContainer = mountContainer != null ? mountContainer : _selfRect;
             }
         }
 

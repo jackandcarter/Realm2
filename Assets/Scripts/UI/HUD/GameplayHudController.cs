@@ -11,12 +11,15 @@ namespace Client.UI.HUD
     {
         [SerializeField] private Canvas mainCanvas;
         [SerializeField] private RectTransform classDockAnchor;
+        [SerializeField] private GameObject masterDockPrefab;
         [SerializeField] private List<ClassUiModuleBinding> classUiModules = new();
 
         private string _activeClassId;
         private IClassUiModule _activeModule;
         private GameObject _activeInstance;
         private bool _ownsActiveInstance;
+        private RectTransform _masterDockRoot;
+        private RectTransform _centerSection;
         private bool _initialized;
 
         [Serializable]
@@ -90,6 +93,8 @@ namespace Client.UI.HUD
 
         private void LoadClassDock(string classId)
         {
+            EnsureMasterDock();
+
             if (string.Equals(_activeClassId, classId, StringComparison.OrdinalIgnoreCase))
             {
                 return;
@@ -105,7 +110,7 @@ namespace Client.UI.HUD
 
         private void CreateModuleInstance(ClassUiModuleBinding binding)
         {
-            if (binding?.prefab == null || classDockAnchor == null)
+            if (binding?.prefab == null)
             {
                 return;
             }
@@ -119,7 +124,7 @@ namespace Client.UI.HUD
             }
 
             var module = (IClassUiModule)component;
-            module.Mount(classDockAnchor);
+            module.Mount(GetModuleContainer());
 
             _activeModule = module;
             _activeInstance = component.gameObject;
@@ -129,17 +134,20 @@ namespace Client.UI.HUD
 
         private bool AdoptExistingModule(string classId)
         {
-            if (classDockAnchor == null)
-            {
-                return false;
-            }
+            EnsureMasterDock();
+            var moduleContainer = GetModuleContainer();
 
             if (string.IsNullOrWhiteSpace(classId))
             {
                 return false;
             }
 
-            foreach (Transform child in classDockAnchor)
+            if (moduleContainer == null)
+            {
+                return false;
+            }
+
+            foreach (Transform child in moduleContainer)
             {
                 var component = FindModuleComponent(child.gameObject);
                 if (component == null)
@@ -152,7 +160,7 @@ namespace Client.UI.HUD
                 if (!string.IsNullOrWhiteSpace(moduleClassId) &&
                     string.Equals(moduleClassId, classId, StringComparison.OrdinalIgnoreCase))
                 {
-                    module.Mount(classDockAnchor);
+                    module.Mount(moduleContainer);
                     _activeModule = module;
                     _activeInstance = component.gameObject;
                     _activeClassId = moduleClassId;
@@ -162,6 +170,54 @@ namespace Client.UI.HUD
             }
 
             return false;
+        }
+
+        private Transform GetModuleContainer()
+        {
+            return _centerSection != null ? _centerSection : classDockAnchor;
+        }
+
+        private void EnsureMasterDock()
+        {
+            if (classDockAnchor == null)
+            {
+                return;
+            }
+
+            if (_masterDockRoot != null)
+            {
+                return;
+            }
+
+            foreach (Transform child in classDockAnchor)
+            {
+                var center = FindSection(child, "CenterSection");
+                if (center != null)
+                {
+                    _masterDockRoot = child as RectTransform;
+                    _centerSection = center;
+                    return;
+                }
+            }
+
+            if (masterDockPrefab == null)
+            {
+                return;
+            }
+
+            var instance = Instantiate(masterDockPrefab, classDockAnchor);
+            _masterDockRoot = instance.GetComponent<RectTransform>();
+            _centerSection = FindSection(instance.transform, "CenterSection");
+        }
+
+        private static RectTransform FindSection(Transform root, string name)
+        {
+            if (root == null || string.IsNullOrWhiteSpace(name))
+            {
+                return null;
+            }
+
+            return root.Find(name) as RectTransform;
         }
 
         private void UnloadActiveModule()

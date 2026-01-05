@@ -13,6 +13,7 @@ namespace Realm.Editor.UI
         private const string PrefabPath = "Assets/UI/HUD/GameplayHud.prefab";
         private const string MiniMapPrefabPath = "Assets/UI/HUD/MiniMapPanel.prefab";
         private const string WorldMapPrefabPath = "Assets/UI/Maps/WorldMapOverlay.prefab";
+        private const string MasterDockPrefabPath = "Assets/UI/Shared/Dock/MasterDock.prefab";
         private const string MenuRoot = "Tools/Realm/UI";
 
         [MenuItem(MenuRoot + "/Generate Gameplay HUD", priority = 110)]
@@ -31,7 +32,7 @@ namespace Realm.Editor.UI
             var miniMap = EnsurePrefabChild(root.transform, MiniMapPrefabPath, "MiniMapPanel");
 
             BindMapReferences(miniMap, worldMap);
-            ApplyControllerBindings(controller, root.GetComponent<Canvas>(), classDockAnchor);
+            ApplyControllerBindings(controller, root.GetComponent<Canvas>(), classDockAnchor, LoadPrefab(MasterDockPrefabPath));
 
             RemoveMissingScripts(root);
             SavePrefab(root);
@@ -156,7 +157,7 @@ namespace Realm.Editor.UI
             serialized.ApplyModifiedPropertiesWithoutUndo();
         }
 
-        private static void ApplyControllerBindings(GameplayHudController controller, Canvas canvas, RectTransform classDockAnchor)
+        private static void ApplyControllerBindings(GameplayHudController controller, Canvas canvas, RectTransform classDockAnchor, GameObject masterDockPrefab)
         {
             if (controller == null)
             {
@@ -166,7 +167,18 @@ namespace Realm.Editor.UI
             var serialized = new SerializedObject(controller);
             serialized.FindProperty("mainCanvas").objectReferenceValue = canvas;
             serialized.FindProperty("classDockAnchor").objectReferenceValue = classDockAnchor;
+            serialized.FindProperty("masterDockPrefab").objectReferenceValue = masterDockPrefab;
             serialized.ApplyModifiedPropertiesWithoutUndo();
+        }
+
+        private static GameObject LoadPrefab(string path)
+        {
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                return null;
+            }
+
+            return AssetDatabase.LoadAssetAtPath<GameObject>(path);
         }
 
         private static void SavePrefab(GameObject root)
