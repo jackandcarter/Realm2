@@ -174,7 +174,7 @@ namespace Building.Runtime
         {
             foreach (var zone in _activeZones)
             {
-                if (zone.Contains(new Vector3(worldPosition.x, zone.center.y, worldPosition.z)))
+                if (zone.Contains(worldPosition))
                 {
                     containingZone = zone;
                     return true;
@@ -209,6 +209,8 @@ namespace Building.Runtime
 
             return candidateMin.x >= containerMin.x &&
                    candidateMax.x <= containerMax.x &&
+                   candidateMin.y >= containerMin.y &&
+                   candidateMax.y <= containerMax.y &&
                    candidateMin.z >= containerMin.z &&
                    candidateMax.z <= containerMax.z;
         }
@@ -265,10 +267,13 @@ namespace Building.Runtime
             {
                 for (var z = min.z; z <= max.z + 0.01f; z += spacing)
                 {
-                    var samplePoint = new Vector3(x, min.y + voxelClearancePadding, z);
-                    if (!IsPointClear(samplePoint))
+                    for (var y = min.y; y <= max.y + 0.01f; y += spacing)
                     {
-                        return false;
+                        var samplePoint = new Vector3(x, y + voxelClearancePadding, z);
+                        if (!IsPointClear(samplePoint))
+                        {
+                            return false;
+                        }
                     }
                 }
             }
@@ -306,14 +311,18 @@ namespace Building.Runtime
 
             if (!_chunkLookup.TryGetValue(chunkCoord, out var chunk) || chunk == null)
             {
-                return true;
+                CacheChunks(_diggerSystem);
+                if (!_chunkLookup.TryGetValue(chunkCoord, out chunk) || chunk == null)
+                {
+                    return false;
+                }
             }
 
             chunk.LoadVoxels(false);
             var voxelChunk = chunk.GetComponentInChildren<VoxelChunk>();
             if (voxelChunk == null || voxelChunk.VoxelArray == null || voxelChunk.VoxelArray.Length == 0)
             {
-                return true;
+                return false;
             }
 
             var chunkVoxelOrigin = chunk.VoxelPosition;

@@ -28,7 +28,7 @@ namespace Client.Terrain
         [Tooltip("Offset applied before chunk coordinates are computed in local space.")]
         [SerializeField] private Vector2 chunkOriginOffset = Vector2.zero;
         [Tooltip("Override for chunk size; set to a value > 0 to ignore the digger system size.")]
-        [SerializeField] private float chunkSizeOverride = DefaultChunkSize;
+        [SerializeField] private float chunkSizeOverride = 0f;
         [Tooltip("Optional Digger system used to determine default chunk size.")]
         [SerializeField] private DiggerSystem diggerSystem;
 
