@@ -42,6 +42,14 @@ namespace Realm.Editor.UI
                     ArkitectDockGenerator.GenerateDock();
                 }
             });
+
+            DrawSection("Arkitect Extensions", () =>
+            {
+                if (GUILayout.Button("Generate Arkitect Terrain Tools UI"))
+                {
+                    ArkitectTerrainUiGenerator.GenerateTerrainUi();
+                }
+            });
         }
 
         private static void DrawSection(string title, System.Action drawContent)

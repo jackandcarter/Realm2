@@ -29,16 +29,18 @@ namespace Realm.Editor.UI
             ConfigureTabBar(tabBar);
 
             var plotsPanel = FindOrCreatePanel(panelsContainer, "PlotsPanel", "Plots", "Claim frontier plots and grow settlements to embody Realm's player-driven worldbuilding.", font);
+            var terrainPanel = FindOrCreatePanel(panelsContainer, "TerrainPanel", "Terrain", "Shape the land within your plots using Arkitect magicks and unlock new terrain rituals.", font);
             var materialsPanel = FindOrCreatePanel(panelsContainer, "MaterialsPanel", "Materials", "Curate arcane reagents and technomantic alloys that empower construction and crafting.", font);
             var blueprintsPanel = FindOrCreatePanel(panelsContainer, "BlueprintsPanel", "Blueprints", "Unlock radiant designs that blend crystalline spires with luminous machinery.", font);
             var commissionsPanel = FindOrCreatePanel(panelsContainer, "CommissionsPanel", "Commissions", "Review community commissions and collaborate on magitech megastructures for Elysium.", font);
 
             var plotsTabButton = FindOrCreateTabButton(tabBar, "PlotsTab", "Plots", font);
+            var terrainTabButton = FindOrCreateTabButton(tabBar, "TerrainTab", "Terrain", font);
             var materialsTabButton = FindOrCreateTabButton(tabBar, "MaterialsTab", "Materials", font);
             var blueprintsTabButton = FindOrCreateTabButton(tabBar, "BlueprintsTab", "Blueprints", font);
             var commissionsTabButton = FindOrCreateTabButton(tabBar, "CommissionsTab", "Commissions", font);
 
-            ApplyManagerBindings(manager, panelsContainer, tabBar, plotsTabButton, materialsTabButton, blueprintsTabButton, commissionsTabButton, plotsPanel, materialsPanel, blueprintsPanel, commissionsPanel);
+            ApplyManagerBindings(manager, panelsContainer, tabBar, plotsTabButton, terrainTabButton, materialsTabButton, blueprintsTabButton, commissionsTabButton, plotsPanel, terrainPanel, materialsPanel, blueprintsPanel, commissionsPanel);
 
             SavePrefab(manager.gameObject);
             Selection.activeGameObject = manager.gameObject;
@@ -290,16 +292,18 @@ namespace Realm.Editor.UI
             rect.sizeDelta = new Vector2(0f, -120f);
         }
 
-        private static void ApplyManagerBindings(ArkitectUIManager manager, RectTransform panels, RectTransform tabBar, Button plotsTab, Button materialsTab, Button blueprintsTab, Button commissionsTab, GameObject plotsPanel, GameObject materialsPanel, GameObject blueprintsPanel, GameObject commissionsPanel)
+        private static void ApplyManagerBindings(ArkitectUIManager manager, RectTransform panels, RectTransform tabBar, Button plotsTab, Button terrainTab, Button materialsTab, Button blueprintsTab, Button commissionsTab, GameObject plotsPanel, GameObject terrainPanel, GameObject materialsPanel, GameObject blueprintsPanel, GameObject commissionsPanel)
         {
             var serialized = new SerializedObject(manager);
             serialized.FindProperty("panelsContainer").objectReferenceValue = panels;
             serialized.FindProperty("tabContainer").objectReferenceValue = tabBar;
             serialized.FindProperty("plotsTabButton").objectReferenceValue = plotsTab;
+            serialized.FindProperty("terrainTabButton").objectReferenceValue = terrainTab;
             serialized.FindProperty("materialsTabButton").objectReferenceValue = materialsTab;
             serialized.FindProperty("blueprintsTabButton").objectReferenceValue = blueprintsTab;
             serialized.FindProperty("commissionTabButton").objectReferenceValue = commissionsTab;
             serialized.FindProperty("plotsPanel").objectReferenceValue = plotsPanel;
+            serialized.FindProperty("terrainPanel").objectReferenceValue = terrainPanel;
             serialized.FindProperty("materialsPanel").objectReferenceValue = materialsPanel;
             serialized.FindProperty("blueprintsPanel").objectReferenceValue = blueprintsPanel;
             serialized.FindProperty("commissionPanel").objectReferenceValue = commissionsPanel;
