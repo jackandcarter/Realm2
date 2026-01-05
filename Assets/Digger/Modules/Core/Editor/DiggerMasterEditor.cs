@@ -31,6 +31,7 @@ namespace Digger.Modules.Core.Editor
         private readonly NoiseShapeOperation noiseShapeOperation = new NoiseShapeOperation();
         private readonly ThermalErosionOperation thermalErosionOperation = new ThermalErosionOperation();
         private readonly HydraulicCarveOperation hydraulicCarveOperation = new HydraulicCarveOperation();
+        private readonly CaveCarveOperation caveCarveOperation = new CaveCarveOperation();
 
         private BiomePreset biomePreset;
         private int biomeSeed;
@@ -462,9 +463,30 @@ namespace Digger.Modules.Core.Editor
             biomeUseThermalErosion = EditorGUILayout.Toggle("Thermal Erosion", biomeUseThermalErosion);
             biomeUseHydraulicCarve = EditorGUILayout.Toggle("Hydraulic Carve", biomeUseHydraulicCarve);
 
-            if (!biomePreset) {
-                EditorGUILayout.HelpBox("Assign a BiomePreset to paint biome layers on the terrain.", MessageType.Info);
+            EditorGUILayout.Space();
+            EditorGUILayout.LabelField("Caves", EditorStyles.boldLabel);
+            if (biomePreset) {
+                var caveSettings = biomePreset.Caves;
+                EditorGUI.BeginChangeCheck();
+                caveSettings.Enabled = EditorGUILayout.Toggle("Enable Caves", caveSettings.Enabled);
+                using (new EditorGUI.DisabledScope(!caveSettings.Enabled)) {
+                    caveSettings.MinDepth = Mathf.Max(0f, EditorGUILayout.FloatField("Min Depth", caveSettings.MinDepth));
+                    caveSettings.MaxDepth = Mathf.Max(caveSettings.MinDepth, EditorGUILayout.FloatField("Max Depth", caveSettings.MaxDepth));
+                    caveSettings.NoiseScale = Mathf.Max(0f, EditorGUILayout.FloatField("Noise Scale", caveSettings.NoiseScale));
+                    caveSettings.Threshold = Mathf.Clamp01(EditorGUILayout.Slider("Threshold", caveSettings.Threshold, 0f, 1f));
+                    caveSettings.StalactiteFrequency = Mathf.Max(0f, EditorGUILayout.FloatField("Stalactite Frequency", caveSettings.StalactiteFrequency));
+                    caveSettings.StalagmiteFrequency = Mathf.Max(0f, EditorGUILayout.FloatField("Stalagmite Frequency", caveSettings.StalagmiteFrequency));
+                }
+
+                if (EditorGUI.EndChangeCheck()) {
+                    biomePreset.Caves = caveSettings;
+                    EditorUtility.SetDirty(biomePreset);
+                }
             } else {
+                EditorGUILayout.HelpBox("Assign a BiomePreset to paint biome layers on the terrain.", MessageType.Info);
+            }
+
+            if (biomePreset) {
                 var issues = biomePreset.Validate();
                 if (issues.Count > 0) {
                     EditorGUILayout.HelpBox(string.Join("\n", issues), MessageType.Warning);
@@ -658,6 +680,9 @@ namespace Digger.Modules.Core.Editor
                     if (biomeUseHydraulicCarve) {
                         ApplyHydraulicCarveToRegion(region, targetDiggers);
                     }
+                    if (biomePreset.Caves.Enabled) {
+                        ApplyCaveCarveToRegion(region, targetDiggers, biomePreset.Caves);
+                    }
                     ApplyBiomeToRegion(region, targetDiggers, overrides);
                 }
             } else {
@@ -670,6 +695,9 @@ namespace Digger.Modules.Core.Editor
                     }
                     if (biomeUseHydraulicCarve) {
                         ApplyHydraulicCarveToTerrain(digger);
+                    }
+                    if (biomePreset.Caves.Enabled) {
+                        ApplyCaveCarveToTerrain(digger, biomePreset.Caves);
                     }
                     ApplyBiomeToTerrain(digger, overrides);
                 }
@@ -732,6 +760,26 @@ namespace Digger.Modules.Core.Editor
             hydraulicCarveOperation.Size = terrainSize * 0.5f;
             hydraulicCarveOperation.Brush = BrushType.RoundedCube;
             digger.Modify(hydraulicCarveOperation);
+        }
+
+        private void ApplyCaveCarveToTerrain(DiggerSystem digger, BiomePreset.CaveSettings settings)
+        {
+            if (!digger || !digger.Terrain || !digger.Terrain.terrainData) {
+                return;
+            }
+
+            var terrainSize = digger.Terrain.terrainData.size;
+            caveCarveOperation.Position = digger.Terrain.transform.position + terrainSize * 0.5f;
+            caveCarveOperation.Size = terrainSize * 0.5f;
+            caveCarveOperation.Brush = BrushType.RoundedCube;
+            caveCarveOperation.NoiseSeed = biomeSeed;
+            caveCarveOperation.NoiseScale = settings.NoiseScale;
+            caveCarveOperation.Threshold = settings.Threshold;
+            caveCarveOperation.MinDepth = settings.MinDepth;
+            caveCarveOperation.MaxDepth = settings.MaxDepth;
+            caveCarveOperation.StalactiteFrequency = settings.StalactiteFrequency;
+            caveCarveOperation.StalagmiteFrequency = settings.StalagmiteFrequency;
+            digger.Modify(caveCarveOperation);
         }
 
         private void ApplyBiomeToTerrain(DiggerSystem digger, BiomePaintOverrides overrides)
@@ -856,6 +904,39 @@ namespace Digger.Modules.Core.Editor
                 }
 
                 ApplyHydraulicCarveToRegionForDigger(region, digger, minChunkX, maxChunkX, minChunkZ, maxChunkZ);
+            }
+        }
+
+        private void ApplyCaveCarveToRegion(TerrainRegion region, IEnumerable<DiggerSystem> diggers, BiomePreset.CaveSettings settings)
+        {
+            if (region == null) {
+                return;
+            }
+
+            var terrains = region.Terrains?.Where(terrain => terrain != null).ToList();
+            if (terrains == null || terrains.Count == 0) {
+                return;
+            }
+
+            foreach (var terrain in terrains) {
+                foreach (var digger in diggers) {
+                    if (!digger || digger.Terrain != terrain || !digger.Terrain.terrainData) {
+                        continue;
+                    }
+
+                    var terrainSize = digger.Terrain.terrainData.size;
+                    caveCarveOperation.Position = digger.Terrain.transform.position + terrainSize * 0.5f;
+                    caveCarveOperation.Size = terrainSize * 0.5f;
+                    caveCarveOperation.Brush = BrushType.RoundedCube;
+                    caveCarveOperation.NoiseSeed = biomeSeed;
+                    caveCarveOperation.NoiseScale = settings.NoiseScale;
+                    caveCarveOperation.Threshold = settings.Threshold;
+                    caveCarveOperation.MinDepth = settings.MinDepth;
+                    caveCarveOperation.MaxDepth = settings.MaxDepth;
+                    caveCarveOperation.StalactiteFrequency = settings.StalactiteFrequency;
+                    caveCarveOperation.StalagmiteFrequency = settings.StalagmiteFrequency;
+                    digger.Modify(caveCarveOperation);
+                }
             }
         }
 

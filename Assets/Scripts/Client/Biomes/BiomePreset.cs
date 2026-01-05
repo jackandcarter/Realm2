@@ -8,6 +8,77 @@ namespace Client.Biomes
     public class BiomePreset : ScriptableObject
     {
         [Serializable]
+        public struct CaveSettings
+        {
+            [SerializeField] private bool enabled;
+            [SerializeField] private float minDepth;
+            [SerializeField] private float maxDepth;
+            [SerializeField] private float noiseScale;
+            [SerializeField] private float threshold;
+            [SerializeField] private float stalactiteFrequency;
+            [SerializeField] private float stalagmiteFrequency;
+
+            public bool Enabled
+            {
+                get => enabled;
+                set => enabled = value;
+            }
+
+            public float MinDepth
+            {
+                get => minDepth;
+                set => minDepth = value;
+            }
+
+            public float MaxDepth
+            {
+                get => maxDepth;
+                set => maxDepth = value;
+            }
+
+            public float NoiseScale
+            {
+                get => noiseScale;
+                set => noiseScale = value;
+            }
+
+            public float Threshold
+            {
+                get => threshold;
+                set => threshold = value;
+            }
+
+            public float StalactiteFrequency
+            {
+                get => stalactiteFrequency;
+                set => stalactiteFrequency = value;
+            }
+
+            public float StalagmiteFrequency
+            {
+                get => stalagmiteFrequency;
+                set => stalagmiteFrequency = value;
+            }
+
+            public CaveSettings WithClampedValues()
+            {
+                var clampedMin = Mathf.Max(0f, minDepth);
+                var clampedMax = Mathf.Max(clampedMin, maxDepth);
+
+                return new CaveSettings
+                {
+                    enabled = enabled,
+                    minDepth = clampedMin,
+                    maxDepth = clampedMax,
+                    noiseScale = Mathf.Max(0f, noiseScale),
+                    threshold = Mathf.Clamp01(threshold),
+                    stalactiteFrequency = Mathf.Max(0f, stalactiteFrequency),
+                    stalagmiteFrequency = Mathf.Max(0f, stalagmiteFrequency)
+                };
+            }
+        }
+
+        [Serializable]
         public struct BiomeLayer
         {
             [SerializeField] private int textureIndex;
@@ -57,8 +128,23 @@ namespace Client.Biomes
         }
 
         [SerializeField] private List<BiomeLayer> layers = new List<BiomeLayer>();
+        [SerializeField] private CaveSettings caves = new CaveSettings
+        {
+            Enabled = false,
+            MinDepth = 5f,
+            MaxDepth = 50f,
+            NoiseScale = 0.05f,
+            Threshold = 0.45f,
+            StalactiteFrequency = 0.2f,
+            StalagmiteFrequency = 0.2f
+        };
 
         public IReadOnlyList<BiomeLayer> Layers => layers;
+        public CaveSettings Caves
+        {
+            get => caves;
+            set => caves = value.WithClampedValues();
+        }
 
         public bool HasLayers => layers != null && layers.Count > 0;
 
@@ -118,6 +204,8 @@ namespace Client.Biomes
             {
                 layers[i] = layers[i].WithClampedValues();
             }
+
+            caves = caves.WithClampedValues();
 
             var issues = Validate();
             if (issues.Count == 0)
