@@ -5,7 +5,8 @@
         "Unity.Mathematics",
         "Digger.Core",
         "JBooth.MicroSplat.Core",
-        "JBooth.MicroSplat.Core.Editor"
+        "JBooth.MicroSplat.Core.Editor",
+        "Client.Biomes"
     ],
     "includePlatforms": [
         "Editor"
