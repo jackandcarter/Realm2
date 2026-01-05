@@ -623,6 +623,69 @@ namespace Digger.Modules.Core.Sources
             return true;
         }
 
+        public bool ModifyChunks<T>(IOperation<T> operation, IReadOnlyCollection<Vector3i> chunkPositions) where T : struct, IJobParallelFor
+        {
+            if (operation == null || chunkPositions == null || chunkPositions.Count == 0)
+            {
+                return false;
+            }
+
+            needRecordUndo = true;
+            stopwatch.Restart();
+            builtChunks.Clear();
+
+            Utils.Profiler.BeginSample("DiggerSystem.DoOperation");
+            foreach (var chunkPosition in chunkPositions)
+            {
+                if (builtChunks.ContainsKey(chunkPosition))
+                    continue;
+
+                GetOrCreateChunk(chunkPosition, out var chunk);
+                builtChunks.Add(chunkPosition, chunk);
+                chunk.DoOperation(operation);
+            }
+            Utils.Profiler.EndSample();
+
+            foreach (var builtChunk in builtChunks.Values)
+            {
+                Utils.Profiler.BeginSample("DiggerSystem.CompleteOperation");
+                builtChunk.CompleteOperation(operation);
+                Utils.Profiler.EndSample();
+            }
+
+            Utils.Profiler.BeginSample("DiggerSystem.UpdateVoxelsOnSurface");
+            foreach (var builtChunk in builtChunks.Values)
+            {
+                builtChunk.UpdateVoxelsOnSurface();
+            }
+            Utils.Profiler.EndSample();
+
+            foreach (var builtChunk in builtChunks.Values)
+            {
+                Utils.Profiler.BeginSample("DiggerSystem.CompleteUpdateVoxelsOnSurface");
+                builtChunk.CompleteUpdateVoxelsOnSurface();
+                Utils.Profiler.EndSample();
+            }
+
+            foreach (var builtChunk in builtChunks.Values)
+            {
+                Utils.Profiler.BeginSample("DiggerSystem.BuildVisualMesh");
+                builtChunk.BuildVisualMesh();
+                Utils.Profiler.EndSample();
+            }
+
+            foreach (var builtChunk in builtChunks.Values)
+            {
+                Utils.Profiler.BeginSample("DiggerSystem.CompleteBakePhysicMesh");
+                builtChunk.CompleteBakePhysicMesh();
+                Utils.Profiler.EndSample();
+            }
+
+            ApplyModify();
+            stopwatch.Stop();
+            return true;
+        }
+
         public void BuildPendingMeshes()
         {
             foreach (var builtChunk in chunksPendingForMeshBuild.Values) {

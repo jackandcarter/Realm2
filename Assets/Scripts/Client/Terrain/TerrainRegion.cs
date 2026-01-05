@@ -127,6 +127,17 @@ namespace Client.Terrain
             return true;
         }
 
+        public Vector3 GetChunkWorldCenter(Vector2Int chunkCoords, float worldY)
+        {
+            var chunkSize = GetChunkSize();
+            var localX = (chunkCoords.x + 0.5f) * chunkSize + chunkOriginOffset.x;
+            var localZ = (chunkCoords.y + 0.5f) * chunkSize + chunkOriginOffset.y;
+            var localPosition = new Vector3(localX, 0f, localZ);
+            var worldPosition = transform.TransformPoint(localPosition);
+            worldPosition.y = worldY;
+            return worldPosition;
+        }
+
         public void RefreshTerrainsFromChildren()
         {
             terrains ??= new List<UnityTerrain>();

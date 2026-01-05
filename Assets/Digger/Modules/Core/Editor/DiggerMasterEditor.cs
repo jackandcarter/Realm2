@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using Client.Biomes;
+using Client.Terrain;
 using Digger.Modules.Core.Sources;
 using Digger.Modules.Core.Sources.Operations;
 using Digger.Modules.Core.Sources.Jobs;
@@ -12,6 +13,7 @@ using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.SceneManagement;
+using Unity.Mathematics;
 
 namespace Digger.Modules.Core.Editor
 {
@@ -39,6 +41,13 @@ namespace Digger.Modules.Core.Editor
         private BiomePreset biomePreviewPreset;
         private int biomePreviewSeed;
         private float biomePreviewNoiseScale;
+        private bool biomeLimitToRegions;
+        private bool biomeLimitToTerrains;
+        private TerrainRegionSelectionMode biomeRegionSelectionMode = TerrainRegionSelectionMode.All;
+        private string biomeRegionIdFilter;
+        private string biomeZoneIdFilter;
+        private readonly List<TerrainRegion> biomeExplicitRegions = new List<TerrainRegion>();
+        private readonly List<Terrain> biomeExplicitTerrains = new List<Terrain>();
 
         private int selectedOperationEditorIndex {
             get => EditorPrefs.GetInt("diggerMaster_selectedOperationEditorIndex", 0);
@@ -436,6 +445,29 @@ namespace Digger.Modules.Core.Editor
             }
 
             EditorGUILayout.Space();
+            EditorGUILayout.LabelField("Targets", EditorStyles.boldLabel);
+            biomeLimitToRegions = EditorGUILayout.Toggle("Limit to Regions", biomeLimitToRegions);
+            if (biomeLimitToRegions) {
+                biomeRegionSelectionMode = (TerrainRegionSelectionMode)EditorGUILayout.EnumPopup("Region Filter", biomeRegionSelectionMode);
+                switch (biomeRegionSelectionMode) {
+                    case TerrainRegionSelectionMode.RegionId:
+                        biomeRegionIdFilter = EditorGUILayout.TextField("Region Id", biomeRegionIdFilter);
+                        break;
+                    case TerrainRegionSelectionMode.ZoneId:
+                        biomeZoneIdFilter = EditorGUILayout.TextField("Zone Id", biomeZoneIdFilter);
+                        break;
+                    case TerrainRegionSelectionMode.Explicit:
+                        DrawObjectList("Regions", biomeExplicitRegions);
+                        break;
+                }
+            }
+
+            biomeLimitToTerrains = EditorGUILayout.Toggle("Limit to Terrains", biomeLimitToTerrains);
+            if (biomeLimitToTerrains) {
+                DrawObjectList("Terrains", biomeExplicitTerrains);
+            }
+
+            EditorGUILayout.Space();
             EditorGUILayout.BeginHorizontal();
             if (GUILayout.Button("Apply", GUILayout.Height(30))) {
                 ApplyBiome(false);
@@ -555,24 +587,162 @@ namespace Digger.Modules.Core.Editor
             };
 
             var diggers = FindObjectsByType<DiggerSystem>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+            var targetDiggers = FilterDiggersByTerrain(diggers);
+
+            if (biomeLimitToRegions) {
+                var selection = new TerrainRegionSelection
+                {
+                    Mode = biomeRegionSelectionMode,
+                    RegionId = biomeRegionIdFilter,
+                    ZoneId = biomeZoneIdFilter,
+                    ExplicitRegions = biomeExplicitRegions
+                };
+                var regions = TerrainRegionSelectionUtility.FilterRegions(TerrainRegionSelectionUtility.FindRegionsInScene(), selection);
+                if (regions.Count == 0) {
+                    EditorUtility.DisplayDialog("No regions selected",
+                        "No terrain regions match the current selection filter.", "Ok");
+                    return;
+                }
+
+                foreach (var region in regions) {
+                    ApplyBiomeToRegion(region, targetDiggers, overrides);
+                }
+            } else {
+                foreach (var digger in targetDiggers) {
+                    ApplyBiomeToTerrain(digger, overrides);
+                }
+            }
+
+            EditorSceneManager.MarkSceneDirty(SceneManager.GetActiveScene());
+            SceneView.RepaintAll();
+        }
+
+        private IEnumerable<DiggerSystem> FilterDiggersByTerrain(IEnumerable<DiggerSystem> diggers)
+        {
+            if (!biomeLimitToTerrains || biomeExplicitTerrains.Count == 0) {
+                return diggers ?? Array.Empty<DiggerSystem>();
+            }
+
+            var terrainSet = new HashSet<Terrain>(biomeExplicitTerrains.Where(terrain => terrain != null));
+            return diggers.Where(digger => digger && digger.Terrain && terrainSet.Contains(digger.Terrain));
+        }
+
+        private void ApplyBiomeToTerrain(DiggerSystem digger, BiomePaintOverrides overrides)
+        {
+            if (!digger || !digger.Terrain || !digger.Terrain.terrainData) {
+                return;
+            }
+
+            var terrainSize = digger.Terrain.terrainData.size;
+            biomePaintOperation.Preset = biomePreset;
+            biomePaintOperation.Position = digger.Terrain.transform.position + terrainSize * 0.5f;
+            biomePaintOperation.Size = terrainSize * 0.5f;
+            biomePaintOperation.Brush = BrushType.RoundedCube;
+            biomePaintOperation.Opacity = 1f;
+            biomePaintOperation.OpacityIsTarget = true;
+            biomePaintOperation.Overrides = overrides;
+            digger.Modify(biomePaintOperation);
+        }
+
+        private void ApplyBiomeToRegion(TerrainRegion region, IEnumerable<DiggerSystem> diggers, BiomePaintOverrides overrides)
+        {
+            if (region == null) {
+                return;
+            }
+
+            var terrains = region.Terrains?.Where(terrain => terrain != null).ToList();
+            if (terrains == null || terrains.Count == 0) {
+                return;
+            }
+
+            var bounds = region.GetWorldBounds();
+            if (!region.TryGetChunkCoordinates(bounds.min, out var minChunk, out _) ||
+                !region.TryGetChunkCoordinates(bounds.max, out var maxChunk, out _)) {
+                return;
+            }
+
+            var minChunkX = Mathf.Min(minChunk.x, maxChunk.x);
+            var maxChunkX = Mathf.Max(minChunk.x, maxChunk.x);
+            var minChunkZ = Mathf.Min(minChunk.y, maxChunk.y);
+            var maxChunkZ = Mathf.Max(minChunk.y, maxChunk.y);
+
+            var terrainSet = new HashSet<Terrain>(terrains);
             foreach (var digger in diggers) {
                 if (!digger || !digger.Terrain || !digger.Terrain.terrainData) {
                     continue;
                 }
 
-                var terrainSize = digger.Terrain.terrainData.size;
-                biomePaintOperation.Preset = biomePreset;
-                biomePaintOperation.Position = digger.Terrain.transform.position + terrainSize * 0.5f;
-                biomePaintOperation.Size = terrainSize * 0.5f;
-                biomePaintOperation.Brush = BrushType.RoundedCube;
-                biomePaintOperation.Opacity = 1f;
-                biomePaintOperation.OpacityIsTarget = true;
-                biomePaintOperation.Overrides = overrides;
-                digger.Modify(biomePaintOperation);
+                if (!terrainSet.Contains(digger.Terrain)) {
+                    continue;
+                }
+
+                ApplyBiomeToRegionForDigger(region, digger, overrides, minChunkX, maxChunkX, minChunkZ, maxChunkZ);
+            }
+        }
+
+        private void ApplyBiomeToRegionForDigger(TerrainRegion region, DiggerSystem digger, BiomePaintOverrides overrides,
+            int minChunkX, int maxChunkX, int minChunkZ, int maxChunkZ)
+        {
+            var terrain = digger.Terrain;
+            var terrainSize = terrain.terrainData.size;
+            var terrainCenterY = terrain.transform.position.y + terrainSize.y * 0.5f;
+            var chunkSize = region.GetChunkSize();
+            var brushSize = new Vector3(chunkSize * 0.5f, terrainSize.y * 0.5f, chunkSize * 0.5f);
+
+            for (var x = minChunkX; x <= maxChunkX; x++) {
+                for (var z = minChunkZ; z <= maxChunkZ; z++) {
+                    var chunkCoords = new Vector2Int(x, z);
+                    var chunkCenter = region.GetChunkWorldCenter(chunkCoords, terrainCenterY);
+                    if (!region.ContainsWorldPosition(chunkCenter)) {
+                        continue;
+                    }
+
+                    if (!digger.IsChunkBelongingToMe(new Vector3i(x, 0, z))) {
+                        continue;
+                    }
+
+                    var chunkPositions = BuildChunkPositionsForColumn(digger, x, z);
+                    if (chunkPositions.Count == 0) {
+                        continue;
+                    }
+
+                    var operation = new BiomePaintOperation
+                    {
+                        Preset = biomePreset,
+                        Position = chunkCenter,
+                        Size = brushSize,
+                        Brush = BrushType.RoundedCube,
+                        Opacity = 1f,
+                        OpacityIsTarget = true,
+                        Overrides = overrides
+                    };
+
+                    digger.ModifyChunks(operation, chunkPositions);
+                }
+            }
+        }
+
+        private List<Vector3i> BuildChunkPositionsForColumn(DiggerSystem digger, int chunkX, int chunkZ)
+        {
+            var minMaxHeight = GetChunkHeightRange(digger, chunkX, chunkZ);
+            if (minMaxHeight.y < minMaxHeight.x) {
+                return new List<Vector3i>();
             }
 
-            EditorSceneManager.MarkSceneDirty(SceneManager.GetActiveScene());
-            SceneView.RepaintAll();
+            var positions = new List<Vector3i>();
+            for (var y = minMaxHeight.x; y <= minMaxHeight.y; y++) {
+                positions.Add(new Vector3i(chunkX, y, chunkZ));
+            }
+
+            return positions;
+        }
+
+        private static int2 GetChunkHeightRange(DiggerSystem digger, int chunkX, int chunkZ)
+        {
+            var size = digger.SizeOfMesh;
+            var voxMin = new Vector3i(chunkX * size, 0, chunkZ * size);
+            var voxMax = new Vector3i((chunkX + 1) * size - 1, 0, (chunkZ + 1) * size - 1);
+            return digger.GetMinMaxHeightWithin(voxMin, voxMax);
         }
 
         private void UndoBiome()
@@ -583,6 +753,28 @@ namespace Digger.Modules.Core.Editor
             }
 
             EditorSceneManager.MarkSceneDirty(SceneManager.GetActiveScene());
+        }
+
+        private static void DrawObjectList<T>(string label, IList<T> list) where T : UnityEngine.Object
+        {
+            if (list == null) {
+                return;
+            }
+
+            EditorGUILayout.LabelField(label, EditorStyles.miniBoldLabel);
+            for (var i = 0; i < list.Count; i++) {
+                EditorGUILayout.BeginHorizontal();
+                list[i] = (T)EditorGUILayout.ObjectField(list[i], typeof(T), true);
+                if (GUILayout.Button("X", GUILayout.Width(22f))) {
+                    list.RemoveAt(i);
+                    i--;
+                }
+                EditorGUILayout.EndHorizontal();
+            }
+
+            if (GUILayout.Button($"Add {label}")) {
+                list.Add(null);
+            }
         }
 
         private void DrawBiomePreview()
