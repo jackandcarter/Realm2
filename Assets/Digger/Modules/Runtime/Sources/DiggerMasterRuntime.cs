@@ -64,6 +64,15 @@ namespace Digger.Modules.Runtime.Sources
         /// <param name="opacityIsTarget">If true when painting texture, the weight of the texture will be directly set to the given opacity</param>
         public void Modify(BiomePreset preset, Vector3 position, Vector3 size, BrushType brush = BrushType.Sphere, float opacity = 1f, bool opacityIsTarget = false)
         {
+            Modify(preset, position, size, BiomePaintOverrides.Default, brush, opacity, opacityIsTarget);
+        }
+
+        /// <summary>
+        /// Modify the terrain at runtime by applying a biome preset with overrides.
+        /// </summary>
+        public void Modify(BiomePreset preset, Vector3 position, Vector3 size, BiomePaintOverrides overrides,
+            BrushType brush = BrushType.Sphere, float opacity = 1f, bool opacityIsTarget = false)
+        {
             if (!preset)
             {
                 Debug.LogError("Biome preset is required to perform a biome paint operation.");
@@ -76,6 +85,7 @@ namespace Digger.Modules.Runtime.Sources
             biomePaintOperation.Brush = brush;
             biomePaintOperation.Opacity = opacity;
             biomePaintOperation.OpacityIsTarget = opacityIsTarget;
+            biomePaintOperation.Overrides = overrides;
             Modify(biomePaintOperation);
         }
 
@@ -171,6 +181,15 @@ namespace Digger.Modules.Runtime.Sources
         public IEnumerator ModifyAsync(BiomePreset preset, Vector3 position, Vector3 size, BrushType brush = BrushType.Sphere, float opacity = 1f,
             bool opacityIsTarget = false, Action callback = null)
         {
+            yield return ModifyAsync(preset, position, size, BiomePaintOverrides.Default, brush, opacity, opacityIsTarget, callback);
+        }
+
+        /// <summary>
+        /// Modify the terrain at runtime by applying a biome preset with overrides asynchronously.
+        /// </summary>
+        public IEnumerator ModifyAsync(BiomePreset preset, Vector3 position, Vector3 size, BiomePaintOverrides overrides, BrushType brush = BrushType.Sphere, float opacity = 1f,
+            bool opacityIsTarget = false, Action callback = null)
+        {
             if (!preset)
             {
                 Debug.LogError("Biome preset is required to perform a biome paint operation.");
@@ -183,6 +202,7 @@ namespace Digger.Modules.Runtime.Sources
             biomePaintOperation.Brush = brush;
             biomePaintOperation.Opacity = opacity;
             biomePaintOperation.OpacityIsTarget = opacityIsTarget;
+            biomePaintOperation.Overrides = overrides;
             yield return ModifyAsync(biomePaintOperation, callback);
         }
 

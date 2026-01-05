@@ -18,6 +18,10 @@ namespace Digger.Modules.Core.Sources.Jobs
         public float Intensity;
         public bool IsTargetIntensity;
         public float ChunkAltitude;
+        public int NoiseSeed;
+        public float NoiseScale;
+        public bool UseHeightErosion;
+        public bool UseSlopeErosion;
 
         [ReadOnly] [NativeDisableParallelForRestriction]
         public NativeArray<float> Heights;
@@ -60,8 +64,8 @@ namespace Digger.Modules.Core.Sources.Jobs
                 return;
             }
 
-            var terrainHeight = Heights[Utils.XYZToHeightIndex(new int3(pi.x, 0, pi.z), SizeVox)];
-            var slopeDegrees = ComputeSlopeDegrees(pi);
+            var terrainHeight = UseHeightErosion ? Heights[Utils.XYZToHeightIndex(new int3(pi.x, 0, pi.z), SizeVox)] : 0f;
+            var slopeDegrees = UseSlopeErosion ? ComputeSlopeDegrees(pi) : 0f;
 
             var voxel = Voxels[index];
             for (var i = 0; i < Layers.Length; i++)
@@ -72,18 +76,18 @@ namespace Digger.Modules.Core.Sources.Jobs
                     continue;
                 }
 
-                if (slopeDegrees < layer.MinSlope || slopeDegrees > layer.MaxSlope)
+                if (UseSlopeErosion && (slopeDegrees < layer.MinSlope || slopeDegrees > layer.MaxSlope))
                 {
                     continue;
                 }
 
-                var heightWeight = ComputeHeightWeight(layer, terrainHeight);
-                if (heightWeight <= 0f)
+                var heightWeight = UseHeightErosion ? ComputeHeightWeight(layer, terrainHeight) : 1f;
+                if (UseHeightErosion && heightWeight <= 0f)
                 {
                     continue;
                 }
 
-                var noiseWeight = ComputeNoiseWeight(layer, p);
+                var noiseWeight = ComputeNoiseWeight(layer, p, NoiseSeed, NoiseScale);
                 var weight = math.saturate(heightWeight * noiseWeight) * Intensity;
                 if (weight <= 0f)
                 {
@@ -181,14 +185,21 @@ namespace Digger.Modules.Core.Sources.Jobs
             return math.min(minWeight, maxWeight);
         }
 
-        private static float ComputeNoiseWeight(BiomeLayerData layer, float3 p)
+        private static float ComputeNoiseWeight(BiomeLayerData layer, float3 p, int noiseSeed, float noiseScale)
         {
-            if (layer.NoiseAmplitude <= 0f || layer.NoiseFrequency <= 0f)
+            if (noiseScale <= 0f || layer.NoiseAmplitude <= 0f || layer.NoiseFrequency <= 0f)
             {
                 return 1f;
             }
 
-            var noiseValue = noise.snoise(new float2(p.x, p.z) * layer.NoiseFrequency);
+            var frequency = layer.NoiseFrequency * noiseScale;
+            if (frequency <= 0f)
+            {
+                return 1f;
+            }
+
+            var seedOffset = new float2(noiseSeed * 0.123f, noiseSeed * 0.456f);
+            var noiseValue = noise.snoise((new float2(p.x, p.z) + seedOffset) * frequency);
             return math.saturate(1f + noiseValue * layer.NoiseAmplitude);
         }
 

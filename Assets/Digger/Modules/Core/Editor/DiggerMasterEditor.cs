@@ -2,7 +2,9 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using Client.Biomes;
 using Digger.Modules.Core.Sources;
+using Digger.Modules.Core.Sources.Operations;
 using Digger.Modules.Core.Sources.Jobs;
 using Digger.Modules.Core.Sources.TerrainInterface;
 using UnityEditor;
@@ -23,6 +25,20 @@ namespace Digger.Modules.Core.Editor
         private IOperationEditor operationEditor;
 
         private List<Type> operationEditors;
+        private readonly BiomePaintOperation biomePaintOperation = new BiomePaintOperation();
+
+        private BiomePreset biomePreset;
+        private int biomeSeed;
+        private float biomeNoiseScale = 1f;
+        private bool biomeUseHeightErosion = true;
+        private bool biomeUseSlopeErosion = true;
+        private bool biomeShowPreview = true;
+        private bool biomeShowNoisePreview = true;
+        private Texture2D biomeHeightPreview;
+        private Texture2D biomeNoisePreview;
+        private BiomePreset biomePreviewPreset;
+        private int biomePreviewSeed;
+        private float biomePreviewNoiseScale;
 
         private int selectedOperationEditorIndex {
             get => EditorPrefs.GetInt("diggerMaster_selectedOperationEditorIndex", 0);
@@ -82,6 +98,7 @@ namespace Digger.Modules.Core.Editor
             Undo.undoRedoPerformed -= UndoCallback;
             SceneView.duringSceneGui -= OnScene;
             operationEditor?.OnDisable();
+            CleanupBiomePreviews();
         }
 
         private static void UndoCallback()
@@ -97,6 +114,7 @@ namespace Digger.Modules.Core.Editor
             activeTab = GUILayout.Toolbar(activeTab, new[]
             {
                 EditorGUIUtility.TrTextContentWithIcon("Edit", "d_TerrainInspector.TerrainToolSplat"),
+                EditorGUIUtility.TrTextContentWithIcon("Biome", "d_TerrainInspector.TerrainToolTrees"),
                 EditorGUIUtility.TrTextContentWithIcon("Settings", "d_TerrainInspector.TerrainToolSettings"),
                 EditorGUIUtility.TrTextContentWithIcon("Help", "_Help")
             });
@@ -105,9 +123,12 @@ namespace Digger.Modules.Core.Editor
                     OnInspectorGUIEditTab();
                     break;
                 case 1:
-                    OnInspectorGUISettingsTab();
+                    OnInspectorGUIBiomeTab();
                     break;
                 case 2:
+                    OnInspectorGUISettingsTab();
+                    break;
+                case 3:
                     OnInspectorGUIHelpTab();
                     break;
                 default:
@@ -394,6 +415,53 @@ namespace Digger.Modules.Core.Editor
             OnInspectorGUIClearButtons();
         }
 
+        public void OnInspectorGUIBiomeTab()
+        {
+            EditorGUILayout.Space();
+            EditorGUILayout.LabelField("Biome Painting", EditorStyles.boldLabel);
+
+            biomePreset = (BiomePreset)EditorGUILayout.ObjectField("Biome Preset", biomePreset, typeof(BiomePreset), false);
+            biomeSeed = EditorGUILayout.IntField("Noise Seed", biomeSeed);
+            biomeNoiseScale = Mathf.Max(0f, EditorGUILayout.FloatField("Noise Scale", biomeNoiseScale));
+            biomeUseHeightErosion = EditorGUILayout.Toggle("Height Erosion", biomeUseHeightErosion);
+            biomeUseSlopeErosion = EditorGUILayout.Toggle("Slope Erosion", biomeUseSlopeErosion);
+
+            if (!biomePreset) {
+                EditorGUILayout.HelpBox("Assign a BiomePreset to paint biome layers on the terrain.", MessageType.Info);
+            } else {
+                var issues = biomePreset.Validate();
+                if (issues.Count > 0) {
+                    EditorGUILayout.HelpBox(string.Join("\n", issues), MessageType.Warning);
+                }
+            }
+
+            EditorGUILayout.Space();
+            EditorGUILayout.BeginHorizontal();
+            if (GUILayout.Button("Apply", GUILayout.Height(30))) {
+                ApplyBiome(false);
+            }
+
+            if (GUILayout.Button("Regenerate", GUILayout.Height(30))) {
+                ApplyBiome(true);
+            }
+
+            if (GUILayout.Button("Clear", GUILayout.Height(30)) && EditorUtility.DisplayDialog("Clear", 
+                    "This will clear all modifications made with Digger.\n" +
+                    "This operation CANNOT BE UNDONE.\n\n" +
+                    "Terrain holes will be removed, but unlike undo (Ctrl+Z), details objects and trees that were removed by Digger won't be restored.\n\n" +
+                    "Are you sure you want to proceed?", "Yes, clear it", "Cancel")) {
+                DoClear();
+            }
+
+            if (GUILayout.Button("Undo", GUILayout.Height(30))) {
+                UndoBiome();
+            }
+            EditorGUILayout.EndHorizontal();
+
+            EditorGUILayout.Space();
+            DrawBiomePreview();
+        }
+
         private bool AllTerrainsHaveSameLayers()
         {
             if (diggerSystems == null || diggerSystems.Length <= 1)
@@ -464,6 +532,181 @@ namespace Digger.Modules.Core.Editor
             }
 
             operationEditor?.OnScene(this, sceneview);
+        }
+
+        private void ApplyBiome(bool regenerateSeed)
+        {
+            if (regenerateSeed) {
+                biomeSeed = UnityEngine.Random.Range(-100000, 100000);
+            }
+
+            if (!biomePreset) {
+                EditorUtility.DisplayDialog("Biome preset required",
+                    "Please assign a BiomePreset before applying a biome operation.", "Ok");
+                return;
+            }
+
+            var overrides = new BiomePaintOverrides
+            {
+                NoiseSeed = biomeSeed,
+                NoiseScale = biomeNoiseScale,
+                UseHeightErosion = biomeUseHeightErosion,
+                UseSlopeErosion = biomeUseSlopeErosion
+            };
+
+            var diggers = FindObjectsByType<DiggerSystem>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+            foreach (var digger in diggers) {
+                if (!digger || !digger.Terrain || !digger.Terrain.terrainData) {
+                    continue;
+                }
+
+                var terrainSize = digger.Terrain.terrainData.size;
+                biomePaintOperation.Preset = biomePreset;
+                biomePaintOperation.Position = digger.Terrain.transform.position + terrainSize * 0.5f;
+                biomePaintOperation.Size = terrainSize * 0.5f;
+                biomePaintOperation.Brush = BrushType.RoundedCube;
+                biomePaintOperation.Opacity = 1f;
+                biomePaintOperation.OpacityIsTarget = true;
+                biomePaintOperation.Overrides = overrides;
+                digger.Modify(biomePaintOperation);
+            }
+
+            EditorSceneManager.MarkSceneDirty(SceneManager.GetActiveScene());
+            SceneView.RepaintAll();
+        }
+
+        private void UndoBiome()
+        {
+            var diggers = FindObjectsByType<DiggerSystem>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+            foreach (var digger in diggers) {
+                digger.DoUndo();
+            }
+
+            EditorSceneManager.MarkSceneDirty(SceneManager.GetActiveScene());
+        }
+
+        private void DrawBiomePreview()
+        {
+            biomeShowPreview = EditorGUILayout.Foldout(biomeShowPreview, "Preview", true);
+            if (!biomeShowPreview) {
+                return;
+            }
+
+            UpdateBiomePreviews();
+
+            if (biomeHeightPreview != null) {
+                EditorGUILayout.LabelField("Height Bands", EditorStyles.miniBoldLabel);
+                GUILayout.Label(biomeHeightPreview, GUILayout.Height(24), GUILayout.ExpandWidth(true));
+            }
+
+            biomeShowNoisePreview = EditorGUILayout.Toggle("Show Noise Mask", biomeShowNoisePreview);
+            if (biomeShowNoisePreview && biomeNoisePreview != null) {
+                EditorGUILayout.LabelField("Noise Mask", EditorStyles.miniBoldLabel);
+                GUILayout.Label(biomeNoisePreview, GUILayout.Width(128), GUILayout.Height(128));
+            }
+        }
+
+        private void UpdateBiomePreviews()
+        {
+            var needsHeightPreview = biomePreset != biomePreviewPreset;
+            if (needsHeightPreview) {
+                if (biomeHeightPreview != null) {
+                    DestroyImmediate(biomeHeightPreview);
+                    biomeHeightPreview = null;
+                }
+
+                if (biomePreset != null && biomePreset.HasLayers) {
+                    biomeHeightPreview = BuildHeightPreviewTexture(biomePreset);
+                }
+
+                biomePreviewPreset = biomePreset;
+            }
+
+            var needsNoisePreview = biomeSeed != biomePreviewSeed || !Mathf.Approximately(biomeNoiseScale, biomePreviewNoiseScale);
+            if (needsNoisePreview) {
+                if (biomeNoisePreview != null) {
+                    DestroyImmediate(biomeNoisePreview);
+                }
+
+                biomeNoisePreview = BuildNoisePreviewTexture(biomeSeed, biomeNoiseScale);
+                biomePreviewSeed = biomeSeed;
+                biomePreviewNoiseScale = biomeNoiseScale;
+            }
+        }
+
+        private static Texture2D BuildHeightPreviewTexture(BiomePreset preset)
+        {
+            const int width = 256;
+            const int height = 24;
+            var texture = new Texture2D(width, height, TextureFormat.RGBA32, false) { hideFlags = HideFlags.HideAndDontSave };
+            texture.wrapMode = TextureWrapMode.Clamp;
+            texture.filterMode = FilterMode.Bilinear;
+
+            var layers = preset.Layers;
+            var minHeight = layers.Min(layer => layer.MinHeight);
+            var maxHeight = layers.Max(layer => layer.MaxHeight);
+            if (Mathf.Approximately(minHeight, maxHeight)) {
+                maxHeight = minHeight + 1f;
+            }
+
+            var colors = new Color[width * height];
+            for (var x = 0; x < width; x++) {
+                var heightValue = Mathf.Lerp(minHeight, maxHeight, x / (float)(width - 1));
+                var color = new Color(0.2f, 0.2f, 0.2f, 1f);
+                for (var i = 0; i < layers.Count; i++) {
+                    var layer = layers[i];
+                    if (heightValue >= layer.MinHeight && heightValue <= layer.MaxHeight) {
+                        color = Color.HSVToRGB((float)i / Mathf.Max(1, layers.Count), 0.6f, 0.9f);
+                        break;
+                    }
+                }
+
+                for (var y = 0; y < height; y++) {
+                    colors[y * width + x] = color;
+                }
+            }
+
+            texture.SetPixels(colors);
+            texture.Apply();
+            return texture;
+        }
+
+        private static Texture2D BuildNoisePreviewTexture(int seed, float noiseScale)
+        {
+            const int width = 128;
+            const int height = 128;
+            var texture = new Texture2D(width, height, TextureFormat.RGBA32, false) { hideFlags = HideFlags.HideAndDontSave };
+            texture.wrapMode = TextureWrapMode.Clamp;
+            texture.filterMode = FilterMode.Bilinear;
+
+            var colors = new Color[width * height];
+            var frequency = Mathf.Max(0f, noiseScale) * 0.05f;
+            var seedOffset = seed * 0.013f;
+            for (var y = 0; y < height; y++) {
+                for (var x = 0; x < width; x++) {
+                    var value = frequency <= 0f
+                        ? 0.5f
+                        : Mathf.PerlinNoise((x + seedOffset) * frequency, (y + seedOffset) * frequency);
+                    colors[y * width + x] = new Color(value, value, value, 1f);
+                }
+            }
+
+            texture.SetPixels(colors);
+            texture.Apply();
+            return texture;
+        }
+
+        private void CleanupBiomePreviews()
+        {
+            if (biomeHeightPreview != null) {
+                DestroyImmediate(biomeHeightPreview);
+                biomeHeightPreview = null;
+            }
+
+            if (biomeNoisePreview != null) {
+                DestroyImmediate(biomeNoisePreview);
+                biomeNoisePreview = null;
+            }
         }
 
         private void OnInspectorGUIClearButtons()

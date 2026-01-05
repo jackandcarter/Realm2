@@ -6,6 +6,22 @@ using UnityEngine;
 
 namespace Digger.Modules.Core.Sources.Operations
 {
+    public struct BiomePaintOverrides
+    {
+        public int NoiseSeed;
+        public float NoiseScale;
+        public bool UseHeightErosion;
+        public bool UseSlopeErosion;
+
+        public static BiomePaintOverrides Default => new BiomePaintOverrides
+        {
+            NoiseSeed = 0,
+            NoiseScale = 1f,
+            UseHeightErosion = true,
+            UseSlopeErosion = true
+        };
+    }
+
     public class BiomePaintOperation : IOperation<VoxelBiomePaintJob>
     {
         public BiomePreset Preset;
@@ -14,6 +30,7 @@ namespace Digger.Modules.Core.Sources.Operations
         public BrushType Brush = BrushType.Sphere;
         public float Opacity = 1f;
         public bool OpacityIsTarget;
+        public BiomePaintOverrides Overrides = BiomePaintOverrides.Default;
 
         public ModificationArea GetAreaToModify(DiggerSystem digger)
         {
@@ -65,7 +82,11 @@ namespace Digger.Modules.Core.Sources.Operations
                 Center = Position - chunk.AbsoluteWorldPosition,
                 Size = Size,
                 Intensity = Opacity,
-                IsTargetIntensity = OpacityIsTarget
+                IsTargetIntensity = OpacityIsTarget,
+                NoiseSeed = Overrides.NoiseSeed,
+                NoiseScale = Overrides.NoiseScale,
+                UseHeightErosion = Overrides.UseHeightErosion,
+                UseSlopeErosion = Overrides.UseSlopeErosion
             };
             job.PostConstruct();
             return job;
