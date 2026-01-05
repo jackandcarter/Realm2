@@ -8,6 +8,214 @@ namespace Client.Biomes
     public class BiomePreset : ScriptableObject
     {
         [Serializable]
+        public struct PaintSettings
+        {
+            [SerializeField] private int noiseSeed;
+            [SerializeField] private float noiseScale;
+            [SerializeField] private bool useHeightErosion;
+            [SerializeField] private bool useSlopeErosion;
+
+            public int NoiseSeed
+            {
+                get => noiseSeed;
+                set => noiseSeed = value;
+            }
+
+            public float NoiseScale
+            {
+                get => noiseScale;
+                set => noiseScale = value;
+            }
+
+            public bool UseHeightErosion
+            {
+                get => useHeightErosion;
+                set => useHeightErosion = value;
+            }
+
+            public bool UseSlopeErosion
+            {
+                get => useSlopeErosion;
+                set => useSlopeErosion = value;
+            }
+
+            public static PaintSettings Default => new PaintSettings
+            {
+                noiseSeed = 0,
+                noiseScale = 1f,
+                useHeightErosion = true,
+                useSlopeErosion = true
+            };
+
+            public PaintSettings WithClampedValues()
+            {
+                return new PaintSettings
+                {
+                    noiseSeed = noiseSeed,
+                    noiseScale = Mathf.Max(0f, noiseScale),
+                    useHeightErosion = useHeightErosion,
+                    useSlopeErosion = useSlopeErosion
+                };
+            }
+        }
+
+        [Serializable]
+        public struct NoiseShapeSettings
+        {
+            [SerializeField] private bool enabled;
+            [SerializeField] private int seed;
+            [SerializeField] private int octaves;
+            [SerializeField] private float frequency;
+            [SerializeField] private float ridgeSharpness;
+            [SerializeField] private int terraceSteps;
+
+            public bool Enabled
+            {
+                get => enabled;
+                set => enabled = value;
+            }
+
+            public int Seed
+            {
+                get => seed;
+                set => seed = value;
+            }
+
+            public int Octaves
+            {
+                get => octaves;
+                set => octaves = value;
+            }
+
+            public float Frequency
+            {
+                get => frequency;
+                set => frequency = value;
+            }
+
+            public float RidgeSharpness
+            {
+                get => ridgeSharpness;
+                set => ridgeSharpness = value;
+            }
+
+            public int TerraceSteps
+            {
+                get => terraceSteps;
+                set => terraceSteps = value;
+            }
+
+            public static NoiseShapeSettings Default => new NoiseShapeSettings
+            {
+                enabled = false,
+                seed = 0,
+                octaves = 4,
+                frequency = 0.05f,
+                ridgeSharpness = 0f,
+                terraceSteps = 0
+            };
+
+            public NoiseShapeSettings WithClampedValues()
+            {
+                return new NoiseShapeSettings
+                {
+                    enabled = enabled,
+                    seed = seed,
+                    octaves = Mathf.Clamp(octaves, 1, 8),
+                    frequency = Mathf.Max(0f, frequency),
+                    ridgeSharpness = Mathf.Max(0f, ridgeSharpness),
+                    terraceSteps = Mathf.Clamp(terraceSteps, 0, 12)
+                };
+            }
+        }
+
+        [Serializable]
+        public struct ThermalErosionSettings
+        {
+            [SerializeField] private bool enabled;
+            [SerializeField] private float strength;
+            [SerializeField] private float slopeThreshold;
+
+            public bool Enabled
+            {
+                get => enabled;
+                set => enabled = value;
+            }
+
+            public float Strength
+            {
+                get => strength;
+                set => strength = value;
+            }
+
+            public float SlopeThreshold
+            {
+                get => slopeThreshold;
+                set => slopeThreshold = value;
+            }
+
+            public static ThermalErosionSettings Default => new ThermalErosionSettings
+            {
+                enabled = true,
+                strength = 0.35f,
+                slopeThreshold = 30f
+            };
+
+            public ThermalErosionSettings WithClampedValues()
+            {
+                return new ThermalErosionSettings
+                {
+                    enabled = enabled,
+                    strength = Mathf.Max(0f, strength),
+                    slopeThreshold = Mathf.Clamp(slopeThreshold, 0f, 90f)
+                };
+            }
+        }
+
+        [Serializable]
+        public struct HydraulicCarveSettings
+        {
+            [SerializeField] private bool enabled;
+            [SerializeField] private float strength;
+            [SerializeField] private float slopeThreshold;
+
+            public bool Enabled
+            {
+                get => enabled;
+                set => enabled = value;
+            }
+
+            public float Strength
+            {
+                get => strength;
+                set => strength = value;
+            }
+
+            public float SlopeThreshold
+            {
+                get => slopeThreshold;
+                set => slopeThreshold = value;
+            }
+
+            public static HydraulicCarveSettings Default => new HydraulicCarveSettings
+            {
+                enabled = true,
+                strength = 0.4f,
+                slopeThreshold = 15f
+            };
+
+            public HydraulicCarveSettings WithClampedValues()
+            {
+                return new HydraulicCarveSettings
+                {
+                    enabled = enabled,
+                    strength = Mathf.Max(0f, strength),
+                    slopeThreshold = Mathf.Clamp(slopeThreshold, 0f, 90f)
+                };
+            }
+        }
+
+        [Serializable]
         public struct CaveSettings
         {
             [SerializeField] private bool enabled;
@@ -127,6 +335,10 @@ namespace Client.Biomes
             }
         }
 
+        [SerializeField] private PaintSettings paintSettings = PaintSettings.Default;
+        [SerializeField] private NoiseShapeSettings noiseShape = NoiseShapeSettings.Default;
+        [SerializeField] private ThermalErosionSettings thermalErosion = ThermalErosionSettings.Default;
+        [SerializeField] private HydraulicCarveSettings hydraulicCarve = HydraulicCarveSettings.Default;
         [SerializeField] private List<BiomeLayer> layers = new List<BiomeLayer>();
         [SerializeField] private CaveSettings caves = new CaveSettings
         {
@@ -140,6 +352,30 @@ namespace Client.Biomes
         };
 
         public IReadOnlyList<BiomeLayer> Layers => layers;
+        public PaintSettings Paint
+        {
+            get => paintSettings;
+            set => paintSettings = value.WithClampedValues();
+        }
+
+        public NoiseShapeSettings NoiseShape
+        {
+            get => noiseShape;
+            set => noiseShape = value.WithClampedValues();
+        }
+
+        public ThermalErosionSettings ThermalErosion
+        {
+            get => thermalErosion;
+            set => thermalErosion = value.WithClampedValues();
+        }
+
+        public HydraulicCarveSettings HydraulicCarve
+        {
+            get => hydraulicCarve;
+            set => hydraulicCarve = value.WithClampedValues();
+        }
+
         public CaveSettings Caves
         {
             get => caves;
@@ -205,6 +441,10 @@ namespace Client.Biomes
                 layers[i] = layers[i].WithClampedValues();
             }
 
+            paintSettings = paintSettings.WithClampedValues();
+            noiseShape = noiseShape.WithClampedValues();
+            thermalErosion = thermalErosion.WithClampedValues();
+            hydraulicCarve = hydraulicCarve.WithClampedValues();
             caves = caves.WithClampedValues();
 
             var issues = Validate();

@@ -26,6 +26,10 @@ namespace Digger.Modules.Runtime.Sources
         private readonly BasicOperation basicOperation = new BasicOperation();
         private readonly KernelOperation kernelOperation = new KernelOperation();
         private readonly BiomePaintOperation biomePaintOperation = new BiomePaintOperation();
+        private readonly NoiseShapeOperation noiseShapeOperation = new NoiseShapeOperation();
+        private readonly ThermalErosionOperation thermalErosionOperation = new ThermalErosionOperation();
+        private readonly HydraulicCarveOperation hydraulicCarveOperation = new HydraulicCarveOperation();
+        private readonly CaveCarveOperation caveCarveOperation = new CaveCarveOperation();
 
         /// <summary>
         /// True when a modification is currently being done asynchronously.
@@ -64,7 +68,7 @@ namespace Digger.Modules.Runtime.Sources
         /// <param name="opacityIsTarget">If true when painting texture, the weight of the texture will be directly set to the given opacity</param>
         public void Modify(BiomePreset preset, Vector3 position, Vector3 size, BrushType brush = BrushType.Sphere, float opacity = 1f, bool opacityIsTarget = false)
         {
-            Modify(preset, position, size, BiomePaintOverrides.Default, brush, opacity, opacityIsTarget);
+            Modify(preset, position, size, BiomePaintOverrides.FromPreset(preset), brush, opacity, opacityIsTarget);
         }
 
         /// <summary>
@@ -181,7 +185,7 @@ namespace Digger.Modules.Runtime.Sources
         public IEnumerator ModifyAsync(BiomePreset preset, Vector3 position, Vector3 size, BrushType brush = BrushType.Sphere, float opacity = 1f,
             bool opacityIsTarget = false, Action callback = null)
         {
-            yield return ModifyAsync(preset, position, size, BiomePaintOverrides.Default, brush, opacity, opacityIsTarget, callback);
+            yield return ModifyAsync(preset, position, size, BiomePaintOverrides.FromPreset(preset), brush, opacity, opacityIsTarget, callback);
         }
 
         /// <summary>
@@ -204,6 +208,140 @@ namespace Digger.Modules.Runtime.Sources
             biomePaintOperation.OpacityIsTarget = opacityIsTarget;
             biomePaintOperation.Overrides = overrides;
             yield return ModifyAsync(biomePaintOperation, callback);
+        }
+
+        /// <summary>
+        /// Apply the full biome preset pipeline (noise shape, erosion, caves, paint).
+        /// </summary>
+        public void ApplyBiomePreset(BiomePreset preset, Vector3 position, Vector3 size, BrushType brush = BrushType.Sphere, float opacity = 1f,
+            bool opacityIsTarget = false)
+        {
+            if (!preset)
+            {
+                Debug.LogError("Biome preset is required to apply a biome pipeline.");
+                return;
+            }
+
+            var noiseShape = preset.NoiseShape;
+            if (noiseShape.Enabled)
+            {
+                noiseShapeOperation.Position = position;
+                noiseShapeOperation.Size = size;
+                noiseShapeOperation.Brush = brush;
+                noiseShapeOperation.Intensity = 1f;
+                noiseShapeOperation.NoiseSeed = noiseShape.Seed;
+                noiseShapeOperation.NoiseOctaves = noiseShape.Octaves;
+                noiseShapeOperation.NoiseFrequency = noiseShape.Frequency;
+                noiseShapeOperation.RidgeSharpness = noiseShape.RidgeSharpness;
+                noiseShapeOperation.TerraceSteps = noiseShape.TerraceSteps;
+                Modify(noiseShapeOperation);
+            }
+
+            var thermal = preset.ThermalErosion;
+            if (thermal.Enabled)
+            {
+                thermalErosionOperation.Position = position;
+                thermalErosionOperation.Size = size;
+                thermalErosionOperation.Brush = brush;
+                thermalErosionOperation.Strength = thermal.Strength;
+                thermalErosionOperation.SlopeThreshold = thermal.SlopeThreshold;
+                Modify(thermalErosionOperation);
+            }
+
+            var hydraulic = preset.HydraulicCarve;
+            if (hydraulic.Enabled)
+            {
+                hydraulicCarveOperation.Position = position;
+                hydraulicCarveOperation.Size = size;
+                hydraulicCarveOperation.Brush = brush;
+                hydraulicCarveOperation.Strength = hydraulic.Strength;
+                hydraulicCarveOperation.SlopeThreshold = hydraulic.SlopeThreshold;
+                Modify(hydraulicCarveOperation);
+            }
+
+            if (preset.Caves.Enabled)
+            {
+                caveCarveOperation.Position = position;
+                caveCarveOperation.Size = size;
+                caveCarveOperation.Brush = brush;
+                caveCarveOperation.NoiseSeed = preset.Paint.NoiseSeed;
+                caveCarveOperation.NoiseScale = preset.Caves.NoiseScale;
+                caveCarveOperation.Threshold = preset.Caves.Threshold;
+                caveCarveOperation.MinDepth = preset.Caves.MinDepth;
+                caveCarveOperation.MaxDepth = preset.Caves.MaxDepth;
+                caveCarveOperation.StalactiteFrequency = preset.Caves.StalactiteFrequency;
+                caveCarveOperation.StalagmiteFrequency = preset.Caves.StalagmiteFrequency;
+                Modify(caveCarveOperation);
+            }
+
+            Modify(preset, position, size, brush, opacity, opacityIsTarget);
+        }
+
+        /// <summary>
+        /// Apply the full biome preset pipeline asynchronously.
+        /// </summary>
+        public IEnumerator ApplyBiomePresetAsync(BiomePreset preset, Vector3 position, Vector3 size, BrushType brush = BrushType.Sphere, float opacity = 1f,
+            bool opacityIsTarget = false, Action callback = null)
+        {
+            if (!preset)
+            {
+                Debug.LogError("Biome preset is required to apply a biome pipeline.");
+                yield break;
+            }
+
+            var noiseShape = preset.NoiseShape;
+            if (noiseShape.Enabled)
+            {
+                noiseShapeOperation.Position = position;
+                noiseShapeOperation.Size = size;
+                noiseShapeOperation.Brush = brush;
+                noiseShapeOperation.Intensity = 1f;
+                noiseShapeOperation.NoiseSeed = noiseShape.Seed;
+                noiseShapeOperation.NoiseOctaves = noiseShape.Octaves;
+                noiseShapeOperation.NoiseFrequency = noiseShape.Frequency;
+                noiseShapeOperation.RidgeSharpness = noiseShape.RidgeSharpness;
+                noiseShapeOperation.TerraceSteps = noiseShape.TerraceSteps;
+                yield return ModifyAsync(noiseShapeOperation);
+            }
+
+            var thermal = preset.ThermalErosion;
+            if (thermal.Enabled)
+            {
+                thermalErosionOperation.Position = position;
+                thermalErosionOperation.Size = size;
+                thermalErosionOperation.Brush = brush;
+                thermalErosionOperation.Strength = thermal.Strength;
+                thermalErosionOperation.SlopeThreshold = thermal.SlopeThreshold;
+                yield return ModifyAsync(thermalErosionOperation);
+            }
+
+            var hydraulic = preset.HydraulicCarve;
+            if (hydraulic.Enabled)
+            {
+                hydraulicCarveOperation.Position = position;
+                hydraulicCarveOperation.Size = size;
+                hydraulicCarveOperation.Brush = brush;
+                hydraulicCarveOperation.Strength = hydraulic.Strength;
+                hydraulicCarveOperation.SlopeThreshold = hydraulic.SlopeThreshold;
+                yield return ModifyAsync(hydraulicCarveOperation);
+            }
+
+            if (preset.Caves.Enabled)
+            {
+                caveCarveOperation.Position = position;
+                caveCarveOperation.Size = size;
+                caveCarveOperation.Brush = brush;
+                caveCarveOperation.NoiseSeed = preset.Paint.NoiseSeed;
+                caveCarveOperation.NoiseScale = preset.Caves.NoiseScale;
+                caveCarveOperation.Threshold = preset.Caves.Threshold;
+                caveCarveOperation.MinDepth = preset.Caves.MinDepth;
+                caveCarveOperation.MaxDepth = preset.Caves.MaxDepth;
+                caveCarveOperation.StalactiteFrequency = preset.Caves.StalactiteFrequency;
+                caveCarveOperation.StalagmiteFrequency = preset.Caves.StalagmiteFrequency;
+                yield return ModifyAsync(caveCarveOperation);
+            }
+
+            yield return ModifyAsync(preset, position, size, brush, opacity, opacityIsTarget, callback);
         }
 
         /// <summary>

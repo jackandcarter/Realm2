@@ -20,6 +20,23 @@ namespace Digger.Modules.Core.Sources.Operations
             UseHeightErosion = true,
             UseSlopeErosion = true
         };
+
+        public static BiomePaintOverrides FromPreset(BiomePreset preset)
+        {
+            if (!preset)
+            {
+                return Default;
+            }
+
+            var settings = preset.Paint;
+            return new BiomePaintOverrides
+            {
+                NoiseSeed = settings.NoiseSeed,
+                NoiseScale = settings.NoiseScale,
+                UseHeightErosion = settings.UseHeightErosion,
+                UseSlopeErosion = settings.UseSlopeErosion
+            };
+        }
     }
 
     public class BiomePaintOperation : IOperation<VoxelBiomePaintJob>
