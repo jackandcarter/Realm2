@@ -6,7 +6,8 @@
         "Digger.Core",
         "JBooth.MicroSplat.Core",
         "JBooth.MicroSplat.Core.Editor",
-        "Client.Biomes"
+        "Client.Biomes",
+        "Assembly-CSharp"
     ],
     "includePlatforms": [
         "Editor"
