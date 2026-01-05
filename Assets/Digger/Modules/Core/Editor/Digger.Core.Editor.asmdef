@@ -7,8 +7,7 @@
         "JBooth.MicroSplat.Core",
         "JBooth.MicroSplat.Core.Editor",
         "Client.Biomes",
-        "Client.Terrain",
-        "Assembly-CSharp"
+        "Realm.Client"
     ],
     "includePlatforms": [
         "Editor"

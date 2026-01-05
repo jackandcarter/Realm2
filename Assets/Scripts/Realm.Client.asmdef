@@ -1,7 +1,9 @@
 {
-    "name": "Client.Terrain",
-    "rootNamespace": "Client.Terrain",
-    "references": [],
+    "name": "Realm.Client",
+    "rootNamespace": "",
+    "references": [
+        "Digger.Core"
+    ],
     "includePlatforms": [],
     "excludePlatforms": [],
     "allowUnsafeCode": false,
