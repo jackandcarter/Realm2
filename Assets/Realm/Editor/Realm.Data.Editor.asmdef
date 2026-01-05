@@ -1,14 +1,12 @@
 {
-    "name": "Realm.Client",
+    "name": "Realm.Data.Editor",
     "rootNamespace": "",
     "references": [
-        "Digger.Core",
-        "Realm.Data",
-        "Unity.InputSystem",
-        "Unity.Mathematics",
-        "Unity.TextMeshPro"
+        "Realm.Data"
     ],
-    "includePlatforms": [],
+    "includePlatforms": [
+        "Editor"
+    ],
     "excludePlatforms": [],
     "allowUnsafeCode": false,
     "overrideReferences": false,
