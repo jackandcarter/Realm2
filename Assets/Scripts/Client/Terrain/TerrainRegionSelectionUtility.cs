@@ -26,7 +26,12 @@ namespace Client.Terrain
     {
         public static List<TerrainRegion> FindRegionsInScene()
         {
-            var regions = FindObjectsByType<TerrainRegion>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+            TerrainRegion[] regions;
+#if UNITY_2023_1_OR_NEWER
+            regions = Object.FindObjectsByType<TerrainRegion>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+#else
+            regions = Object.FindObjectsOfType<TerrainRegion>(true);
+#endif
             return regions == null ? new List<TerrainRegion>() : regions.Where(region => region != null).Distinct().ToList();
         }
 
