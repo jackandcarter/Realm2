@@ -1,0 +1,20 @@
+{
+    "name": "Realm.Editor",
+    "rootNamespace": "",
+    "references": [
+        "Digger.Core",
+        "Realm.Client",
+        "Realm.Data"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
