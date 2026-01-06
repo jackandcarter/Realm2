@@ -47,6 +47,7 @@ namespace Digger.Modules.Core.Editor
         private float biomeShapeFrequency = 0.05f;
         private float biomeShapeRidgeSharpness;
         private int biomeShapeTerraceSteps;
+        private bool biomeApplyPaintLayers = true;
         private bool biomeShowPreview = true;
         private bool biomeShowNoisePreview = true;
         private Texture2D biomeHeightPreview;
@@ -444,6 +445,7 @@ namespace Digger.Modules.Core.Editor
             EditorGUILayout.LabelField("Biome Painting", EditorStyles.boldLabel);
 
             biomePreset = (BiomePreset)EditorGUILayout.ObjectField("Biome Preset", biomePreset, typeof(BiomePreset), false);
+            biomeApplyPaintLayers = EditorGUILayout.Toggle("Paint Biome Layers", biomeApplyPaintLayers);
             biomeSeed = EditorGUILayout.IntField("Noise Seed", biomeSeed);
             biomeNoiseScale = Mathf.Max(0f, EditorGUILayout.FloatField("Noise Scale", biomeNoiseScale));
             biomeSeamBlendWidth = Mathf.Max(0f, EditorGUILayout.FloatField("Seam Blend Width", biomeSeamBlendWidth));
@@ -486,12 +488,12 @@ namespace Digger.Modules.Core.Editor
                     EditorUtility.SetDirty(biomePreset);
                 }
             } else {
-                EditorGUILayout.HelpBox("Assign a BiomePreset to paint biome layers on the terrain.", MessageType.Info);
+                EditorGUILayout.HelpBox("Assign a BiomePreset to configure caves or paint biome layers.", MessageType.Info);
             }
 
             if (biomePreset) {
                 var issues = biomePreset.Validate();
-                if (issues.Count > 0) {
+                if (issues.Count > 0 && biomeApplyPaintLayers) {
                     EditorGUILayout.HelpBox(string.Join("\n", issues), MessageType.Warning);
                 }
             }
@@ -633,7 +635,7 @@ namespace Digger.Modules.Core.Editor
                 biomeSeed = UnityEngine.Random.Range(-100000, 100000);
             }
 
-            if (!biomePreset) {
+            if (!biomePreset && biomeApplyPaintLayers) {
                 EditorUtility.DisplayDialog("Biome preset required",
                     "Please assign a BiomePreset before applying a biome operation.", "Ok");
                 return;
@@ -684,10 +686,12 @@ namespace Digger.Modules.Core.Editor
                     if (biomeUseHydraulicCarve) {
                         ApplyHydraulicCarveToRegion(region, targetDiggers);
                     }
-                    if (biomePreset.Caves.Enabled) {
+                    if (biomePreset && biomePreset.Caves.Enabled) {
                         ApplyCaveCarveToRegion(region, targetDiggers, biomePreset.Caves);
                     }
-                    ApplyBiomeToRegion(region, targetDiggersSet, overrides, biomeSeamBlendWidth);
+                    if (biomeApplyPaintLayers && biomePreset) {
+                        ApplyBiomeToRegion(region, targetDiggersSet, overrides, biomeSeamBlendWidth);
+                    }
                 }
             } else {
                 foreach (var digger in targetDiggers) {
@@ -700,10 +704,12 @@ namespace Digger.Modules.Core.Editor
                     if (biomeUseHydraulicCarve) {
                         ApplyHydraulicCarveToTerrain(digger);
                     }
-                    if (biomePreset.Caves.Enabled) {
+                    if (biomePreset && biomePreset.Caves.Enabled) {
                         ApplyCaveCarveToTerrain(digger, biomePreset.Caves);
                     }
-                    ApplyBiomeToTerrain(digger, overrides, targetDiggersSet, biomeSeamBlendWidth);
+                    if (biomeApplyPaintLayers && biomePreset) {
+                        ApplyBiomeToTerrain(digger, overrides, targetDiggersSet, biomeSeamBlendWidth);
+                    }
                 }
             }
 
