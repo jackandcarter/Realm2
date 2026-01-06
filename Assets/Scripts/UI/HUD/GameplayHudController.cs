@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Client.CharacterCreation;
 using Client.Player;
+using Client.UI.HUD.Dock;
 using UnityEngine;
 
 namespace Client.UI.HUD
@@ -20,6 +21,7 @@ namespace Client.UI.HUD
         private bool _ownsActiveInstance;
         private RectTransform _masterDockRoot;
         private RectTransform _centerSection;
+        private RectTransform _rightSection;
         private bool _initialized;
 
         [Serializable]
@@ -196,6 +198,8 @@ namespace Client.UI.HUD
                 {
                     _masterDockRoot = child as RectTransform;
                     _centerSection = center;
+                    _rightSection = FindSection(child, "RightSection");
+                    InitializeShortcutSection();
                     return;
                 }
             }
@@ -208,6 +212,8 @@ namespace Client.UI.HUD
             var instance = Instantiate(masterDockPrefab, classDockAnchor);
             _masterDockRoot = instance.GetComponent<RectTransform>();
             _centerSection = FindSection(instance.transform, "CenterSection");
+            _rightSection = FindSection(instance.transform, "RightSection");
+            InitializeShortcutSection();
         }
 
         private static RectTransform FindSection(Transform root, string name)
@@ -218,6 +224,124 @@ namespace Client.UI.HUD
             }
 
             return root.Find(name) as RectTransform;
+        }
+
+        private void InitializeShortcutSection()
+        {
+            if (_rightSection == null)
+            {
+                return;
+            }
+
+            var lookup = new Dictionary<string, Transform>(StringComparer.OrdinalIgnoreCase);
+            var defaultOrder = new List<string>();
+            foreach (Transform child in _rightSection)
+            {
+                var shortcutId = ResolveShortcutId(child);
+                if (string.IsNullOrWhiteSpace(shortcutId))
+                {
+                    continue;
+                }
+
+                var normalized = shortcutId.Trim();
+                if (lookup.ContainsKey(normalized))
+                {
+                    continue;
+                }
+
+                lookup.Add(normalized, child);
+                defaultOrder.Add(normalized);
+            }
+
+            if (defaultOrder.Count == 0)
+            {
+                return;
+            }
+
+            var storedOrder = DockShortcutLayoutStore.GetLayout(defaultOrder);
+            var finalOrder = MergeOrders(storedOrder, defaultOrder, lookup.Keys);
+            ApplyShortcutOrder(finalOrder, lookup);
+        }
+
+        private static string ResolveShortcutId(Transform shortcutTransform)
+        {
+            if (shortcutTransform == null)
+            {
+                return null;
+            }
+
+            if (shortcutTransform.TryGetComponent(out DockShortcutId shortcutId) &&
+                !string.IsNullOrWhiteSpace(shortcutId.ShortcutId))
+            {
+                return shortcutId.ShortcutId;
+            }
+
+            return shortcutTransform.gameObject.name;
+        }
+
+        private static List<string> MergeOrders(
+            IReadOnlyList<string> stored,
+            IReadOnlyList<string> defaults,
+            ICollection<string> validIds)
+        {
+            var result = new List<string>();
+            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            if (stored != null)
+            {
+                foreach (var shortcutId in stored)
+                {
+                    if (string.IsNullOrWhiteSpace(shortcutId))
+                    {
+                        continue;
+                    }
+
+                    if (!validIds.Contains(shortcutId) || !seen.Add(shortcutId))
+                    {
+                        continue;
+                    }
+
+                    result.Add(shortcutId);
+                }
+            }
+
+            if (defaults != null)
+            {
+                foreach (var shortcutId in defaults)
+                {
+                    if (string.IsNullOrWhiteSpace(shortcutId))
+                    {
+                        continue;
+                    }
+
+                    if (!validIds.Contains(shortcutId) || !seen.Add(shortcutId))
+                    {
+                        continue;
+                    }
+
+                    result.Add(shortcutId);
+                }
+            }
+
+            return result;
+        }
+
+        private static void ApplyShortcutOrder(IReadOnlyList<string> order, Dictionary<string, Transform> lookup)
+        {
+            if (order == null || lookup == null)
+            {
+                return;
+            }
+
+            for (var i = 0; i < order.Count; i++)
+            {
+                if (!lookup.TryGetValue(order[i], out var shortcut) || shortcut == null)
+                {
+                    continue;
+                }
+
+                shortcut.SetSiblingIndex(i);
+            }
         }
 
         private void UnloadActiveModule()
