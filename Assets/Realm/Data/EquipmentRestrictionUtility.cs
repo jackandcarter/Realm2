@@ -59,9 +59,9 @@ namespace Realm.Data
             {
                 if (classDefinition.AllowedWeaponTypes != null &&
                     classDefinition.AllowedWeaponTypes.Count > 0 &&
-                    !Contains(classDefinition.AllowedWeaponTypes, weapon.WeaponType.WeaponType))
+                    !ContainsGuid(classDefinition.AllowedWeaponTypes, weapon.WeaponType))
                 {
-                    reason = $"Weapon type {weapon.WeaponType.WeaponType} is not allowed for this class.";
+                    reason = $"Weapon type {GetDisplayName(weapon.WeaponType)} is not allowed for this class.";
                     return false;
                 }
             }
@@ -70,9 +70,9 @@ namespace Realm.Data
             {
                 if (classDefinition.AllowedArmorTypes != null &&
                     classDefinition.AllowedArmorTypes.Count > 0 &&
-                    !Contains(classDefinition.AllowedArmorTypes, armor.ArmorType.ArmorType))
+                    !ContainsGuid(classDefinition.AllowedArmorTypes, armor.ArmorType))
                 {
-                    reason = $"Armor type {armor.ArmorType.ArmorType} is not allowed for this class.";
+                    reason = $"Armor type {GetDisplayName(armor.ArmorType)} is not allowed for this class.";
                     return false;
                 }
             }
@@ -80,22 +80,59 @@ namespace Realm.Data
             return true;
         }
 
-        private static bool Contains<T>(IReadOnlyList<T> values, T candidate) where T : struct
+        private static bool ContainsGuid<T>(IReadOnlyList<T> values, T candidate) where T : class, IGuidIdentified
         {
             if (values == null)
             {
                 return false;
             }
 
+            if (candidate == null)
+            {
+                return false;
+            }
+
+            var candidateGuid = candidate.Guid;
+            if (string.IsNullOrWhiteSpace(candidateGuid))
+            {
+                return false;
+            }
+
             for (var i = 0; i < values.Count; i++)
             {
-                if (Equals(values[i], candidate))
+                var entry = values[i];
+                if (entry == null)
+                {
+                    continue;
+                }
+
+                if (string.Equals(entry.Guid, candidateGuid, StringComparison.OrdinalIgnoreCase))
                 {
                     return true;
                 }
             }
 
             return false;
+        }
+
+        private static string GetDisplayName(WeaponTypeDefinition weaponType)
+        {
+            if (weaponType == null)
+            {
+                return "Unknown";
+            }
+
+            return string.IsNullOrWhiteSpace(weaponType.DisplayName) ? weaponType.name : weaponType.DisplayName;
+        }
+
+        private static string GetDisplayName(ArmorTypeDefinition armorType)
+        {
+            if (armorType == null)
+            {
+                return "Unknown";
+            }
+
+            return string.IsNullOrWhiteSpace(armorType.DisplayName) ? armorType.name : armorType.DisplayName;
         }
     }
 }

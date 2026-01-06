@@ -18,9 +18,6 @@ namespace Realm.Data
         [SerializeField, Tooltip("Optional sprite displayed alongside the armor type.")]
         private Sprite icon;
 
-        [SerializeField, Tooltip("Equipment category used for class proficiency checks.")]
-        private ArmorType armorType = ArmorType.Cloth;
-
         [SerializeField, Tooltip("Slots that can use this armor type.")]
         private List<EquipmentSlot> supportedSlots = new();
 
@@ -28,7 +25,6 @@ namespace Realm.Data
         public string DisplayName => displayName;
         public string Description => description;
         public Sprite Icon => icon;
-        public ArmorType ArmorType => armorType;
         public IReadOnlyList<EquipmentSlot> SupportedSlots => supportedSlots;
 
         protected override void OnValidate()
