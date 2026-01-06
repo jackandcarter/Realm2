@@ -148,7 +148,7 @@ namespace Realm.Editor.DesignerTools
             if (_cachedEditor == null || _cachedEditor.target != asset)
             {
                 DestroyCachedEditor();
-                _cachedEditor = CreateEditor(asset);
+                _cachedEditor = UnityEditor.Editor.CreateEditor(asset);
             }
 
             _cachedEditor?.OnInspectorGUI();
