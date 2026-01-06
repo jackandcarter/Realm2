@@ -45,9 +45,16 @@ namespace Client.UI
         [SerializeField] private Color inactiveTabColor = new Color(0.118f, 0.149f, 0.231f, 0.9f);
 
         private readonly List<TabBinding> _tabs = new List<TabBinding>();
+        private readonly Dictionary<GameObject, string> _panelRegistryLookup = new Dictionary<GameObject, string>();
+        private readonly Dictionary<string, GameObject> _registryPanelLookup =
+            new Dictionary<string, GameObject>(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<GameObject, DockShortcutDragSource> _panelShortcutLookup =
+            new Dictionary<GameObject, DockShortcutDragSource>();
+        private readonly HashSet<string> _minimizedPanelIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         private GameObject _activePanel;
         private bool _hasPermissions = true;
         private static TMP_FontAsset _defaultFont;
+        private DockShortcutSection _dockShortcutSection;
 
         private const string PanelsRegistryId = "arkitect.ui.panels";
         private const string TabBarRegistryId = "arkitect.ui.tabbar";
@@ -120,7 +127,7 @@ namespace Client.UI
 
                 if (tab.Panel != null)
                 {
-                    tab.Panel.SetActive(available && tab.Panel == _activePanel);
+                    tab.Panel.SetActive(available && tab.Panel == _activePanel && !IsPanelMinimized(tab.Panel));
                 }
             }
         }
@@ -149,10 +156,21 @@ namespace Client.UI
             EnsurePanels();
             EnsurePlotPanelController();
             WireTabs();
+            LoadMinimizedPanels();
 
             if (_activePanel == null)
             {
                 _activePanel = plotsPanel != null ? plotsPanel : terrainPanel ?? materialsPanel ?? blueprintsPanel ?? commissionPanel;
+            }
+
+            if (_activePanel != null && IsPanelMinimized(_activePanel))
+            {
+                _activePanel = null;
+            }
+
+            if (_activePanel == null)
+            {
+                SelectFirstAvailablePanel();
             }
 
             if (_activePanel != null)
@@ -347,6 +365,7 @@ namespace Client.UI
             if (panelReference != null && !string.IsNullOrWhiteSpace(registryId))
             {
                 ArkitectRegistry.RegisterUiPanel(registryId, panelReference);
+                RegisterPanel(panelReference, registryId);
             }
         }
 
@@ -378,16 +397,20 @@ namespace Client.UI
             }
 
             image.color = inactiveTabColor;
-            BindDockShortcutSource(button, targetPanel, registryId);
+            var dockSource = BindDockShortcutSource(button, targetPanel, registryId);
+            if (dockSource != null && panel != null)
+            {
+                _panelShortcutLookup[panel] = dockSource;
+            }
 
             _tabs.Add(new TabBinding { Button = button, Panel = panel });
         }
 
-        private void BindDockShortcutSource(Button button, GameObject panel, string registryId)
+        private DockShortcutDragSource BindDockShortcutSource(Button button, GameObject panel, string registryId)
         {
             if (button == null || panel == null || string.IsNullOrWhiteSpace(registryId))
             {
-                return;
+                return null;
             }
 
             var source = button.GetComponent<DockShortcutDragSource>();
@@ -402,6 +425,7 @@ namespace Client.UI
             var entry = new DockShortcutEntry(registryId, displayName, icon, actionMetadata);
 
             source.Configure(entry, () => ShowPanel(panel));
+            return source;
         }
 
         private static string ResolveButtonLabel(Button button, GameObject panel)
@@ -433,12 +457,14 @@ namespace Client.UI
                 return;
             }
 
+            RestorePanelIfMinimized(panel);
+
             foreach (var tab in _tabs)
             {
                 var isActive = tab.Panel == panel;
                 if (tab.Panel != null)
                 {
-                    tab.Panel.SetActive(isActive);
+                    tab.Panel.SetActive(isActive && !IsPanelMinimized(tab.Panel) && _hasPermissions);
                 }
 
                 if (tab.Button != null && tab.Button.TryGetComponent(out Image image))
@@ -536,6 +562,246 @@ namespace Client.UI
                 bodyText.alignment = TextAlignmentOptions.TopLeft;
                 bodyText.font = bodyText.font == null ? GetDefaultFontAsset() : bodyText.font;
             }
+        }
+
+        private void RegisterPanel(GameObject panel, string registryId)
+        {
+            if (panel == null || string.IsNullOrWhiteSpace(registryId))
+            {
+                return;
+            }
+
+            _panelRegistryLookup[panel] = registryId;
+            _registryPanelLookup[registryId] = panel;
+            EnsureMinimizeButton(panel.transform, panel, registryId);
+        }
+
+        private void EnsureMinimizeButton(Transform panelTransform, GameObject panel, string registryId)
+        {
+            if (panelTransform == null)
+            {
+                return;
+            }
+
+            var existing = panelTransform.Find("MinimizeButton");
+            Button button;
+            if (existing != null && existing.TryGetComponent(out Button existingButton))
+            {
+                button = existingButton;
+            }
+            else
+            {
+                var buttonObject = new GameObject("MinimizeButton", typeof(RectTransform), typeof(Image), typeof(Button));
+                buttonObject.transform.SetParent(panelTransform, false);
+                button = buttonObject.GetComponent<Button>();
+
+                if (buttonObject.TryGetComponent(out Image image))
+                {
+                    image.color = new Color(0.298f, 0.349f, 0.482f, 0.9f);
+                }
+
+                var labelObject = new GameObject("Label", typeof(RectTransform), typeof(TMP_Text));
+                labelObject.transform.SetParent(buttonObject.transform, false);
+                if (labelObject.TryGetComponent(out TMP_Text label))
+                {
+                    label.text = "–";
+                    label.fontStyle = FontStyles.Bold;
+                    label.fontSize = 28;
+                    label.alignment = TextAlignmentOptions.Center;
+                    label.color = new Color(0.898f, 0.768f, 1f, 1f);
+                    label.font = label.font == null ? GetDefaultFontAsset() : label.font;
+                }
+
+                if (buttonObject.TryGetComponent(out RectTransform buttonRect))
+                {
+                    buttonRect.anchorMin = new Vector2(1f, 1f);
+                    buttonRect.anchorMax = new Vector2(1f, 1f);
+                    buttonRect.pivot = new Vector2(1f, 1f);
+                    buttonRect.anchoredPosition = new Vector2(-24f, -24f);
+                    buttonRect.sizeDelta = new Vector2(36f, 36f);
+                }
+
+                if (labelObject.TryGetComponent(out RectTransform labelRect))
+                {
+                    labelRect.anchorMin = Vector2.zero;
+                    labelRect.anchorMax = Vector2.one;
+                    labelRect.offsetMin = Vector2.zero;
+                    labelRect.offsetMax = Vector2.zero;
+                }
+            }
+
+            if (button == null)
+            {
+                return;
+            }
+
+            button.onClick.RemoveAllListeners();
+            button.onClick.AddListener(() => MinimizePanel(panel, registryId));
+        }
+
+        private void MinimizePanel(GameObject panel, string registryId)
+        {
+            if (panel == null || string.IsNullOrWhiteSpace(registryId))
+            {
+                return;
+            }
+
+            if (!_minimizedPanelIds.Add(registryId))
+            {
+                return;
+            }
+
+            SaveMinimizedPanels();
+            panel.SetActive(false);
+            AddDockShortcutForPanel(panel, registryId);
+
+            if (_activePanel == panel)
+            {
+                _activePanel = null;
+                SelectFirstAvailablePanel();
+                if (_activePanel != null)
+                {
+                    ShowPanel(_activePanel);
+                }
+            }
+        }
+
+        private void RestorePanelIfMinimized(GameObject panel)
+        {
+            if (panel == null)
+            {
+                return;
+            }
+
+            if (!TryGetRegistryId(panel, out var registryId))
+            {
+                return;
+            }
+
+            if (!_minimizedPanelIds.Remove(registryId))
+            {
+                return;
+            }
+
+            SaveMinimizedPanels();
+            RemoveDockShortcut(registryId);
+        }
+
+        private bool TryGetRegistryId(GameObject panel, out string registryId)
+        {
+            registryId = null;
+            if (panel == null)
+            {
+                return false;
+            }
+
+            return _panelRegistryLookup.TryGetValue(panel, out registryId);
+        }
+
+        private bool IsPanelMinimized(GameObject panel)
+        {
+            if (panel == null)
+            {
+                return false;
+            }
+
+            return TryGetRegistryId(panel, out var registryId) && _minimizedPanelIds.Contains(registryId);
+        }
+
+        private void SelectFirstAvailablePanel()
+        {
+            foreach (var tab in _tabs)
+            {
+                if (tab.Panel == null)
+                {
+                    continue;
+                }
+
+                if (!IsPanelMinimized(tab.Panel))
+                {
+                    _activePanel = tab.Panel;
+                    return;
+                }
+            }
+        }
+
+        private void LoadMinimizedPanels()
+        {
+            _minimizedPanelIds.Clear();
+            var minimized = ArkitectPanelMinimizedStore.GetMinimizedPanels();
+            if (minimized != null)
+            {
+                foreach (var registryId in minimized)
+                {
+                    if (string.IsNullOrWhiteSpace(registryId))
+                    {
+                        continue;
+                    }
+
+                    _minimizedPanelIds.Add(registryId.Trim());
+                }
+            }
+
+            foreach (var entry in _registryPanelLookup)
+            {
+                if (entry.Value == null)
+                {
+                    continue;
+                }
+
+                if (_minimizedPanelIds.Contains(entry.Key))
+                {
+                    entry.Value.SetActive(false);
+                    AddDockShortcutForPanel(entry.Value, entry.Key);
+                }
+            }
+        }
+
+        private void SaveMinimizedPanels()
+        {
+            ArkitectPanelMinimizedStore.SaveMinimizedPanels(_minimizedPanelIds);
+        }
+
+        private void AddDockShortcutForPanel(GameObject panel, string registryId)
+        {
+            if (panel == null || string.IsNullOrWhiteSpace(registryId))
+            {
+                return;
+            }
+
+            var dockSection = GetDockShortcutSection();
+            if (dockSection == null)
+            {
+                return;
+            }
+
+            if (!_panelShortcutLookup.TryGetValue(panel, out var source) || source == null)
+            {
+                return;
+            }
+
+            dockSection.AddShortcutFromSource(source);
+        }
+
+        private void RemoveDockShortcut(string registryId)
+        {
+            if (string.IsNullOrWhiteSpace(registryId))
+            {
+                return;
+            }
+
+            var dockSection = GetDockShortcutSection();
+            dockSection?.RemoveShortcut(registryId);
+        }
+
+        private DockShortcutSection GetDockShortcutSection()
+        {
+            if (_dockShortcutSection == null)
+            {
+                _dockShortcutSection = FindObjectOfType<DockShortcutSection>(true);
+            }
+
+            return _dockShortcutSection;
         }
 
         private static void ReparentIfNecessary(Transform target, Transform parent)
