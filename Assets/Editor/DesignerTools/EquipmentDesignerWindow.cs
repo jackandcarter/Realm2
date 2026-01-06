@@ -18,7 +18,7 @@ namespace Realm.Editor.DesignerTools
         private Vector2 _detailScroll;
         private int _tabIndex;
         private int _selectedIndex = -1;
-        private Editor _cachedEditor;
+        private UnityEditor.Editor _cachedEditor;
 
         [MenuItem("Tools/Designer/Equipment Studio", priority = 120)]
         public static void ShowWindow()
