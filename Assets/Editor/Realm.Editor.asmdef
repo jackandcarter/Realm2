@@ -4,7 +4,8 @@
     "references": [
         "Digger.Core",
         "Realm.Client",
-        "Realm.Data"
+        "Realm.Data",
+        "Unity.TextMeshPro"
     ],
     "includePlatforms": [
         "Editor"
