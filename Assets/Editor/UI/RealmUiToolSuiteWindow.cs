@@ -37,16 +37,6 @@ namespace Realm.Editor.UI
                 {
                     HudDockGenerator.GenerateHudDock();
                 }
-
-                if (GUILayout.Button("Generate Class Ability Dock"))
-                {
-                    ClassAbilityDockGenerator.GenerateClassDock();
-                }
-
-                if (GUILayout.Button("Generate Arkitect Dock"))
-                {
-                    ArkitectDockGenerator.GenerateDock();
-                }
             });
 
             DrawSection("Arkitect Extensions", () =>

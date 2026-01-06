@@ -12,6 +12,11 @@ namespace Client.UI.HUD.Dock
     [RequireComponent(typeof(RectTransform))]
     public class ClassAbilityDockModule : MonoBehaviour, IClassUiModule
     {
+        private static readonly string[] DefaultHotkeys =
+        {
+            "1", "2", "3", "4", "5", "6", "7", "8", "9", "0"
+        };
+
         [Header("Class")]
         [SerializeField] private string classId;
 
@@ -24,6 +29,7 @@ namespace Client.UI.HUD.Dock
 
         [Header("Behaviour")]
         [SerializeField] private bool rebuildOnEnable = true;
+        [SerializeField] private int slotCount = 10;
 
         private readonly List<AbilityDockItem> _items = new();
         private readonly Dictionary<string, Sprite> _iconCache = new(StringComparer.OrdinalIgnoreCase);
@@ -33,7 +39,9 @@ namespace Client.UI.HUD.Dock
         private string _resolvedClassId;
         private bool _mounted;
 
-        public string ClassId => string.IsNullOrWhiteSpace(classId) ? _resolvedClassId : classId.Trim();
+        public string ClassId => string.IsNullOrWhiteSpace(classId)
+            ? (string.IsNullOrWhiteSpace(_resolvedClassId) ? PlayerClassStateManager.ActiveClassId : _resolvedClassId)
+            : classId.Trim();
 
         public void Mount(Transform parent)
         {
@@ -183,9 +191,14 @@ namespace Client.UI.HUD.Dock
         {
             ClearItems();
 
+            var effectiveSlots = Mathf.Max(1, slotCount);
+            var placeholderOrder = BuildPlaceholderIds(effectiveSlots);
+
             if (entries == null || entries.Count == 0)
             {
-                AbilityDockLayoutStore.SaveLayout(_resolvedClassId, Array.Empty<string>());
+                CreatePlaceholders(placeholderOrder);
+                ApplyItemOrder();
+                PersistCurrentLayout();
                 return;
             }
 
@@ -206,32 +219,42 @@ namespace Client.UI.HUD.Dock
 
             if (lookup.Count == 0)
             {
-                AbilityDockLayoutStore.SaveLayout(_resolvedClassId, Array.Empty<string>());
+                CreatePlaceholders(placeholderOrder);
+                ApplyItemOrder();
+                PersistCurrentLayout();
                 return;
             }
 
-            var sorted = lookup.Values
+            var abilityOrder = lookup.Values
                 .OrderBy(e => e.Level)
                 .ThenBy(e => e.DisplayName, StringComparer.OrdinalIgnoreCase)
                 .Select(e => e.AbilityId)
                 .ToList();
 
-            var stored = AbilityDockLayoutStore.GetLayout(_resolvedClassId, sorted);
-            var finalOrder = MergeOrders(stored, sorted, lookup.Keys);
+            var stored = AbilityDockLayoutStore.GetLayout(_resolvedClassId, placeholderOrder);
+            var finalOrder = NormalizeLayout(stored, placeholderOrder, abilityOrder);
 
             foreach (var abilityId in finalOrder)
             {
-                if (!lookup.TryGetValue(abilityId, out var entry))
-                {
-                    continue;
-                }
-
                 var item = CreateItem();
                 if (item == null)
                 {
                     continue;
                 }
-                item.Bind(entry, ResolveIcon(entry.AbilityId));
+
+                if (IsPlaceholderId(abilityId))
+                {
+                    item.BindPlaceholder(abilityId);
+                }
+                else if (lookup.TryGetValue(abilityId, out var entry))
+                {
+                    item.Bind(entry, ResolveIcon(entry.AbilityId));
+                }
+                else
+                {
+                    item.BindPlaceholder(abilityId);
+                }
+
                 _items.Add(item);
             }
 
@@ -250,6 +273,11 @@ namespace Client.UI.HUD.Dock
             {
                 Debug.LogWarning("ClassAbilityDockModule is missing an AbilityDockItem prefab.", this);
                 return null;
+            }
+
+            if (!item.gameObject.activeSelf)
+            {
+                item.gameObject.SetActive(true);
             }
 
             item.Initialize(this);
@@ -278,45 +306,75 @@ namespace Client.UI.HUD.Dock
             _dragSource = null;
         }
 
-        private List<string> MergeOrders(IReadOnlyList<string> stored, IReadOnlyList<string> sorted, ICollection<string> validIds)
+        private static List<string> NormalizeLayout(
+            IReadOnlyList<string> stored,
+            IReadOnlyList<string> placeholders,
+            IReadOnlyList<string> abilityOrder)
         {
             var result = new List<string>();
-            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var used = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var placeholderSet = new HashSet<string>(placeholders ?? Array.Empty<string>(), StringComparer.OrdinalIgnoreCase);
+            var abilitySet = new HashSet<string>(abilityOrder ?? Array.Empty<string>(), StringComparer.OrdinalIgnoreCase);
 
             if (stored != null)
             {
-                foreach (var abilityId in stored)
+                foreach (var entry in stored)
                 {
-                    if (string.IsNullOrWhiteSpace(abilityId))
+                    if (string.IsNullOrWhiteSpace(entry))
                     {
                         continue;
                     }
 
-                    if (!validIds.Contains(abilityId) || !seen.Add(abilityId))
+                    if (placeholderSet.Contains(entry) || abilitySet.Contains(entry))
                     {
-                        continue;
+                        if (used.Add(entry))
+                        {
+                            result.Add(entry);
+                        }
                     }
-
-                    result.Add(abilityId);
                 }
             }
 
-            if (sorted != null)
+            if (placeholders != null)
             {
-                foreach (var abilityId in sorted)
+                foreach (var placeholder in placeholders)
                 {
-                    if (string.IsNullOrWhiteSpace(abilityId))
+                    if (result.Count >= placeholders.Count)
                     {
-                        continue;
+                        break;
                     }
 
-                    if (!validIds.Contains(abilityId) || !seen.Add(abilityId))
+                    if (used.Add(placeholder))
                     {
-                        continue;
+                        result.Add(placeholder);
                     }
-
-                    result.Add(abilityId);
                 }
+            }
+
+            if (abilityOrder != null)
+            {
+                foreach (var abilityId in abilityOrder)
+                {
+                    if (string.IsNullOrWhiteSpace(abilityId) || used.Contains(abilityId))
+                    {
+                        continue;
+                    }
+
+                    var placeholderIndex = result.FindIndex(IsPlaceholderId);
+                    if (placeholderIndex < 0)
+                    {
+                        break;
+                    }
+
+                    used.Remove(result[placeholderIndex]);
+                    result[placeholderIndex] = abilityId;
+                    used.Add(abilityId);
+                }
+            }
+
+            if (placeholders != null && result.Count > placeholders.Count)
+            {
+                result.RemoveRange(placeholders.Count, result.Count - placeholders.Count);
             }
 
             return result;
@@ -334,6 +392,7 @@ namespace Client.UI.HUD.Dock
 
                 item.transform.SetParent(itemContainer, false);
                 item.transform.SetSiblingIndex(i);
+                item.SetHotkeyLabel(GetHotkeyLabel(i));
             }
         }
 
@@ -347,12 +406,12 @@ namespace Client.UI.HUD.Dock
             var order = new List<string>();
             foreach (var item in _items)
             {
-                if (item == null || string.IsNullOrWhiteSpace(item.AbilityId))
+                if (item == null || string.IsNullOrWhiteSpace(item.LayoutId))
                 {
                     continue;
                 }
 
-                order.Add(item.AbilityId.Trim());
+                order.Add(item.LayoutId.Trim());
             }
 
             AbilityDockLayoutStore.SaveLayout(_resolvedClassId, order);
@@ -373,6 +432,48 @@ namespace Client.UI.HUD.Dock
             }
 
             item.transform.SetSiblingIndex(Mathf.Max(0, index));
+        }
+
+        private static List<string> BuildPlaceholderIds(int count)
+        {
+            var results = new List<string>(count);
+            for (var i = 0; i < count; i++)
+            {
+                results.Add($"slot-{i + 1}");
+            }
+
+            return results;
+        }
+
+        private void CreatePlaceholders(IReadOnlyList<string> placeholderIds)
+        {
+            if (itemPrefab == null || placeholderIds == null)
+            {
+                return;
+            }
+
+            foreach (var placeholderId in placeholderIds)
+            {
+                var item = CreateItem();
+                if (item == null)
+                {
+                    continue;
+                }
+
+                item.BindPlaceholder(placeholderId);
+                _items.Add(item);
+            }
+        }
+
+        private static bool IsPlaceholderId(string abilityId)
+        {
+            return !string.IsNullOrWhiteSpace(abilityId) &&
+                   abilityId.StartsWith("slot-", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static string GetHotkeyLabel(int index)
+        {
+            return index >= 0 && index < DefaultHotkeys.Length ? DefaultHotkeys[index] : string.Empty;
         }
 
         private Sprite ResolveIcon(string abilityId)
