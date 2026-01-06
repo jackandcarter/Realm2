@@ -1,4 +1,4 @@
-using System;
+using Client.Combat;
 using UnityEngine;
 
 namespace Client.Player
@@ -17,6 +17,13 @@ namespace Client.Player
         [Header("References")]
         [SerializeField] private Transform viewRoot;
         [SerializeField] private Transform cameraRoot;
+
+        [Header("Combat")]
+        [SerializeField] private WeaponComboTracker weaponComboTracker;
+        [SerializeField] private string lightAttackInput = "Fire1";
+        [SerializeField] private string mediumAttackInput = "Fire2";
+        [SerializeField] private string heavyAttackInput = "Fire3";
+        [SerializeField] private string specialAttackInput = "Fire4";
 
         private CharacterController _controller;
         private Vector3 _velocity;
@@ -44,6 +51,7 @@ namespace Client.Player
         private void Update()
         {
             ReadInput();
+            ReadCombatInput();
             UpdateMovement(Time.deltaTime);
         }
 
@@ -95,6 +103,34 @@ namespace Client.Player
             }
 
             _controller.Move(_velocity * deltaTime);
+        }
+
+        private void ReadCombatInput()
+        {
+            if (weaponComboTracker == null)
+            {
+                return;
+            }
+
+            if (!string.IsNullOrWhiteSpace(lightAttackInput) && Input.GetButtonDown(lightAttackInput))
+            {
+                weaponComboTracker.RegisterAttackInput(WeaponComboInputType.Light);
+            }
+
+            if (!string.IsNullOrWhiteSpace(mediumAttackInput) && Input.GetButtonDown(mediumAttackInput))
+            {
+                weaponComboTracker.RegisterAttackInput(WeaponComboInputType.Medium);
+            }
+
+            if (!string.IsNullOrWhiteSpace(heavyAttackInput) && Input.GetButtonDown(heavyAttackInput))
+            {
+                weaponComboTracker.RegisterAttackInput(WeaponComboInputType.Heavy);
+            }
+
+            if (!string.IsNullOrWhiteSpace(specialAttackInput) && Input.GetButtonDown(specialAttackInput))
+            {
+                weaponComboTracker.TryConsumeSpecialReady();
+            }
         }
     }
 }
