@@ -24,7 +24,7 @@ namespace Realm.EditorTools
         private Vector2 _scrollPosition;
         private GUIStyle _wrapStyle;
 
-        [MenuItem("Realm/Ability Designer", priority = 200)]
+        [MenuItem("Tools/Designer/Ability Designer", priority = 130)]
         public static void Open()
         {
             var window = GetWindow<AbilityDesignerWindow>("Ability Designer");

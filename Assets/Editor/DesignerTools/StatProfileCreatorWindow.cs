@@ -163,22 +163,14 @@ namespace Realm.Editor.DesignerTools
         {
             var asset = CreateInstance<StatProfileDefinition>();
             asset.name = "NewStatProfile";
-            var path = AssetDatabase.GenerateUniqueAssetPath("Assets/ScriptableObjects/Stats/NewStatProfile.asset");
-            var directory = Path.GetDirectoryName(path);
-            if (!string.IsNullOrEmpty(directory) && !AssetDatabase.IsValidFolder(directory))
-            {
-                var parent = Path.GetDirectoryName(directory);
-                var folderName = Path.GetFileName(directory);
-                if (!string.IsNullOrEmpty(parent) && AssetDatabase.IsValidFolder(parent))
-                {
-                    AssetDatabase.CreateFolder(parent, folderName);
-                }
-                else if (!Directory.Exists(directory))
-                {
-                    Directory.CreateDirectory(directory);
-                }
-                AssetDatabase.Refresh();
-            }
+
+            var profile = DesignerToolkitProfile.Instance;
+            var folder = profile != null && !string.IsNullOrWhiteSpace(profile.StatProfilesFolder)
+                ? profile.StatProfilesFolder
+                : "Assets/ScriptableObjects/Stats";
+
+            EnsureFolder(folder);
+            var path = AssetDatabase.GenerateUniqueAssetPath(Path.Combine(folder, "NewStatProfile.asset"));
 
             AssetDatabase.CreateAsset(asset, path);
             AssetDatabase.SaveAssets();
@@ -215,6 +207,33 @@ namespace Realm.Editor.DesignerTools
             }
 
             return value != null && value.IndexOf(filter, StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+
+        private static void EnsureFolder(string folderPath)
+        {
+            if (string.IsNullOrWhiteSpace(folderPath))
+            {
+                return;
+            }
+
+            folderPath = folderPath.Replace("\\", "/").TrimEnd('/');
+            if (AssetDatabase.IsValidFolder(folderPath))
+            {
+                return;
+            }
+
+            var parent = "Assets";
+            var segments = folderPath.Split('/');
+            for (var i = 1; i < segments.Length; i++)
+            {
+                var current = $"{parent}/{segments[i]}";
+                if (!AssetDatabase.IsValidFolder(current))
+                {
+                    AssetDatabase.CreateFolder(parent, segments[i]);
+                }
+
+                parent = current;
+            }
         }
     }
 }

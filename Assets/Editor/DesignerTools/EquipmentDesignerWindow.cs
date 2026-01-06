@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.IO;
 using Realm.Data;
 using UnityEditor;
 using UnityEngine;
@@ -46,7 +45,7 @@ namespace Realm.Editor.DesignerTools
                 return;
             }
 
-            DrawToolbar(profile);
+            DrawToolbar();
 
             _tabIndex = GUILayout.Toolbar(_tabIndex, new[] { "Weapons", "Armors" });
 
@@ -57,32 +56,13 @@ namespace Realm.Editor.DesignerTools
             }
         }
 
-        private void DrawToolbar(DesignerToolkitProfile profile)
+        private void DrawToolbar()
         {
             using (new EditorGUILayout.HorizontalScope(EditorStyles.toolbar))
             {
                 if (GUILayout.Button(new GUIContent("Refresh", "Reload weapon and armor assets."), EditorStyles.toolbarButton, GUILayout.Width(80f)))
                 {
                     RefreshAssets();
-                }
-
-                GUILayout.Space(8f);
-
-                if (_tabIndex == 0)
-                {
-                    if (GUILayout.Button(new GUIContent("Create Weapon", "Create a new WeaponDefinition asset in the configured folder."), EditorStyles.toolbarButton, GUILayout.Width(110f)))
-                    {
-                        CreateAsset<WeaponDefinition>("WeaponDefinition", profile.WeaponDefinitionsFolder);
-                        RefreshAssets();
-                    }
-                }
-                else
-                {
-                    if (GUILayout.Button(new GUIContent("Create Armor", "Create a new ArmorDefinition asset in the configured folder."), EditorStyles.toolbarButton, GUILayout.Width(110f)))
-                    {
-                        CreateAsset<ArmorDefinition>("ArmorDefinition", profile.ArmorDefinitionsFolder);
-                        RefreshAssets();
-                    }
                 }
 
                 GUILayout.FlexibleSpace();
@@ -219,46 +199,6 @@ namespace Realm.Editor.DesignerTools
             }
 
             results.Sort((a, b) => string.Compare(a.name, b.name, StringComparison.OrdinalIgnoreCase));
-        }
-
-        private static T CreateAsset<T>(string defaultName, string folder) where T : ScriptableObject
-        {
-            if (string.IsNullOrWhiteSpace(folder))
-            {
-                folder = "Assets";
-            }
-
-            EnsureFolder(folder);
-            var path = AssetDatabase.GenerateUniqueAssetPath(Path.Combine(folder, $"{defaultName}.asset"));
-            var asset = CreateInstance<T>();
-            AssetDatabase.CreateAsset(asset, path);
-            AssetDatabase.SaveAssets();
-            AssetDatabase.Refresh();
-            Selection.activeObject = asset;
-            EditorGUIUtility.PingObject(asset);
-            return asset;
-        }
-
-        private static void EnsureFolder(string folderPath)
-        {
-            folderPath = folderPath.Replace("\\", "/").TrimEnd('/');
-            if (AssetDatabase.IsValidFolder(folderPath))
-            {
-                return;
-            }
-
-            var parent = "Assets";
-            var segments = folderPath.Split('/');
-            for (var i = 1; i < segments.Length; i++)
-            {
-                var current = $"{parent}/{segments[i]}";
-                if (!AssetDatabase.IsValidFolder(current))
-                {
-                    AssetDatabase.CreateFolder(parent, segments[i]);
-                }
-
-                parent = current;
-            }
         }
 
         private void DestroyCachedEditor()
