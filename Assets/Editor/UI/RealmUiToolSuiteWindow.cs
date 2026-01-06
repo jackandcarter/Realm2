@@ -1,3 +1,4 @@
+using Realm.Editor.Combat;
 using UnityEditor;
 using UnityEngine;
 
@@ -53,6 +54,14 @@ namespace Realm.Editor.UI
                 if (GUILayout.Button("Generate Arkitect Terrain Tools UI"))
                 {
                     ArkitectTerrainUiGenerator.GenerateTerrainUi();
+                }
+            });
+
+            DrawSection("Combat Tools", () =>
+            {
+                if (GUILayout.Button("Weapon Combo Editor"))
+                {
+                    WeaponComboDefinitionEditorWindow.ShowWindow();
                 }
             });
         }
