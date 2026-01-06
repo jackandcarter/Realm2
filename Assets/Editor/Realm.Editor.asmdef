@@ -5,7 +5,8 @@
         "Digger.Core",
         "Realm.Client",
         "Realm.Data",
-        "Unity.TextMeshPro"
+        "Unity.TextMeshPro",
+        "Unity.TextMeshPro.Editor"
     ],
     "includePlatforms": [
         "Editor"
