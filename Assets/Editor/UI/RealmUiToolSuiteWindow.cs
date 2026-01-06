@@ -32,6 +32,11 @@ namespace Realm.Editor.UI
 
             DrawSection("Dock Modules", () =>
             {
+                if (GUILayout.Button("Generate HUD Dock"))
+                {
+                    HudDockGenerator.GenerateHudDock();
+                }
+
                 if (GUILayout.Button("Generate Class Ability Dock"))
                 {
                     ClassAbilityDockGenerator.GenerateClassDock();
