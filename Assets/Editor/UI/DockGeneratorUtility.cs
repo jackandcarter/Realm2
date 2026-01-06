@@ -11,6 +11,7 @@ namespace Realm.Editor.UI
         private const string DockShortcutItemPrefabPath = "Assets/UI/Shared/Dock/DockShortcutItem.prefab";
 
         private const float SeparatorWidth = 2f;
+        private const float SeparatorHeight = 48f;
         private const float SectionSpacing = 12f;
         private const int HorizontalPadding = 16;
         private const int VerticalPadding = 10;
@@ -68,6 +69,7 @@ namespace Realm.Editor.UI
             rightSection.SetSiblingIndex(4);
 
             EnsureDockShortcutSection(rightSection);
+            EnsureRightSectionShortcutIds(rightSection);
         }
 
         internal static void EnsureDockShortcutSection(RectTransform rightSection)
@@ -154,6 +156,7 @@ namespace Realm.Editor.UI
             if (existing != null && existing.TryGetComponent(out RectTransform existingRect))
             {
                 EnsureSeparatorComponents(existingRect);
+                EnsureSeparatorLayout(existingRect);
                 return existingRect;
             }
 
@@ -166,9 +169,10 @@ namespace Realm.Editor.UI
             rect.anchorMin = new Vector2(0f, 0.5f);
             rect.anchorMax = new Vector2(0f, 0.5f);
             rect.pivot = new Vector2(0.5f, 0.5f);
-            rect.sizeDelta = new Vector2(SeparatorWidth, 48f);
+            rect.sizeDelta = new Vector2(SeparatorWidth, SeparatorHeight);
 
             EnsureSeparatorComponents(rect);
+            EnsureSeparatorLayout(rect);
             return rect;
         }
 
@@ -196,9 +200,47 @@ namespace Realm.Editor.UI
             layout.preferredWidth = SeparatorWidth;
             layout.minWidth = SeparatorWidth;
             layout.flexibleWidth = 0f;
-            layout.preferredHeight = 48f;
-            layout.minHeight = 48f;
+            layout.preferredHeight = SeparatorHeight;
+            layout.minHeight = SeparatorHeight;
             layout.flexibleHeight = 1f;
+        }
+
+        private static void EnsureSeparatorLayout(RectTransform rect)
+        {
+            rect.anchorMin = new Vector2(0f, 0.5f);
+            rect.anchorMax = new Vector2(0f, 0.5f);
+            rect.pivot = new Vector2(0.5f, 0.5f);
+            rect.sizeDelta = new Vector2(SeparatorWidth, SeparatorHeight);
+        }
+
+        private static void EnsureRightSectionShortcutIds(RectTransform rightSection)
+        {
+            if (rightSection == null)
+            {
+                return;
+            }
+
+            foreach (Transform child in rightSection)
+            {
+                if (child == null)
+                {
+                    continue;
+                }
+
+                var shortcutId = child.GetComponent<DockShortcutId>();
+                if (shortcutId == null)
+                {
+                    shortcutId = Undo.AddComponent<DockShortcutId>(child.gameObject);
+                }
+
+                var serialized = new SerializedObject(shortcutId);
+                var property = serialized.FindProperty("shortcutId");
+                if (property != null && string.IsNullOrWhiteSpace(property.stringValue))
+                {
+                    property.stringValue = child.gameObject.name;
+                    serialized.ApplyModifiedPropertiesWithoutUndo();
+                }
+            }
         }
 
         private static void ApplyUiLayer(GameObject target)

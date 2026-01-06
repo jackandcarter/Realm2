@@ -25,6 +25,8 @@ namespace Realm.Editor.UI
 
             DockGeneratorUtility.ConfigureMasterDockLayout(root, out var leftSection, out var centerSection, out _);
 
+            EnsureLeftWeaponSection(leftSection, font);
+
             var abilityButtons = FindOrCreateChildRect(centerSection.transform, "AbilityButtons");
             ConfigureAbilityButtons(abilityButtons);
 
@@ -141,6 +143,14 @@ namespace Realm.Editor.UI
             {
                 text.text = "Ready.";
             }
+
+            var layout = text.GetComponent<LayoutElement>();
+            if (layout == null)
+            {
+                layout = Undo.AddComponent<LayoutElement>(text.gameObject);
+            }
+
+            layout.ignoreLayout = true;
         }
 
         private static GameObject FindOrCreateButtonTemplate(RectTransform parent, TMP_FontAsset font)
@@ -272,5 +282,141 @@ namespace Realm.Editor.UI
                 Undo.AddComponent<T>(target);
             }
         }
+
+        private static void EnsureLeftWeaponSection(RectTransform leftSection, TMP_FontAsset font)
+        {
+            if (leftSection == null)
+            {
+                return;
+            }
+
+            var layout = leftSection.GetComponent<HorizontalLayoutGroup>();
+            if (layout == null)
+            {
+                layout = Undo.AddComponent<HorizontalLayoutGroup>(leftSection.gameObject);
+            }
+
+            layout.spacing = 8f;
+            layout.padding = new RectOffset(12, 12, 8, 8);
+            layout.childAlignment = TextAnchor.MiddleLeft;
+            layout.childControlWidth = false;
+            layout.childControlHeight = false;
+            layout.childForceExpandWidth = false;
+            layout.childForceExpandHeight = false;
+
+            EnsureWeaponButton(leftSection, "LightWeaponButton", "Light", font);
+            EnsureWeaponButton(leftSection, "MediumWeaponButton", "Medium", font);
+            EnsureWeaponButton(leftSection, "HeavyWeaponButton", "Heavy", font);
+        }
+
+        private static void EnsureWeaponButton(Transform parent, string name, string label, TMP_FontAsset font)
+        {
+            var existing = parent.Find(name);
+            if (existing != null && existing.TryGetComponent(out Button existingButton))
+            {
+                ConfigureWeaponButton(existingButton, label, font);
+                return;
+            }
+
+            var buttonObject = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button), typeof(HorizontalLayoutGroup));
+            Undo.RegisterCreatedObjectUndo(buttonObject, "Create Arkitect Dock Weapon Button");
+            buttonObject.transform.SetParent(parent, false);
+            ApplyUiLayer(buttonObject);
+
+            var rect = buttonObject.GetComponent<RectTransform>();
+            rect.sizeDelta = new Vector2(120f, 40f);
+
+            var button = buttonObject.GetComponent<Button>();
+            ConfigureWeaponButton(button, label, font);
+        }
+
+        private static void ConfigureWeaponButton(Button button, string label, TMP_FontAsset font)
+        {
+            if (button == null)
+            {
+                return;
+            }
+
+            var image = button.GetComponent<Image>();
+            if (image == null)
+            {
+                image = Undo.AddComponent<Image>(button.gameObject);
+            }
+
+            image.color = new Color(0.118f, 0.149f, 0.231f, 0.9f);
+
+            var layout = button.GetComponent<HorizontalLayoutGroup>();
+            if (layout == null)
+            {
+                layout = Undo.AddComponent<HorizontalLayoutGroup>(button.gameObject);
+            }
+
+            layout.spacing = 6f;
+            layout.padding = new RectOffset(10, 10, 4, 4);
+            layout.childAlignment = TextAnchor.MiddleLeft;
+            layout.childControlWidth = false;
+            layout.childControlHeight = false;
+            layout.childForceExpandWidth = false;
+            layout.childForceExpandHeight = false;
+
+            var icon = FindOrCreateWeaponIcon(button.transform);
+            icon.color = Color.white;
+
+            var text = FindOrCreateWeaponLabel(button.transform, label);
+            if (font != null)
+            {
+                text.font = font;
+            }
+
+            text.fontSize = 16f;
+            text.color = new Color(0.902f, 0.922f, 0.957f, 1f);
+            text.alignment = TextAlignmentOptions.MidlineLeft;
+            text.raycastTarget = false;
+        }
+
+        private static Image FindOrCreateWeaponIcon(Transform parent)
+        {
+            var existing = parent.Find("Icon");
+            if (existing != null && existing.TryGetComponent(out Image existingImage))
+            {
+                return existingImage;
+            }
+
+            var iconObject = new GameObject("Icon", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            Undo.RegisterCreatedObjectUndo(iconObject, "Create Arkitect Dock Weapon Icon");
+            iconObject.transform.SetParent(parent, false);
+            ApplyUiLayer(iconObject);
+
+            var rect = iconObject.GetComponent<RectTransform>();
+            rect.sizeDelta = new Vector2(20f, 20f);
+
+            var image = iconObject.GetComponent<Image>();
+            image.raycastTarget = false;
+            image.preserveAspect = true;
+            return image;
+        }
+
+        private static TextMeshProUGUI FindOrCreateWeaponLabel(Transform parent, string label)
+        {
+            var existing = parent.Find("Label");
+            if (existing != null && existing.TryGetComponent(out TextMeshProUGUI existingText))
+            {
+                existingText.text = label;
+                return existingText;
+            }
+
+            var labelObject = new GameObject("Label", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
+            Undo.RegisterCreatedObjectUndo(labelObject, "Create Arkitect Dock Weapon Label");
+            labelObject.transform.SetParent(parent, false);
+            ApplyUiLayer(labelObject);
+
+            var rect = labelObject.GetComponent<RectTransform>();
+            rect.sizeDelta = new Vector2(0f, 24f);
+
+            var text = labelObject.GetComponent<TextMeshProUGUI>();
+            text.text = label;
+            return text;
+        }
+
     }
 }
