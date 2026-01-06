@@ -13,6 +13,7 @@ namespace Client.UI.HUD.Dock
         [SerializeField] private Button lightButton;
         [SerializeField] private Button mediumButton;
         [SerializeField] private Button heavyButton;
+        [SerializeField] private Button specialButton;
         [SerializeField] private Image specialReadyIndicator;
 
         [Header("Runtime")]
@@ -61,7 +62,7 @@ namespace Client.UI.HUD.Dock
 
         private void CacheButtons()
         {
-            if (lightButton == null || mediumButton == null || heavyButton == null)
+            if (lightButton == null || mediumButton == null || heavyButton == null || specialButton == null)
             {
                 var buttons = GetComponentsInChildren<Button>(true);
                 foreach (var button in buttons)
@@ -81,6 +82,9 @@ namespace Client.UI.HUD.Dock
                             break;
                         case "HeavyWeaponButton":
                             heavyButton = button;
+                            break;
+                        case "SpecialWeaponButton":
+                            specialButton = button;
                             break;
                     }
                 }
@@ -116,6 +120,12 @@ namespace Client.UI.HUD.Dock
                 heavyButton.onClick.RemoveListener(HandleHeavyClicked);
                 heavyButton.onClick.AddListener(HandleHeavyClicked);
             }
+
+            if (specialButton != null)
+            {
+                specialButton.onClick.RemoveListener(HandleSpecialClicked);
+                specialButton.onClick.AddListener(HandleSpecialClicked);
+            }
         }
 
         private void UnbindButtons()
@@ -134,6 +144,11 @@ namespace Client.UI.HUD.Dock
             {
                 heavyButton.onClick.RemoveListener(HandleHeavyClicked);
             }
+
+            if (specialButton != null)
+            {
+                specialButton.onClick.RemoveListener(HandleSpecialClicked);
+            }
         }
 
         private void HandleLightClicked()
@@ -149,6 +164,16 @@ namespace Client.UI.HUD.Dock
         private void HandleHeavyClicked()
         {
             RegisterAttack(WeaponComboInputType.Heavy);
+        }
+
+        private void HandleSpecialClicked()
+        {
+            if (comboTracker == null)
+            {
+                return;
+            }
+
+            comboTracker.TryConsumeSpecialReady();
         }
 
         private void RegisterAttack(WeaponComboInputType inputType)
@@ -198,11 +223,13 @@ namespace Client.UI.HUD.Dock
 
             var canAttack = !string.IsNullOrWhiteSpace(_equippedWeaponId);
             SetButtonsInteractable(canAttack);
+            UpdateSpecialButtonState();
         }
 
         private void OnSpecialReadyChanged(bool isReady)
         {
             SetSpecialIndicator(isReady);
+            UpdateSpecialButtonState();
         }
 
         private void SetSpecialIndicator(bool active)
@@ -231,6 +258,17 @@ namespace Client.UI.HUD.Dock
             {
                 heavyButton.interactable = interactable;
             }
+        }
+
+        private void UpdateSpecialButtonState()
+        {
+            if (specialButton == null)
+            {
+                return;
+            }
+
+            var ready = comboTracker != null && comboTracker.IsSpecialReady;
+            specialButton.interactable = !string.IsNullOrWhiteSpace(_equippedWeaponId) && ready;
         }
     }
 }

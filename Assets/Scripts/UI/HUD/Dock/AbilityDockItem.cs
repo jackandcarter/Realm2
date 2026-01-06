@@ -12,13 +12,18 @@ namespace Client.UI.HUD.Dock
     {
         [SerializeField] private Image iconImage;
         [SerializeField] private TMP_Text label;
+        [SerializeField] private TMP_Text hotkeyLabel;
         [SerializeField] private CanvasGroup canvasGroup;
+        [SerializeField] private Button button;
 
         private ClassAbilityDockModule _owner;
         private ClassAbilityCatalog.ClassAbilityDockEntry _entry;
+        private string _layoutId;
+        private bool _isPlaceholder;
         private bool _dragging;
 
         public string AbilityId => _entry.AbilityId;
+        public string LayoutId => _layoutId;
 
         internal void Initialize(ClassAbilityDockModule owner)
         {
@@ -43,11 +48,31 @@ namespace Client.UI.HUD.Dock
             {
                 label = GetComponentInChildren<TMP_Text>();
             }
+
+            if (hotkeyLabel == null)
+            {
+                var texts = GetComponentsInChildren<TMP_Text>(true);
+                foreach (var text in texts)
+                {
+                    if (text != label)
+                    {
+                        hotkeyLabel = text;
+                        break;
+                    }
+                }
+            }
+
+            if (button == null)
+            {
+                button = GetComponent<Button>();
+            }
         }
 
         internal void Bind(ClassAbilityCatalog.ClassAbilityDockEntry entry, Sprite icon)
         {
             _entry = entry;
+            _layoutId = entry.AbilityId;
+            _isPlaceholder = false;
 
             if (label != null)
             {
@@ -60,12 +85,55 @@ namespace Client.UI.HUD.Dock
                 iconImage.enabled = icon != null;
             }
 
+            if (button != null)
+            {
+                button.interactable = true;
+            }
+
             gameObject.name = $"AbilityDockItem_{entry.AbilityId}";
+        }
+
+        internal void BindPlaceholder(string placeholderId)
+        {
+            _entry = default;
+            _layoutId = placeholderId;
+            _isPlaceholder = true;
+
+            if (label != null)
+            {
+                label.text = string.Empty;
+            }
+
+            if (iconImage != null)
+            {
+                iconImage.sprite = null;
+                iconImage.enabled = false;
+            }
+
+            if (button != null)
+            {
+                button.interactable = false;
+            }
+
+            gameObject.name = $"AbilityDockSlot_{placeholderId}";
+        }
+
+        internal void SetHotkeyLabel(string hotkey)
+        {
+            if (hotkeyLabel != null)
+            {
+                hotkeyLabel.text = hotkey;
+            }
         }
 
         public void OnBeginDrag(PointerEventData eventData)
         {
             if (_owner == null)
+            {
+                return;
+            }
+
+            if (_isPlaceholder)
             {
                 return;
             }

@@ -14,6 +14,7 @@ namespace Client.UI.HUD
         [SerializeField] private RectTransform classDockAnchor;
         [SerializeField] private GameObject masterDockPrefab;
         [SerializeField] private List<ClassUiModuleBinding> classUiModules = new();
+        [SerializeField] private ClassAbilityDockModule abilityDockModule;
 
         private string _activeClassId;
         private IClassUiModule _activeModule;
@@ -157,6 +158,11 @@ namespace Client.UI.HUD
                     continue;
                 }
 
+                if (component is ClassAbilityDockModule)
+                {
+                    continue;
+                }
+
                 var module = (IClassUiModule)component;
                 var moduleClassId = ResolveClassId(module, null);
                 if (!string.IsNullOrWhiteSpace(moduleClassId) &&
@@ -200,6 +206,7 @@ namespace Client.UI.HUD
                     _centerSection = center;
                     _rightSection = FindSection(child, "RightSection");
                     InitializeShortcutSection();
+                    EnsureAbilityDockModule();
                     return;
                 }
             }
@@ -214,6 +221,7 @@ namespace Client.UI.HUD
             _centerSection = FindSection(instance.transform, "CenterSection");
             _rightSection = FindSection(instance.transform, "RightSection");
             InitializeShortcutSection();
+            EnsureAbilityDockModule();
         }
 
         private static RectTransform FindSection(Transform root, string name)
@@ -261,6 +269,26 @@ namespace Client.UI.HUD
             var storedOrder = DockShortcutLayoutStore.GetLayout(defaultOrder);
             var finalOrder = MergeOrders(storedOrder, defaultOrder, lookup.Keys);
             ApplyShortcutOrder(finalOrder, lookup);
+        }
+
+        private void EnsureAbilityDockModule()
+        {
+            if (_centerSection == null)
+            {
+                return;
+            }
+
+            if (abilityDockModule == null)
+            {
+                abilityDockModule = _centerSection.GetComponentInChildren<ClassAbilityDockModule>(true);
+            }
+
+            if (abilityDockModule == null)
+            {
+                return;
+            }
+
+            abilityDockModule.Mount(_centerSection);
         }
 
         private static string ResolveShortcutId(Transform shortcutTransform)
