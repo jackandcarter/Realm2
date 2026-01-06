@@ -35,11 +35,11 @@ namespace Realm.Data
         [SerializeField, Tooltip("Growth modifiers that apply after the base stat curve is evaluated.")]
         private List<ClassStatCurve> growthModifiers = new();
 
-        [SerializeField, Tooltip("Armor categories the class may equip.")]
-        private List<ArmorType> allowedArmorTypes = new();
+        [SerializeField, Tooltip("Armor types the class may equip.")]
+        private List<ArmorTypeDefinition> allowedArmorTypes = new();
 
-        [SerializeField, Tooltip("Weapon categories the class may equip.")]
-        private List<WeaponType> allowedWeaponTypes = new();
+        [SerializeField, Tooltip("Weapon types the class may equip.")]
+        private List<WeaponTypeDefinition> allowedWeaponTypes = new();
 
         [SerializeField, Tooltip("Ability unlocks describing how the class gains access to abilities.")]
         private List<ClassAbilityUnlock> abilityUnlocks = new();
@@ -53,8 +53,8 @@ namespace Realm.Data
         public StatProfileDefinition StatProfile => statProfile;
         public IReadOnlyList<ClassStatCurve> BaseStatCurves => baseStatCurves;
         public IReadOnlyList<ClassStatCurve> GrowthModifiers => growthModifiers;
-        public IReadOnlyList<ArmorType> AllowedArmorTypes => allowedArmorTypes;
-        public IReadOnlyList<WeaponType> AllowedWeaponTypes => allowedWeaponTypes;
+        public IReadOnlyList<ArmorTypeDefinition> AllowedArmorTypes => allowedArmorTypes;
+        public IReadOnlyList<WeaponTypeDefinition> AllowedWeaponTypes => allowedWeaponTypes;
         public IReadOnlyList<ClassAbilityUnlock> AbilityUnlocks => abilityUnlocks;
 
         public ClassStatCurve FindBaseCurve(StatDefinition stat)
@@ -105,8 +105,8 @@ namespace Realm.Data
             RemoveNullsAndDuplicates(statCategories);
             RemoveNullCurves(baseStatCurves);
             RemoveNullCurves(growthModifiers);
-            RemoveDuplicateValues(allowedArmorTypes);
-            RemoveDuplicateValues(allowedWeaponTypes);
+            RemoveNullsAndDuplicates(allowedArmorTypes);
+            RemoveNullsAndDuplicates(allowedWeaponTypes);
             NormalizeAbilityUnlocks(abilityUnlocks);
 
 #if UNITY_EDITOR
@@ -128,23 +128,6 @@ namespace Realm.Data
             {
                 var entry = items[i];
                 if (entry == null || !seen.Add(entry))
-                {
-                    items.RemoveAt(i);
-                }
-            }
-        }
-
-        private static void RemoveDuplicateValues<T>(List<T> items)
-        {
-            if (items == null)
-            {
-                return;
-            }
-
-            var seen = new HashSet<T>();
-            for (var i = items.Count - 1; i >= 0; i--)
-            {
-                if (!seen.Add(items[i]))
                 {
                     items.RemoveAt(i);
                 }
