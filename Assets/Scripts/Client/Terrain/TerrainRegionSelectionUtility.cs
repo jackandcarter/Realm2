@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
+using UnityObject = UnityEngine.Object;
 
 namespace Client.Terrain
 {
@@ -28,9 +29,9 @@ namespace Client.Terrain
         {
             TerrainRegion[] regions;
 #if UNITY_2023_1_OR_NEWER
-            regions = UnityEngine.Object.FindObjectsByType<TerrainRegion>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+            regions = UnityObject.FindObjectsByType<TerrainRegion>(FindObjectsInactive.Include, FindObjectsSortMode.None);
 #else
-            regions = UnityEngine.Object.FindObjectsOfType<TerrainRegion>(true);
+            regions = UnityObject.FindObjectsOfType<TerrainRegion>(true);
 #endif
             return regions == null ? new List<TerrainRegion>() : regions.Where(region => region != null).Distinct().ToList();
         }
