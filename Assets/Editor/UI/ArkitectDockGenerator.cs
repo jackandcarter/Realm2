@@ -23,10 +23,12 @@ namespace Realm.Editor.UI
             var rootRect = root.GetComponent<RectTransform>();
             ConfigureRoot(rootRect);
 
-            var abilityButtons = FindOrCreateChildRect(root.transform, "AbilityButtons");
+            DockGeneratorUtility.ConfigureMasterDockLayout(root, out var leftSection, out var centerSection, out _);
+
+            var abilityButtons = FindOrCreateChildRect(centerSection.transform, "AbilityButtons");
             ConfigureAbilityButtons(abilityButtons);
 
-            var statusLabel = FindOrCreateStatusLabel(root.transform, font);
+            var statusLabel = FindOrCreateStatusLabel(leftSection.transform, font);
 
             var buttonTemplate = FindOrCreateButtonTemplate(abilityButtons, font);
 
@@ -44,9 +46,10 @@ namespace Realm.Editor.UI
                 return existing;
             }
 
-            var root = new GameObject("ArkitectDockModule", typeof(RectTransform), typeof(ArkitectUIManager), typeof(BuilderAbilityController), typeof(BuilderDockAbilityBinder));
-            Undo.RegisterCreatedObjectUndo(root, "Create Arkitect Dock");
-            ApplyUiLayer(root);
+            var root = DockGeneratorUtility.InstantiateDockRoot("ArkitectDockModule", "Create Arkitect Dock");
+            EnsureComponent<ArkitectUIManager>(root);
+            EnsureComponent<BuilderAbilityController>(root);
+            EnsureComponent<BuilderDockAbilityBinder>(root);
             return root.GetComponent<ArkitectUIManager>();
         }
 
@@ -71,16 +74,16 @@ namespace Realm.Editor.UI
             rect.anchorMax = new Vector2(0.5f, 0f);
             rect.pivot = new Vector2(0.5f, 0f);
             rect.anchoredPosition = new Vector2(0f, 32f);
-            rect.sizeDelta = new Vector2(600f, 120f);
+            rect.sizeDelta = new Vector2(640f, 160f);
         }
 
         private static void ConfigureAbilityButtons(RectTransform rect)
         {
-            rect.anchorMin = new Vector2(0.5f, 1f);
-            rect.anchorMax = new Vector2(0.5f, 1f);
-            rect.pivot = new Vector2(0.5f, 1f);
-            rect.anchoredPosition = new Vector2(0f, -8f);
-            rect.sizeDelta = new Vector2(560f, 64f);
+            rect.anchorMin = Vector2.zero;
+            rect.anchorMax = Vector2.one;
+            rect.pivot = new Vector2(0.5f, 0.5f);
+            rect.anchoredPosition = Vector2.zero;
+            rect.sizeDelta = Vector2.zero;
 
             var layout = rect.GetComponent<HorizontalLayoutGroup>();
             if (layout == null)
@@ -89,8 +92,8 @@ namespace Realm.Editor.UI
             }
 
             layout.spacing = 12f;
-            layout.padding.left = 8;
-            layout.padding.right = 8;
+            layout.padding.left = 12;
+            layout.padding.right = 12;
             layout.childAlignment = TextAnchor.MiddleCenter;
             layout.childControlHeight = true;
             layout.childControlWidth = true;
@@ -259,6 +262,14 @@ namespace Realm.Editor.UI
             if (uiLayer >= 0)
             {
                 target.layer = uiLayer;
+            }
+        }
+
+        private static void EnsureComponent<T>(GameObject target) where T : Component
+        {
+            if (target.GetComponent<T>() == null)
+            {
+                Undo.AddComponent<T>(target);
             }
         }
     }
