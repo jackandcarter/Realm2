@@ -5,6 +5,7 @@ using Building;
 using Client.CharacterCreation;
 using Client.Builder;
 using Client.UI.HUD;
+using Client.UI.HUD.Dock;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -352,14 +353,14 @@ namespace Client.UI
         private void WireTabs()
         {
             _tabs.Clear();
-            RegisterTab(plotsTabButton, plotsPanel);
-            RegisterTab(terrainTabButton, terrainPanel);
-            RegisterTab(materialsTabButton, materialsPanel);
-            RegisterTab(blueprintsTabButton, blueprintsPanel);
-            RegisterTab(commissionTabButton, commissionPanel);
+            RegisterTab(plotsTabButton, plotsPanel, PlotsPanelRegistryId);
+            RegisterTab(terrainTabButton, terrainPanel, TerrainPanelRegistryId);
+            RegisterTab(materialsTabButton, materialsPanel, MaterialsPanelRegistryId);
+            RegisterTab(blueprintsTabButton, blueprintsPanel, BlueprintsPanelRegistryId);
+            RegisterTab(commissionTabButton, commissionPanel, CommissionsPanelRegistryId);
         }
 
-        private void RegisterTab(Button button, GameObject panel)
+        private void RegisterTab(Button button, GameObject panel, string registryId)
         {
             if (button == null)
             {
@@ -377,8 +378,52 @@ namespace Client.UI
             }
 
             image.color = inactiveTabColor;
+            BindDockShortcutSource(button, targetPanel, registryId);
 
             _tabs.Add(new TabBinding { Button = button, Panel = panel });
+        }
+
+        private void BindDockShortcutSource(Button button, GameObject panel, string registryId)
+        {
+            if (button == null || panel == null || string.IsNullOrWhiteSpace(registryId))
+            {
+                return;
+            }
+
+            var source = button.GetComponent<DockShortcutDragSource>();
+            if (source == null)
+            {
+                source = button.gameObject.AddComponent<DockShortcutDragSource>();
+            }
+
+            var displayName = ResolveButtonLabel(button, panel);
+            var icon = button.TryGetComponent(out Image image) ? image.sprite : null;
+            var actionMetadata = new DockShortcutActionMetadata("arkitect.panel", registryId);
+            var entry = new DockShortcutEntry(registryId, displayName, icon, actionMetadata);
+
+            source.Configure(entry, () => ShowPanel(panel));
+        }
+
+        private static string ResolveButtonLabel(Button button, GameObject panel)
+        {
+            if (button == null)
+            {
+                return panel != null ? panel.name : string.Empty;
+            }
+
+            var label = button.GetComponentInChildren<TMP_Text>(true);
+            if (label != null && !string.IsNullOrWhiteSpace(label.text))
+            {
+                return label.text.Trim();
+            }
+
+            var legacyLabel = button.GetComponentInChildren<Text>(true);
+            if (legacyLabel != null && !string.IsNullOrWhiteSpace(legacyLabel.text))
+            {
+                return legacyLabel.text.Trim();
+            }
+
+            return panel != null ? panel.name : button.name;
         }
 
         private void ShowPanel(GameObject panel)
