@@ -126,6 +126,11 @@ namespace Client.UI.HUD.Dock
             PersistLayout();
         }
 
+        internal void AddShortcutFromSource(IDockShortcutSource source)
+        {
+            AddShortcut(source);
+        }
+
         private void AddShortcut(IDockShortcutSource source)
         {
             if (source == null)
