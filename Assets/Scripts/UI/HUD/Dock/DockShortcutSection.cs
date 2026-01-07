@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -119,7 +120,7 @@ namespace Client.UI.HUD.Dock
                 _itemLookup.Remove(shortcutId);
                 if (item != null)
                 {
-                    Destroy(item.gameObject);
+                    StartCoroutine(RemoveWithAnimation(item));
                 }
             }
 
@@ -348,6 +349,29 @@ namespace Client.UI.HUD.Dock
             layout.childForceExpandHeight = false;
             layout.childForceExpandWidth = false;
             layout.spacing = 8f;
+
+            if (!TryGetComponent(out DockMagnifier _))
+            {
+                gameObject.AddComponent<DockMagnifier>();
+            }
+        }
+
+        private IEnumerator RemoveWithAnimation(DockShortcutItem item)
+        {
+            if (item == null)
+            {
+                yield break;
+            }
+
+            if (item.TryGetComponent(out DockItemAnimator animator))
+            {
+                yield return animator.PlayExit();
+            }
+
+            if (item != null)
+            {
+                Destroy(item.gameObject);
+            }
         }
 
         private static IDockShortcutSource ResolveSource(GameObject dragObject)

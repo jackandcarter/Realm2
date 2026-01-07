@@ -15,6 +15,7 @@ namespace Client.UI.HUD.Dock
         [SerializeField] private TMP_Text hotkeyLabel;
         [SerializeField] private CanvasGroup canvasGroup;
         [SerializeField] private Button button;
+        [SerializeField] private DockItemAnimator dockAnimator;
 
         private ClassAbilityDockModule _owner;
         private ClassAbilityCatalog.ClassAbilityDockEntry _entry;
@@ -24,6 +25,7 @@ namespace Client.UI.HUD.Dock
 
         public string AbilityId => _entry.AbilityId;
         public string LayoutId => _layoutId;
+        internal bool IsPlaceholder => _isPlaceholder;
 
         internal void Initialize(ClassAbilityDockModule owner)
         {
@@ -66,6 +68,15 @@ namespace Client.UI.HUD.Dock
             {
                 button = GetComponent<Button>();
             }
+
+            if (dockAnimator == null)
+            {
+                dockAnimator = GetComponent<DockItemAnimator>();
+                if (dockAnimator == null)
+                {
+                    dockAnimator = gameObject.AddComponent<DockItemAnimator>();
+                }
+            }
         }
 
         internal void Bind(ClassAbilityCatalog.ClassAbilityDockEntry entry, Sprite icon)
@@ -89,6 +100,8 @@ namespace Client.UI.HUD.Dock
             {
                 button.interactable = true;
             }
+
+            dockAnimator?.ClearAbilityTiming();
 
             gameObject.name = $"AbilityDockItem_{entry.AbilityId}";
         }
@@ -115,6 +128,8 @@ namespace Client.UI.HUD.Dock
                 button.interactable = false;
             }
 
+            dockAnimator?.ClearAbilityTiming();
+
             gameObject.name = $"AbilityDockSlot_{placeholderId}";
         }
 
@@ -124,6 +139,15 @@ namespace Client.UI.HUD.Dock
             {
                 hotkeyLabel.text = hotkey;
             }
+        }
+
+        internal void SetAbilityState(DockAbilityState state)
+        {
+            dockAnimator?.SetAbilityTiming(
+                state.CastDuration,
+                state.CastRemaining,
+                state.CooldownDuration,
+                state.CooldownRemaining);
         }
 
         public void OnBeginDrag(PointerEventData eventData)
@@ -141,6 +165,11 @@ namespace Client.UI.HUD.Dock
             if (canvasGroup == null)
             {
                 return;
+            }
+
+            if (dockAnimator != null)
+            {
+                dockAnimator.enabled = false;
             }
 
             _dragging = true;
@@ -175,6 +204,11 @@ namespace Client.UI.HUD.Dock
             canvasGroup.alpha = 1f;
             canvasGroup.blocksRaycasts = true;
             _owner.EndDrag(this);
+
+            if (dockAnimator != null)
+            {
+                dockAnimator.enabled = true;
+            }
         }
 
         public void OnDrop(PointerEventData eventData)
