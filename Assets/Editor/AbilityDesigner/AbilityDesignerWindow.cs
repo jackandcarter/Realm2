@@ -1,4 +1,7 @@
+using System;
 using System.Collections.Generic;
+using System.Linq;
+using Client.CharacterCreation;
 using UnityEditor;
 using UnityEditorInternal;
 using UnityEngine;
@@ -23,6 +26,11 @@ namespace Realm.EditorTools
         private readonly List<(string message, MessageType type)> _validationMessages = new();
         private Vector2 _scrollPosition;
         private GUIStyle _wrapStyle;
+        private ClassAbilityProgression _progressionAsset;
+        private string[] _progressionClassOptions = Array.Empty<string>();
+        private string _progressionClassId = string.Empty;
+        private int _progressionLevel = 1;
+        private bool _registerInClassProgression;
 
         [MenuItem("Tools/Designer/Ability Designer", priority = 130)]
         public static void Open()
@@ -34,6 +42,7 @@ namespace Realm.EditorTools
         private void OnEnable()
         {
             CreateWorkingCopy();
+            EnsureProgressionAsset();
             RefreshValidation();
         }
 
@@ -217,6 +226,8 @@ namespace Realm.EditorTools
             EditorGUILayout.Space(12f);
             DrawEffectsSection();
             EditorGUILayout.Space(12f);
+            DrawClassProgressionSection();
+            EditorGUILayout.Space(12f);
             DrawValidationSection();
             EditorGUILayout.Space(12f);
             DrawSummarySection();
@@ -379,6 +390,79 @@ namespace Realm.EditorTools
             _effectsList.DoLayoutList();
         }
 
+        private void DrawClassProgressionSection()
+        {
+            EditorGUILayout.LabelField("Class Progression", EditorStyles.boldLabel);
+            EditorGUILayout.HelpBox("Optionally register this ability into the class progression asset at a specific level.", MessageType.Info);
+
+            var updatedProgression = (ClassAbilityProgression)EditorGUILayout.ObjectField(
+                new GUIContent("Progression Asset", "ClassAbilityProgression asset to update when registering this ability."),
+                _progressionAsset,
+                typeof(ClassAbilityProgression),
+                false);
+
+            if (updatedProgression != _progressionAsset)
+            {
+                _progressionAsset = updatedProgression;
+                RefreshProgressionOptions();
+            }
+
+            if (_progressionAsset == null)
+            {
+                EditorGUILayout.HelpBox("No class progression asset selected. Assign one to enable registration.", MessageType.Warning);
+                return;
+            }
+
+            if (_progressionClassOptions.Length > 0)
+            {
+                var options = _progressionClassOptions.Concat(new[] { "Custom..." }).ToArray();
+                var selectedIndex = Array.FindIndex(_progressionClassOptions,
+                    option => string.Equals(option, _progressionClassId, StringComparison.OrdinalIgnoreCase));
+                if (selectedIndex < 0)
+                {
+                    selectedIndex = _progressionClassOptions.Length;
+                }
+
+                selectedIndex = EditorGUILayout.Popup(new GUIContent("Class Id", "Class identifier to register this ability under."),
+                    selectedIndex, options);
+
+                if (selectedIndex >= 0 && selectedIndex < _progressionClassOptions.Length)
+                {
+                    _progressionClassId = _progressionClassOptions[selectedIndex];
+                }
+                else
+                {
+                    _progressionClassId = EditorGUILayout.TextField(new GUIContent("Custom Class Id"), _progressionClassId);
+                }
+            }
+            else
+            {
+                _progressionClassId = EditorGUILayout.TextField(new GUIContent("Class Id", "Class identifier to register this ability under."), _progressionClassId);
+            }
+
+            _progressionLevel = EditorGUILayout.IntField(new GUIContent("Unlock Level", "Level at which this ability becomes available."), _progressionLevel);
+
+            _registerInClassProgression = EditorGUILayout.ToggleLeft(
+                new GUIContent("Register in Class Progression on Save As", "Add this ability to the class progression asset when saving a new ability asset."),
+                _registerInClassProgression);
+
+            using (new EditorGUI.DisabledScope(_selectedAsset == null))
+            {
+                if (GUILayout.Button(new GUIContent("Register Selected Ability", "Add the selected ability asset to the class progression asset now.")))
+                {
+                    if (TryRegisterAbilityInProgression(_selectedAsset, out var feedback))
+                    {
+                        ShowNotification(new GUIContent(feedback));
+                        RefreshValidation();
+                    }
+                    else
+                    {
+                        EditorUtility.DisplayDialog("Register Ability", feedback, "OK");
+                    }
+                }
+            }
+        }
+
         private void DrawDeliverySection()
         {
             EditorGUILayout.LabelField("Hitbox Delivery", EditorStyles.boldLabel);
@@ -508,6 +592,18 @@ namespace Realm.EditorTools
 
             _selectedAsset = asset;
             EditorGUIUtility.PingObject(asset);
+
+            if (_registerInClassProgression)
+            {
+                if (!TryRegisterAbilityInProgression(asset, out var feedback))
+                {
+                    Debug.LogWarning($"Unable to register ability in class progression: {feedback}");
+                }
+                else
+                {
+                    ShowNotification(new GUIContent(feedback));
+                }
+            }
         }
 
         private void SaveToExistingAsset()
@@ -531,9 +627,27 @@ namespace Realm.EditorTools
                 return;
             }
 
+            EnsureProgressionAsset();
+
             var targeting = _workingCopy.Targeting;
             var execution = _workingCopy.Execution;
             var resource = _workingCopy.Resource;
+            var abilityGuid = GetAbilityGuid();
+
+            if (string.IsNullOrWhiteSpace(abilityGuid))
+            {
+                _validationMessages.Add(("Ability GUID is missing. Save the asset to generate a GUID.", MessageType.Warning));
+            }
+
+            if (_workingCopy.Icon == null)
+            {
+                _validationMessages.Add(("Assign an icon to ensure the dock registry uses the AbilityDefinition icon.", MessageType.Warning));
+            }
+
+            if (!string.IsNullOrWhiteSpace(abilityGuid) && _progressionAsset != null && !IsAbilityInProgression(abilityGuid))
+            {
+                _validationMessages.Add(("Ability GUID is not registered in the class progression asset.", MessageType.Warning));
+            }
 
             if (_workingCopy.Effects == null || _workingCopy.Effects.Count == 0)
             {
@@ -629,6 +743,305 @@ namespace Realm.EditorTools
                     _validationMessages.Add(($"Effect '{effect.Name}' has duration but no tick interval.", MessageType.Warning));
                 }
             }
+        }
+
+        private void EnsureProgressionAsset()
+        {
+            if (_progressionAsset != null)
+            {
+                return;
+            }
+
+            var guids = AssetDatabase.FindAssets("t:ClassAbilityProgression");
+            if (guids == null || guids.Length == 0)
+            {
+                return;
+            }
+
+            var path = AssetDatabase.GUIDToAssetPath(guids[0]);
+            _progressionAsset = AssetDatabase.LoadAssetAtPath<ClassAbilityProgression>(path);
+            RefreshProgressionOptions();
+        }
+
+        private void RefreshProgressionOptions()
+        {
+            _progressionClassOptions = Array.Empty<string>();
+            if (_progressionAsset == null)
+            {
+                return;
+            }
+
+            var tracked = _progressionAsset.GetTrackedClassIds();
+            if (tracked == null || tracked.Count == 0)
+            {
+                return;
+            }
+
+            _progressionClassOptions = tracked
+                .Where(id => !string.IsNullOrWhiteSpace(id))
+                .Select(id => id.Trim())
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(id => id, StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+
+            if (_progressionClassOptions.Length == 0)
+            {
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(_progressionClassId))
+            {
+                _progressionClassId = _progressionClassOptions[0];
+            }
+        }
+
+        private bool TryRegisterAbilityInProgression(AbilityDefinition ability, out string feedback)
+        {
+            if (ability == null)
+            {
+                feedback = "Select an ability asset before registering.";
+                return false;
+            }
+
+            if (string.IsNullOrWhiteSpace(ability.Guid))
+            {
+                feedback = "Ability GUID is missing. Save the asset to generate a GUID.";
+                return false;
+            }
+
+            if (_progressionAsset == null)
+            {
+                feedback = "No class progression asset is assigned.";
+                return false;
+            }
+
+            var classId = _progressionClassId?.Trim();
+            if (string.IsNullOrWhiteSpace(classId))
+            {
+                feedback = "Provide a class identifier to register the ability.";
+                return false;
+            }
+
+            var level = Mathf.Max(1, _progressionLevel);
+            var serializedProgression = new SerializedObject(_progressionAsset);
+            var tracksProperty = serializedProgression.FindProperty("classAbilityTracks");
+            if (tracksProperty == null || !tracksProperty.isArray)
+            {
+                feedback = "Progression asset does not expose class ability tracks.";
+                return false;
+            }
+
+            SerializedProperty trackProperty = null;
+            for (var i = 0; i < tracksProperty.arraySize; i++)
+            {
+                var element = tracksProperty.GetArrayElementAtIndex(i);
+                var classIdProperty = element.FindPropertyRelative("ClassId");
+                if (classIdProperty == null)
+                {
+                    continue;
+                }
+
+                if (string.Equals(classIdProperty.stringValue?.Trim(), classId, StringComparison.OrdinalIgnoreCase))
+                {
+                    trackProperty = element;
+                    break;
+                }
+            }
+
+            if (trackProperty == null)
+            {
+                tracksProperty.arraySize += 1;
+                trackProperty = tracksProperty.GetArrayElementAtIndex(tracksProperty.arraySize - 1);
+                var classIdProperty = trackProperty.FindPropertyRelative("ClassId");
+                if (classIdProperty != null)
+                {
+                    classIdProperty.stringValue = classId;
+                }
+
+                var levelsProperty = trackProperty.FindPropertyRelative("Levels");
+                if (levelsProperty != null && levelsProperty.isArray)
+                {
+                    levelsProperty.arraySize = 0;
+                }
+            }
+
+            if (trackProperty == null)
+            {
+                feedback = "Unable to create or locate a class track for the progression asset.";
+                return false;
+            }
+
+            var levelsList = trackProperty.FindPropertyRelative("Levels");
+            if (levelsList == null || !levelsList.isArray)
+            {
+                feedback = "Progression asset class track does not expose level entries.";
+                return false;
+            }
+
+            SerializedProperty levelEntry = null;
+            for (var i = 0; i < levelsList.arraySize; i++)
+            {
+                var entry = levelsList.GetArrayElementAtIndex(i);
+                var levelProperty = entry.FindPropertyRelative("Level");
+                if (levelProperty != null && levelProperty.intValue == level)
+                {
+                    levelEntry = entry;
+                    break;
+                }
+            }
+
+            if (levelEntry == null)
+            {
+                levelsList.arraySize += 1;
+                levelEntry = levelsList.GetArrayElementAtIndex(levelsList.arraySize - 1);
+                var levelProperty = levelEntry.FindPropertyRelative("Level");
+                if (levelProperty != null)
+                {
+                    levelProperty.intValue = level;
+                }
+
+                var abilitiesProperty = levelEntry.FindPropertyRelative("Abilities");
+                if (abilitiesProperty != null && abilitiesProperty.isArray)
+                {
+                    abilitiesProperty.arraySize = 0;
+                }
+            }
+
+            if (levelEntry == null)
+            {
+                feedback = "Unable to locate or create the level entry for registration.";
+                return false;
+            }
+
+            var abilitiesList = levelEntry.FindPropertyRelative("Abilities");
+            if (abilitiesList == null || !abilitiesList.isArray)
+            {
+                feedback = "Progression level entry does not expose ability definitions.";
+                return false;
+            }
+
+            SerializedProperty abilityEntry = null;
+            for (var i = 0; i < abilitiesList.arraySize; i++)
+            {
+                var entry = abilitiesList.GetArrayElementAtIndex(i);
+                var guidProperty = entry.FindPropertyRelative("abilityGuid");
+                var abilityProperty = entry.FindPropertyRelative("ability");
+                if (guidProperty != null && string.Equals(guidProperty.stringValue, ability.Guid, StringComparison.OrdinalIgnoreCase))
+                {
+                    abilityEntry = entry;
+                    break;
+                }
+
+                if (abilityProperty != null && abilityProperty.objectReferenceValue == ability)
+                {
+                    abilityEntry = entry;
+                    break;
+                }
+            }
+
+            if (abilityEntry == null)
+            {
+                abilitiesList.arraySize += 1;
+                abilityEntry = abilitiesList.GetArrayElementAtIndex(abilitiesList.arraySize - 1);
+            }
+
+            PopulateAbilityEntry(abilityEntry, ability);
+
+            serializedProgression.ApplyModifiedProperties();
+            EditorUtility.SetDirty(_progressionAsset);
+            AssetDatabase.SaveAssets();
+
+            feedback = $"Registered {ability.AbilityName} for {classId} at level {level}.";
+            return true;
+        }
+
+        private void PopulateAbilityEntry(SerializedProperty abilityEntry, AbilityDefinition ability)
+        {
+            if (abilityEntry == null || ability == null)
+            {
+                return;
+            }
+
+            var guidProperty = abilityEntry.FindPropertyRelative("abilityGuid");
+            if (guidProperty != null)
+            {
+                guidProperty.stringValue = ability.Guid;
+            }
+
+            var abilityProperty = abilityEntry.FindPropertyRelative("ability");
+            if (abilityProperty != null)
+            {
+                abilityProperty.objectReferenceValue = ability;
+            }
+
+            var displayNameProperty = abilityEntry.FindPropertyRelative("DisplayName");
+            if (displayNameProperty != null)
+            {
+                displayNameProperty.stringValue = ability.AbilityName;
+            }
+
+            var descriptionProperty = abilityEntry.FindPropertyRelative("Description");
+            if (descriptionProperty != null)
+            {
+                descriptionProperty.stringValue = ability.Description;
+            }
+
+            var tooltipProperty = abilityEntry.FindPropertyRelative("Tooltip");
+            if (tooltipProperty != null)
+            {
+                tooltipProperty.stringValue = ability.BuildSummary();
+            }
+        }
+
+        private bool IsAbilityInProgression(string abilityGuid)
+        {
+            if (_progressionAsset == null || string.IsNullOrWhiteSpace(abilityGuid))
+            {
+                return false;
+            }
+
+            var classIds = _progressionAsset.GetTrackedClassIds();
+            foreach (var classId in classIds)
+            {
+                var entries = _progressionAsset.GetProgression(classId);
+                if (entries == null)
+                {
+                    continue;
+                }
+
+                foreach (var entry in entries)
+                {
+                    if (entry?.Abilities == null)
+                    {
+                        continue;
+                    }
+
+                    foreach (var ability in entry.Abilities)
+                    {
+                        if (ability == null || string.IsNullOrWhiteSpace(ability.AbilityGuid))
+                        {
+                            continue;
+                        }
+
+                        if (string.Equals(ability.AbilityGuid.Trim(), abilityGuid, StringComparison.OrdinalIgnoreCase))
+                        {
+                            return true;
+                        }
+                    }
+                }
+            }
+
+            return false;
+        }
+
+        private string GetAbilityGuid()
+        {
+            if (_selectedAsset != null && !string.IsNullOrWhiteSpace(_selectedAsset.Guid))
+            {
+                return _selectedAsset.Guid;
+            }
+
+            return _workingCopy != null ? _workingCopy.Guid : string.Empty;
         }
     }
 }

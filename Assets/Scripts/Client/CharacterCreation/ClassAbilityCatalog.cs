@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Client.Combat;
+using Realm.Abilities;
 using UnityEngine;
 
 namespace Client.CharacterCreation
@@ -171,8 +173,56 @@ namespace Client.CharacterCreation
             {
                 Debug.LogWarning("ClassAbilityCatalog could not locate the ClassAbilityProgression asset under Resources/Progression.");
             }
+            else
+            {
+                RegisterProgressionAbilities(_progression);
+            }
 
             _attemptedLoad = true;
+        }
+
+        private static void RegisterProgressionAbilities(ClassAbilityProgression progression)
+        {
+            if (progression == null)
+            {
+                return;
+            }
+
+            var abilities = new List<AbilityDefinition>();
+            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            foreach (var classId in progression.GetTrackedClassIds())
+            {
+                var levels = progression.GetProgression(classId);
+                if (levels == null)
+                {
+                    continue;
+                }
+
+                foreach (var levelEntry in levels)
+                {
+                    if (levelEntry?.Abilities == null)
+                    {
+                        continue;
+                    }
+
+                    foreach (var abilityEntry in levelEntry.Abilities)
+                    {
+                        var ability = abilityEntry?.Ability;
+                        if (ability == null || string.IsNullOrWhiteSpace(ability.Guid))
+                        {
+                            continue;
+                        }
+
+                        if (seen.Add(ability.Guid))
+                        {
+                            abilities.Add(ability);
+                        }
+                    }
+                }
+            }
+
+            AbilityRegistry.RegisterAbilities(abilities);
         }
 
         public readonly struct ClassAbilityDisplayInfo
