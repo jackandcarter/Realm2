@@ -183,7 +183,7 @@ namespace Client.Player
             }
         }
 
-        private static bool TryGetDefaultWeapon(string classId, out WeaponDefinition weapon)
+        private static bool TryGetDefaultWeapon(string classId, out WeaponDefinition weapon, bool allowSeedFallback = false)
         {
             weapon = null;
             if (!_defaultWeaponCatalogLoaded)
@@ -192,17 +192,19 @@ namespace Client.Player
                 _defaultWeaponCatalogLoaded = true;
             }
 
-            if (_defaultWeaponCatalog == null)
+            if (_defaultWeaponCatalog != null)
             {
-                return DefaultWeaponSeedLibrary.TryCreateDefaultWeapon(classId, out weapon);
+                if (_defaultWeaponCatalog.TryGetDefaultWeapon(classId, out weapon))
+                {
+                    return true;
+                }
+
+                Debug.LogWarning($"Default weapon catalog has no weapon entry for class '{classId}'.");
+                return allowSeedFallback && DefaultWeaponSeedLibrary.TryCreateDefaultWeapon(classId, out weapon);
             }
 
-            if (_defaultWeaponCatalog.TryGetDefaultWeapon(classId, out weapon))
-            {
-                return true;
-            }
-
-            return DefaultWeaponSeedLibrary.TryCreateDefaultWeapon(classId, out weapon);
+            Debug.LogWarning("Default weapon catalog asset was not found. Assign a DefaultWeaponCatalog asset in Resources/Equipment to enable class defaults.");
+            return allowSeedFallback && DefaultWeaponSeedLibrary.TryCreateDefaultWeapon(classId, out weapon);
         }
 
         private static Dictionary<EquipmentSlot, EquipmentDefinition> GetOrCreateEquipmentForCharacter(string characterId)

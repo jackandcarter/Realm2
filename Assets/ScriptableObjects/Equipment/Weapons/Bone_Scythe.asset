@@ -1,0 +1,43 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 87038d46502a44fcb0c8bc197d398246, type: 3}
+  m_Name: Bone Scythe
+  m_EditorClassIdentifier:
+  guid: 5d7a1b3efc1e4b9c8c2d9a4fb7d7c004
+  displayName: Bone Scythe
+  description: Seeded weapon for Necromancer.
+  icon: {fileID: 0}
+  inventoryIcon: {fileID: 0}
+  dockIcon: {fileID: 0}
+  slot: 6
+  requiredClassIds:
+  - necromancer
+  requiredClasses: []
+  equipEffects: []
+  weaponType: {fileID: 0}
+  baseDamage: 12.0
+  lightAttack:
+    damageMultiplier: 0.8
+    accuracy: 0.7
+    windupSeconds: 0.2
+    recoverySeconds: 0.25
+  mediumAttack:
+    damageMultiplier: 1.0
+    accuracy: 0.82
+    windupSeconds: 0.3
+    recoverySeconds: 0.35
+  heavyAttack:
+    damageMultiplier: 1.35
+    accuracy: 0.92
+    windupSeconds: 0.45
+    recoverySeconds: 0.55
+  specialAttack: {fileID: 0}
