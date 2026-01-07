@@ -210,6 +210,8 @@ namespace Client.Combat
 
                 _abilityLookup[ability.Guid] = ability;
             }
+
+            AbilityRegistry.RegisterAbilities(abilityDefinitions);
         }
 
         private static AbilityHitboxConfig CloneHitbox(AbilityHitboxConfig source)
