@@ -793,7 +793,7 @@ namespace Client.UI
             if (_dockShortcutSection == null)
             {
 #if UNITY_2023_1_OR_NEWER
-                _dockShortcutSection = Object.FindFirstObjectByType<DockShortcutSection>(FindObjectsInactive.Include);
+                _dockShortcutSection = UnityEngine.Object.FindFirstObjectByType<DockShortcutSection>(FindObjectsInactive.Include);
 #else
                 _dockShortcutSection = FindObjectOfType<DockShortcutSection>(true);
 #endif
