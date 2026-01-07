@@ -21,6 +21,7 @@ namespace Client.UI.HUD.Dock
         private ClassAbilityCatalog.ClassAbilityDockEntry _entry;
         private string _layoutId;
         private bool _isPlaceholder;
+        private bool _isLocked;
         private bool _dragging;
 
         public string AbilityId => _entry.AbilityId;
@@ -111,6 +112,7 @@ namespace Client.UI.HUD.Dock
             _entry = default;
             _layoutId = placeholderId;
             _isPlaceholder = true;
+            _isLocked = true;
 
             if (label != null)
             {
@@ -150,6 +152,20 @@ namespace Client.UI.HUD.Dock
                 state.CooldownRemaining);
         }
 
+        internal void SetLocked(bool locked)
+        {
+            _isLocked = locked;
+            if (button != null)
+            {
+                button.interactable = !locked;
+            }
+
+            if (canvasGroup != null)
+            {
+                canvasGroup.alpha = locked ? 0.4f : 1f;
+            }
+        }
+
         public void OnBeginDrag(PointerEventData eventData)
         {
             if (_owner == null)
@@ -158,6 +174,11 @@ namespace Client.UI.HUD.Dock
             }
 
             if (_isPlaceholder)
+            {
+                return;
+            }
+
+            if (_isLocked)
             {
                 return;
             }

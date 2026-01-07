@@ -64,6 +64,7 @@ namespace Client.UI.HUD.Dock
             gameObject.SetActive(true);
             _mounted = true;
             PlayerClassStateManager.ActiveClassChanged += OnActiveClassChanged;
+            PlayerAbilityUnlockState.AbilityUnlocksChanged += OnAbilityUnlocksChanged;
             AttachStateSource();
             Rebind();
         }
@@ -71,6 +72,7 @@ namespace Client.UI.HUD.Dock
         public void Unmount()
         {
             PlayerClassStateManager.ActiveClassChanged -= OnActiveClassChanged;
+            PlayerAbilityUnlockState.AbilityUnlocksChanged -= OnAbilityUnlocksChanged;
             DetachStateSource();
             _mounted = false;
             gameObject.SetActive(false);
@@ -180,6 +182,16 @@ namespace Client.UI.HUD.Dock
             Rebind();
         }
 
+        private void OnAbilityUnlocksChanged()
+        {
+            if (!_mounted)
+            {
+                return;
+            }
+
+            RefreshUnlockStates();
+        }
+
         private void EnsureContainer()
         {
             if (_selfRect == null)
@@ -265,6 +277,7 @@ namespace Client.UI.HUD.Dock
                 else if (lookup.TryGetValue(abilityId, out var entry))
                 {
                     item.Bind(entry, ResolveIcon(entry.AbilityId));
+                    item.SetLocked(!PlayerAbilityUnlockState.IsAbilityUnlocked(_resolvedClassId, entry.AbilityId));
                     _abilityLookup[entry.AbilityId] = item;
                 }
                 else
@@ -278,6 +291,7 @@ namespace Client.UI.HUD.Dock
             ApplyItemOrder();
             PersistCurrentLayout();
             RefreshAbilityStates();
+            RefreshUnlockStates();
         }
 
         private AbilityDockItem CreateItem()
@@ -497,6 +511,25 @@ namespace Client.UI.HUD.Dock
                 {
                     pair.Value.SetAbilityState(state);
                 }
+            }
+        }
+
+        private void RefreshUnlockStates()
+        {
+            if (_abilityLookup.Count == 0)
+            {
+                return;
+            }
+
+            foreach (var pair in _abilityLookup)
+            {
+                if (pair.Value == null)
+                {
+                    continue;
+                }
+
+                var unlocked = PlayerAbilityUnlockState.IsAbilityUnlocked(_resolvedClassId, pair.Key);
+                pair.Value.SetLocked(!unlocked);
             }
         }
 
