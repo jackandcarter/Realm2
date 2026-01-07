@@ -209,6 +209,15 @@ namespace Client.CharacterCreation
                     foreach (var abilityEntry in levelEntry.Abilities)
                     {
                         var ability = abilityEntry?.Ability;
+                        if (ability == null)
+                        {
+                            var abilityGuid = abilityEntry?.AbilityGuid;
+                            if (!string.IsNullOrWhiteSpace(abilityGuid))
+                            {
+                                AbilityRegistry.TryGetAbility(abilityGuid, out ability);
+                            }
+                        }
+
                         if (ability == null || string.IsNullOrWhiteSpace(ability.Guid))
                         {
                             continue;
