@@ -107,7 +107,7 @@ namespace Client.UI.HUD.Dock
             if (iconImage != null)
             {
                 iconImage.sprite = null;
-                iconImage.enabled = false;
+                iconImage.enabled = true;
             }
 
             if (button != null)
