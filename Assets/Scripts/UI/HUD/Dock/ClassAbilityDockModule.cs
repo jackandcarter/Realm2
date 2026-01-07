@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Client.CharacterCreation;
+using Client.Combat;
 using Client.Player;
 using UnityEngine;
 using UnityEngine.UI;
@@ -584,10 +585,15 @@ namespace Client.UI.HUD.Dock
             }
 
             Sprite sprite = null;
+            if (AbilityRegistry.TryGetAbility(abilityId, out var ability) && ability != null && ability.Icon != null)
+            {
+                sprite = ability.Icon;
+            }
+
             if (!string.IsNullOrWhiteSpace(iconResourceFolder))
             {
                 var path = $"{iconResourceFolder.TrimEnd('/')}/{abilityId}";
-                sprite = Resources.Load<Sprite>(path);
+                sprite ??= Resources.Load<Sprite>(path);
             }
 
             if (sprite == null)

@@ -81,12 +81,12 @@ namespace Client.CharacterCreation
 
                 foreach (var ability in levelEntry.Abilities)
                 {
-                    if (ability == null || string.IsNullOrWhiteSpace(ability.AbilityId))
+                    if (ability == null || string.IsNullOrWhiteSpace(ability.AbilityGuid))
                     {
                         continue;
                     }
 
-                    var abilityId = ability.AbilityId.Trim();
+                    var abilityId = ability.AbilityGuid.Trim();
                     lookup[abilityId] = new ClassAbilityDockEntry(
                         abilityId,
                         ability.DisplayName,

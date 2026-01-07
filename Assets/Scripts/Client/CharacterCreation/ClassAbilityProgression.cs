@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Realm.Abilities;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 namespace Client.CharacterCreation
 {
@@ -164,18 +166,24 @@ namespace Client.CharacterCreation
         [Serializable]
         public class ClassAbilityDefinition
         {
-            public string AbilityId;
+            [FormerlySerializedAs("AbilityId")]
+            [SerializeField] private string abilityGuid;
+            [SerializeField] private AbilityDefinition ability;
             public string DisplayName;
             [TextArea]
             public string Description;
             [TextArea]
             public string Tooltip;
 
+            public string AbilityGuid => !string.IsNullOrWhiteSpace(ability?.Guid) ? ability.Guid : abilityGuid;
+            public AbilityDefinition Ability => ability;
+
             public ClassAbilityDefinition Clone()
             {
                 return new ClassAbilityDefinition
                 {
-                    AbilityId = AbilityId,
+                    abilityGuid = abilityGuid,
+                    ability = ability,
                     DisplayName = DisplayName,
                     Description = Description,
                     Tooltip = Tooltip
