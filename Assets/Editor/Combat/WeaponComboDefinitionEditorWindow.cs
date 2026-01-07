@@ -14,11 +14,13 @@ namespace Realm.Editor.Combat
 
         private readonly List<string> _weaponIds = new();
         private readonly List<string> _weaponLabels = new();
+        private readonly Dictionary<string, WeaponDefinition> _weaponDefinitionsById = new(StringComparer.OrdinalIgnoreCase);
         private readonly List<string> _abilityIds = new();
         private readonly List<string> _abilityLabels = new();
         private readonly List<WeaponComboDefinition> _comboDefinitions = new();
 
         private WeaponComboDefinition _definition;
+        private WeaponDefinition _selectedWeaponDefinition;
         private SerializedObject _serializedDefinition;
         private SerializedProperty _weaponIdProperty;
         private SerializedProperty _comboSequenceProperty;
@@ -109,6 +111,24 @@ namespace Realm.Editor.Combat
             EditorGUILayout.LabelField("Weapon", EditorStyles.boldLabel);
 
             var currentId = _weaponIdProperty.stringValue ?? string.Empty;
+            var resolvedWeapon = GetWeaponDefinition(currentId);
+            if (resolvedWeapon != _selectedWeaponDefinition)
+            {
+                _selectedWeaponDefinition = resolvedWeapon;
+            }
+
+            var nextWeapon = (WeaponDefinition)EditorGUILayout.ObjectField(
+                "Weapon Definition",
+                _selectedWeaponDefinition,
+                typeof(WeaponDefinition),
+                allowSceneObjects: false);
+            if (nextWeapon != _selectedWeaponDefinition)
+            {
+                _selectedWeaponDefinition = nextWeapon;
+                _weaponIdProperty.stringValue = nextWeapon != null ? nextWeapon.Guid : string.Empty;
+                currentId = _weaponIdProperty.stringValue ?? string.Empty;
+            }
+
             var options = GetOptions(_weaponLabels);
             var ids = GetOptions(_weaponIds);
             var selectedIndex = GetOptionIndex(currentId, ids);
@@ -118,6 +138,8 @@ namespace Realm.Editor.Combat
             {
                 _weaponIdProperty.stringValue = ids[nextIndex];
             }
+
+            EditorGUILayout.HelpBox("WeaponComboDefinition.WeaponId must match WeaponDefinition.Guid.", MessageType.Info);
 
             if (IsCustomSelection(currentId, ids))
             {
@@ -197,6 +219,7 @@ namespace Realm.Editor.Combat
         {
             _weaponIds.Clear();
             _weaponLabels.Clear();
+            _weaponDefinitionsById.Clear();
             _abilityIds.Clear();
             _abilityLabels.Clear();
             _comboDefinitions.Clear();
@@ -225,6 +248,7 @@ namespace Realm.Editor.Combat
 
                 _weaponIds.Add(asset.Guid);
                 _weaponLabels.Add($"{asset.DisplayName} ({asset.Guid})");
+                _weaponDefinitionsById[asset.Guid] = asset;
             }
         }
 
@@ -338,6 +362,18 @@ namespace Realm.Editor.Combat
             }
 
             return Array.IndexOf(options, currentId) < 0;
+        }
+
+        private WeaponDefinition GetWeaponDefinition(string weaponId)
+        {
+            if (string.IsNullOrWhiteSpace(weaponId))
+            {
+                return null;
+            }
+
+            return _weaponDefinitionsById.TryGetValue(weaponId, out var weaponDefinition)
+                ? weaponDefinition
+                : null;
         }
     }
 }
