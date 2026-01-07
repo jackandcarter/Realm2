@@ -31,6 +31,9 @@ namespace Client.UI.HUD.Dock
         [Header("Ability State")]
         [SerializeField] private MonoBehaviour abilityStateSource;
 
+        [Header("Activation")]
+        [SerializeField] private AbilityActivationController activationController;
+
         [Header("Behaviour")]
         [SerializeField] private bool rebuildOnEnable = true;
         [SerializeField] private int slotCount = 10;
@@ -145,6 +148,21 @@ namespace Client.UI.HUD.Dock
             ApplyItemOrder();
             PersistCurrentLayout();
             _dragSource = null;
+        }
+
+        internal void ActivateAbility(AbilityDockItem item)
+        {
+            if (item == null || item.IsPlaceholder)
+            {
+                return;
+            }
+
+            if (activationController == null)
+            {
+                activationController = ResolveActivationController();
+            }
+
+            activationController?.TryActivate(item.AbilityId);
         }
 
         private void Rebind()
@@ -491,6 +509,23 @@ namespace Client.UI.HUD.Dock
             }
 
             return null;
+        }
+
+        private AbilityActivationController ResolveActivationController()
+        {
+            if (activationController != null)
+            {
+                return activationController;
+            }
+
+#if UNITY_2023_1_OR_NEWER
+            activationController =
+                UnityEngine.Object.FindFirstObjectByType<AbilityActivationController>(FindObjectsInactive.Include);
+#else
+            activationController = FindObjectOfType<AbilityActivationController>(true);
+#endif
+
+            return activationController;
         }
 
         private void RefreshAbilityStates()
