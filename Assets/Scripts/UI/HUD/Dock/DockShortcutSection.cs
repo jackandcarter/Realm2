@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
+using UnityObject = UnityEngine.Object;
 
 namespace Client.UI.HUD.Dock
 {
@@ -218,7 +219,7 @@ namespace Client.UI.HUD.Dock
             _sourceLookup.Clear();
 
 #if UNITY_2023_1_OR_NEWER
-            var behaviours = UnityEngine.Object.FindObjectsByType<MonoBehaviour>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+            var behaviours = UnityObject.FindObjectsByType<MonoBehaviour>(FindObjectsInactive.Include, FindObjectsSortMode.None);
 #else
             var behaviours = FindObjectsOfType<MonoBehaviour>(true);
 #endif
