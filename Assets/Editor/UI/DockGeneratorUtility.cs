@@ -343,6 +343,12 @@ namespace Realm.Editor.UI
 
         private static void EnsureLeftSectionLayout(RectTransform leftSection)
         {
+            var existingLayout = leftSection.GetComponent<LayoutGroup>();
+            if (existingLayout != null && existingLayout is not VerticalLayoutGroup)
+            {
+                Undo.DestroyObjectImmediate(existingLayout);
+            }
+
             var layout = leftSection.GetComponent<VerticalLayoutGroup>();
             if (layout == null)
             {
