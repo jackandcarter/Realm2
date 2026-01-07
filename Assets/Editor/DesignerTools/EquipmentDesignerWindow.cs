@@ -113,7 +113,14 @@ namespace Realm.Editor.DesignerTools
                     return;
                 }
 
-                EditorGUILayout.HelpBox("Assign dock/inventory icons, class restrictions, and equip behaviors to ensure runtime consistency.", MessageType.Info);
+                if (selection is WeaponDefinition)
+                {
+                    EditorGUILayout.HelpBox("Configure base damage and attack profiles alongside icons and class restrictions.", MessageType.Info);
+                }
+                else
+                {
+                    EditorGUILayout.HelpBox("Assign dock/inventory icons, class restrictions, and equip behaviors to ensure runtime consistency.", MessageType.Info);
+                }
 
                 using (var scroll = new EditorGUILayout.ScrollViewScope(_detailScroll))
                 {
