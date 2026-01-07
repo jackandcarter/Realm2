@@ -57,6 +57,47 @@ namespace Client.CharacterCreation
             return _progression.GetAbilitiesUnlockedAtLevel(classId, level);
         }
 
+        public static bool TryGetAbilityUnlockLevel(string classId, string abilityId, out int level)
+        {
+            level = 0;
+            EnsureLoaded();
+            if (_progression == null || string.IsNullOrWhiteSpace(classId) || string.IsNullOrWhiteSpace(abilityId))
+            {
+                return false;
+            }
+
+            var progression = _progression.GetProgression(classId);
+            if (progression == null || progression.Count == 0)
+            {
+                return false;
+            }
+
+            var normalizedId = abilityId.Trim();
+            foreach (var levelEntry in progression)
+            {
+                if (levelEntry?.Abilities == null)
+                {
+                    continue;
+                }
+
+                foreach (var ability in levelEntry.Abilities)
+                {
+                    if (ability == null || string.IsNullOrWhiteSpace(ability.AbilityGuid))
+                    {
+                        continue;
+                    }
+
+                    if (string.Equals(ability.AbilityGuid.Trim(), normalizedId, StringComparison.OrdinalIgnoreCase))
+                    {
+                        level = levelEntry.Level;
+                        return true;
+                    }
+                }
+            }
+
+            return false;
+        }
+
         public static IReadOnlyList<ClassAbilityDockEntry> GetAbilityDockEntries(string classId)
         {
             EnsureLoaded();

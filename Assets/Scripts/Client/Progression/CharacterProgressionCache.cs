@@ -8,6 +8,8 @@ namespace Client.Progression
         private static readonly Dictionary<string, CharacterProgressionEnvelope> Snapshots =
             new Dictionary<string, CharacterProgressionEnvelope>(StringComparer.OrdinalIgnoreCase);
 
+        public static event Action<string> ProgressionSnapshotChanged;
+
         static CharacterProgressionCache()
         {
             SessionManager.SessionCleared += Clear;
@@ -16,6 +18,7 @@ namespace Client.Progression
         public static void Clear()
         {
             Snapshots.Clear();
+            ProgressionSnapshotChanged?.Invoke(null);
         }
 
         public static void Store(string characterId, CharacterProgressionEnvelope snapshot)
@@ -26,6 +29,7 @@ namespace Client.Progression
             }
 
             Snapshots[characterId] = Clone(snapshot);
+            ProgressionSnapshotChanged?.Invoke(characterId);
         }
 
         public static bool TryGet(string characterId, out CharacterProgressionEnvelope snapshot)
