@@ -4,6 +4,7 @@ namespace Client.Combat
     {
         Light,
         Medium,
-        Heavy
+        Heavy,
+        Special
     }
 }

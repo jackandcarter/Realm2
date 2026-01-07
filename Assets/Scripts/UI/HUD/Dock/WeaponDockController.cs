@@ -18,6 +18,7 @@ namespace Client.UI.HUD.Dock
 
         [Header("Runtime")]
         [SerializeField] private WeaponComboTracker comboTracker;
+        [SerializeField] private WeaponAttackController attackController;
 
         private string _equippedWeaponId;
 
@@ -30,6 +31,7 @@ namespace Client.UI.HUD.Dock
         {
             CacheButtons();
             ResolveComboTracker();
+            ResolveAttackController();
             SetSpecialIndicator(false);
         }
 
@@ -105,6 +107,20 @@ namespace Client.UI.HUD.Dock
 #endif
         }
 
+        private void ResolveAttackController()
+        {
+            if (attackController != null)
+            {
+                return;
+            }
+
+#if UNITY_2023_1_OR_NEWER
+            attackController = Object.FindFirstObjectByType<WeaponAttackController>(FindObjectsInactive.Include);
+#else
+            attackController = FindObjectOfType<WeaponAttackController>(true);
+#endif
+        }
+
         private void BindButtons()
         {
             if (lightButton != null)
@@ -158,16 +174,19 @@ namespace Client.UI.HUD.Dock
         private void HandleLightClicked()
         {
             RegisterAttack(WeaponComboInputType.Light);
+            attackController?.HandleAttack(WeaponComboInputType.Light);
         }
 
         private void HandleMediumClicked()
         {
             RegisterAttack(WeaponComboInputType.Medium);
+            attackController?.HandleAttack(WeaponComboInputType.Medium);
         }
 
         private void HandleHeavyClicked()
         {
             RegisterAttack(WeaponComboInputType.Heavy);
+            attackController?.HandleAttack(WeaponComboInputType.Heavy);
         }
 
         private void HandleSpecialClicked()
@@ -177,7 +196,10 @@ namespace Client.UI.HUD.Dock
                 return;
             }
 
-            comboTracker.TryConsumeSpecialReady();
+            if (comboTracker.TryConsumeSpecialReady())
+            {
+                attackController?.HandleSpecial();
+            }
         }
 
         private void RegisterAttack(WeaponComboInputType inputType)

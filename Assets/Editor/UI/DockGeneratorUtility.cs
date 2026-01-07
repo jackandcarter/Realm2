@@ -1,4 +1,5 @@
 using System;
+using Client.Combat;
 using Client.UI.HUD.Dock;
 using TMPro;
 using UnityEditor;
@@ -10,7 +11,6 @@ namespace Realm.Editor.UI
     internal static class DockGeneratorUtility
     {
         internal const string MasterDockPrefabPath = "Assets/UI/Shared/Dock/MasterDock.prefab";
-        private const string WeaponDockButtonPrefabPath = "Assets/UI/Shared/Dock/WeaponDockButton.prefab";
         private const string DockShortcutItemPrefabPath = "Assets/UI/Shared/Dock/DockShortcutItem.prefab";
 
         private const float SeparatorWidth = 2f;
@@ -314,16 +314,10 @@ namespace Realm.Editor.UI
 
             EnsureLeftSectionLayout(leftSection);
 
-            var weaponButtonPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(WeaponDockButtonPrefabPath);
-            if (weaponButtonPrefab == null)
-            {
-                return;
-            }
-
-            var light = EnsureWeaponButton(leftSection, weaponButtonPrefab, "LightWeaponButton", "Light");
-            var medium = EnsureWeaponButton(leftSection, weaponButtonPrefab, "MediumWeaponButton", "Medium");
-            var heavy = EnsureWeaponButton(leftSection, weaponButtonPrefab, "HeavyWeaponButton", "Heavy");
-            var special = EnsureWeaponButton(leftSection, weaponButtonPrefab, "SpecialWeaponButton", "Special");
+            var light = EnsureWeaponButton(leftSection, "LightWeaponButton", "Light");
+            var medium = EnsureWeaponButton(leftSection, "MediumWeaponButton", "Medium");
+            var heavy = EnsureWeaponButton(leftSection, "HeavyWeaponButton", "Heavy");
+            var special = EnsureWeaponButton(leftSection, "SpecialWeaponButton", "Special");
             var specialIndicator = EnsureSpecialReadyIndicator(special);
 
             var controller = leftSection.GetComponent<WeaponDockController>();
@@ -332,12 +326,19 @@ namespace Realm.Editor.UI
                 controller = Undo.AddComponent<WeaponDockController>(leftSection.gameObject);
             }
 
+            var attackController = leftSection.GetComponent<WeaponAttackController>();
+            if (attackController == null)
+            {
+                attackController = Undo.AddComponent<WeaponAttackController>(leftSection.gameObject);
+            }
+
             var serialized = new SerializedObject(controller);
             serialized.FindProperty("lightButton").objectReferenceValue = light;
             serialized.FindProperty("mediumButton").objectReferenceValue = medium;
             serialized.FindProperty("heavyButton").objectReferenceValue = heavy;
             serialized.FindProperty("specialButton").objectReferenceValue = special;
             serialized.FindProperty("specialReadyIndicator").objectReferenceValue = specialIndicator;
+            serialized.FindProperty("attackController").objectReferenceValue = attackController;
             serialized.ApplyModifiedPropertiesWithoutUndo();
         }
 
@@ -366,7 +367,6 @@ namespace Realm.Editor.UI
 
         private static Button EnsureWeaponButton(
             RectTransform parent,
-            GameObject prefab,
             string name,
             string labelText)
         {
@@ -374,28 +374,117 @@ namespace Realm.Editor.UI
             GameObject instance;
             if (existing == null)
             {
-                instance = PrefabUtility.InstantiatePrefab(prefab, parent) as GameObject;
-                if (instance == null)
-                {
-                    return null;
-                }
-
-                Undo.RegisterCreatedObjectUndo(instance, "Create Weapon Dock Button");
-                instance.name = name;
-                ApplyUiLayer(instance);
+                instance = CreateWeaponButton(parent, name);
             }
             else
             {
                 instance = existing.gameObject;
             }
 
-            var label = instance.GetComponentInChildren<TMP_Text>(true);
-            if (label != null)
-            {
-                label.text = labelText;
-            }
+            EnsureWeaponButtonComponents(instance, labelText);
 
             return instance.GetComponent<Button>();
+        }
+
+        private static GameObject CreateWeaponButton(RectTransform parent, string name)
+        {
+            var instance = new GameObject(
+                name,
+                typeof(RectTransform),
+                typeof(CanvasRenderer),
+                typeof(Image),
+                typeof(Button),
+                typeof(HorizontalLayoutGroup));
+            Undo.RegisterCreatedObjectUndo(instance, "Create Weapon Dock Button");
+            instance.transform.SetParent(parent, false);
+            ApplyUiLayer(instance);
+
+            var rect = instance.GetComponent<RectTransform>();
+            rect.anchorMin = new Vector2(0.5f, 0.5f);
+            rect.anchorMax = new Vector2(0.5f, 0.5f);
+            rect.pivot = new Vector2(0.5f, 0.5f);
+            rect.sizeDelta = new Vector2(140f, 44f);
+
+            return instance;
+        }
+
+        private static void EnsureWeaponButtonComponents(GameObject instance, string labelText)
+        {
+            if (instance == null)
+            {
+                return;
+            }
+
+            var image = instance.GetComponent<Image>();
+            if (image == null)
+            {
+                image = Undo.AddComponent<Image>(instance);
+            }
+
+            image.color = new Color(0.118f, 0.149f, 0.231f, 0.9f);
+
+            var button = instance.GetComponent<Button>();
+            if (button == null)
+            {
+                button = Undo.AddComponent<Button>(instance);
+            }
+
+            button.targetGraphic = image;
+
+            var layout = instance.GetComponent<HorizontalLayoutGroup>();
+            if (layout == null)
+            {
+                layout = Undo.AddComponent<HorizontalLayoutGroup>(instance);
+            }
+
+            layout.padding = new RectOffset(12, 12, 6, 6);
+            layout.spacing = 6f;
+            layout.childAlignment = TextAnchor.MiddleLeft;
+            layout.childControlWidth = false;
+            layout.childControlHeight = false;
+            layout.childForceExpandWidth = false;
+            layout.childForceExpandHeight = false;
+
+            var labelTransform = instance.transform.Find("Label");
+            GameObject labelObject;
+            if (labelTransform == null)
+            {
+                labelObject = new GameObject("Label", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
+                Undo.RegisterCreatedObjectUndo(labelObject, "Create Weapon Dock Label");
+                labelObject.transform.SetParent(instance.transform, false);
+                ApplyUiLayer(labelObject);
+
+                var labelRect = labelObject.GetComponent<RectTransform>();
+                labelRect.anchorMin = new Vector2(0f, 0f);
+                labelRect.anchorMax = new Vector2(1f, 1f);
+                labelRect.pivot = new Vector2(0.5f, 0.5f);
+                labelRect.sizeDelta = Vector2.zero;
+            }
+            else
+            {
+                labelObject = labelTransform.gameObject;
+            }
+
+            var label = labelObject.GetComponent<TextMeshProUGUI>();
+            if (label == null)
+            {
+                label = Undo.AddComponent<TextMeshProUGUI>(labelObject);
+            }
+
+            label.text = labelText;
+            label.alignment = TextAlignmentOptions.Left;
+            label.fontSize = 18f;
+            label.color = Color.white;
+
+            var layoutElement = labelObject.GetComponent<LayoutElement>();
+            if (layoutElement == null)
+            {
+                layoutElement = Undo.AddComponent<LayoutElement>(labelObject);
+            }
+
+            layoutElement.preferredWidth = 0f;
+            layoutElement.preferredHeight = 0f;
+            layoutElement.flexibleWidth = 1f;
         }
 
         private static Image EnsureSpecialReadyIndicator(Button specialButton)
