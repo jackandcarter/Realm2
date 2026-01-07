@@ -1,5 +1,6 @@
 using System;
 using Client.UI.HUD.Dock;
+using TMPro;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.UI;
@@ -9,13 +10,11 @@ namespace Realm.Editor.UI
     internal static class DockGeneratorUtility
     {
         internal const string MasterDockPrefabPath = "Assets/UI/Shared/Dock/MasterDock.prefab";
+        private const string WeaponDockButtonPrefabPath = "Assets/UI/Shared/Dock/WeaponDockButton.prefab";
         private const string DockShortcutItemPrefabPath = "Assets/UI/Shared/Dock/DockShortcutItem.prefab";
 
         private const float SeparatorWidth = 2f;
         private const float SeparatorHeight = 48f;
-        private const float SectionSpacing = 12f;
-        private const int HorizontalPadding = 16;
-        private const int VerticalPadding = 10;
         private static readonly Color SeparatorColor = new Color(0.25f, 0.28f, 0.33f, 0.85f);
         private const string LeftSeparatorName = "LeftCenterSeparator";
         private const string RightSeparatorName = "CenterRightSeparator";
@@ -50,19 +49,10 @@ namespace Realm.Editor.UI
             centerSection = FindOrCreateSection(root.transform, "CenterSection", 240f);
             rightSection = FindOrCreateSection(root.transform, "RightSection", 200f);
 
-            var layout = root.GetComponent<HorizontalLayoutGroup>();
-            if (layout == null)
-            {
-                layout = Undo.AddComponent<HorizontalLayoutGroup>(root);
-            }
-
-            layout.spacing = SectionSpacing;
-            layout.padding = new RectOffset(HorizontalPadding, HorizontalPadding, VerticalPadding, VerticalPadding);
-            layout.childAlignment = TextAnchor.MiddleCenter;
-            layout.childControlWidth = true;
-            layout.childControlHeight = true;
-            layout.childForceExpandWidth = false;
-            layout.childForceExpandHeight = true;
+            RemoveHorizontalLayoutGroup(root);
+            RemoveSectionLayout(leftSection);
+            RemoveSectionLayout(centerSection);
+            RemoveSectionLayout(rightSection);
 
             var leftSeparator = EnsureSeparator(root.transform, LeftSeparatorName, LeftSeparatorAliases);
             var rightSeparator = EnsureSeparator(root.transform, RightSeparatorName, RightSeparatorAliases);
@@ -73,6 +63,7 @@ namespace Realm.Editor.UI
             rightSeparator.SetSiblingIndex(3);
             rightSection.SetSiblingIndex(4);
 
+            EnsureWeaponButtons(leftSection);
             EnsureDockShortcutSection(rightSection);
             EnsureRightSectionShortcutIds(rightSection);
         }
@@ -117,7 +108,6 @@ namespace Realm.Editor.UI
             var existing = parent.Find(name);
             if (existing != null && existing.TryGetComponent(out RectTransform existingRect))
             {
-                EnsureSectionLayout(existingRect, preferredWidth);
                 return existingRect;
             }
 
@@ -132,27 +122,35 @@ namespace Realm.Editor.UI
             rect.pivot = new Vector2(0.5f, 0.5f);
             rect.sizeDelta = new Vector2(preferredWidth, 0f);
 
-            EnsureSectionLayout(rect, preferredWidth);
             return rect;
         }
 
-        private static void EnsureSectionLayout(RectTransform rect, float preferredWidth)
+        private static void RemoveSectionLayout(Component rectTransform)
         {
-            if (rect == null)
+            if (rectTransform == null)
             {
                 return;
             }
 
-            var layout = rect.GetComponent<LayoutElement>();
-            if (layout == null)
+            var layout = rectTransform.GetComponent<LayoutElement>();
+            if (layout != null)
             {
-                layout = Undo.AddComponent<LayoutElement>(rect.gameObject);
+                Undo.DestroyObjectImmediate(layout);
+            }
+        }
+
+        private static void RemoveHorizontalLayoutGroup(GameObject root)
+        {
+            if (root == null)
+            {
+                return;
             }
 
-            layout.preferredWidth = preferredWidth;
-            layout.minWidth = preferredWidth;
-            layout.flexibleWidth = 0f;
-            layout.flexibleHeight = 1f;
+            var layout = root.GetComponent<HorizontalLayoutGroup>();
+            if (layout != null)
+            {
+                Undo.DestroyObjectImmediate(layout);
+            }
         }
 
         private static RectTransform EnsureSeparator(Transform parent, string name, params string[] aliases)
@@ -305,6 +303,124 @@ namespace Realm.Editor.UI
             {
                 target.layer = uiLayer;
             }
+        }
+
+        private static void EnsureWeaponButtons(RectTransform leftSection)
+        {
+            if (leftSection == null)
+            {
+                return;
+            }
+
+            EnsureLeftSectionLayout(leftSection);
+
+            var weaponButtonPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(WeaponDockButtonPrefabPath);
+            if (weaponButtonPrefab == null)
+            {
+                return;
+            }
+
+            var light = EnsureWeaponButton(leftSection, weaponButtonPrefab, "LightWeaponButton", "Light");
+            var medium = EnsureWeaponButton(leftSection, weaponButtonPrefab, "MediumWeaponButton", "Medium");
+            var heavy = EnsureWeaponButton(leftSection, weaponButtonPrefab, "HeavyWeaponButton", "Heavy");
+            var special = EnsureWeaponButton(leftSection, weaponButtonPrefab, "SpecialWeaponButton", "Special");
+            var specialIndicator = EnsureSpecialReadyIndicator(special);
+
+            var controller = leftSection.GetComponent<WeaponDockController>();
+            if (controller == null)
+            {
+                controller = Undo.AddComponent<WeaponDockController>(leftSection.gameObject);
+            }
+
+            var serialized = new SerializedObject(controller);
+            serialized.FindProperty("lightButton").objectReferenceValue = light;
+            serialized.FindProperty("mediumButton").objectReferenceValue = medium;
+            serialized.FindProperty("heavyButton").objectReferenceValue = heavy;
+            serialized.FindProperty("specialButton").objectReferenceValue = special;
+            serialized.FindProperty("specialReadyIndicator").objectReferenceValue = specialIndicator;
+            serialized.ApplyModifiedPropertiesWithoutUndo();
+        }
+
+        private static void EnsureLeftSectionLayout(RectTransform leftSection)
+        {
+            var layout = leftSection.GetComponent<VerticalLayoutGroup>();
+            if (layout == null)
+            {
+                layout = Undo.AddComponent<VerticalLayoutGroup>(leftSection.gameObject);
+            }
+
+            layout.padding = new RectOffset(12, 12, 8, 8);
+            layout.spacing = 8f;
+            layout.childAlignment = TextAnchor.MiddleLeft;
+            layout.childControlWidth = false;
+            layout.childControlHeight = false;
+            layout.childForceExpandWidth = false;
+            layout.childForceExpandHeight = false;
+        }
+
+        private static Button EnsureWeaponButton(
+            RectTransform parent,
+            GameObject prefab,
+            string name,
+            string labelText)
+        {
+            var existing = parent.Find(name);
+            GameObject instance;
+            if (existing == null)
+            {
+                instance = PrefabUtility.InstantiatePrefab(prefab, parent) as GameObject;
+                if (instance == null)
+                {
+                    return null;
+                }
+
+                Undo.RegisterCreatedObjectUndo(instance, "Create Weapon Dock Button");
+                instance.name = name;
+                ApplyUiLayer(instance);
+            }
+            else
+            {
+                instance = existing.gameObject;
+            }
+
+            var label = instance.GetComponentInChildren<TMP_Text>(true);
+            if (label != null)
+            {
+                label.text = labelText;
+            }
+
+            return instance.GetComponent<Button>();
+        }
+
+        private static Image EnsureSpecialReadyIndicator(Button specialButton)
+        {
+            if (specialButton == null)
+            {
+                return null;
+            }
+
+            var existing = specialButton.transform.Find("SpecialReadyIndicator");
+            if (existing != null && existing.TryGetComponent(out Image existingImage))
+            {
+                return existingImage;
+            }
+
+            var indicator = new GameObject("SpecialReadyIndicator", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            Undo.RegisterCreatedObjectUndo(indicator, "Create Special Ready Indicator");
+            indicator.transform.SetParent(specialButton.transform, false);
+            ApplyUiLayer(indicator);
+
+            var rect = indicator.GetComponent<RectTransform>();
+            rect.anchorMin = Vector2.zero;
+            rect.anchorMax = Vector2.one;
+            rect.pivot = new Vector2(0.5f, 0.5f);
+            rect.sizeDelta = Vector2.zero;
+
+            var image = indicator.GetComponent<Image>();
+            image.color = new Color(0.972f, 0.757f, 0.2f, 0.6f);
+            image.raycastTarget = false;
+            image.enabled = false;
+            return image;
         }
     }
 }
