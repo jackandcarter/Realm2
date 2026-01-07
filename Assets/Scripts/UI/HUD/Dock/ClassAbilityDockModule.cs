@@ -27,17 +27,22 @@ namespace Client.UI.HUD.Dock
         [SerializeField] private Sprite fallbackIcon;
         [SerializeField] private string iconResourceFolder = "UI/AbilityIcons";
 
+        [Header("Ability State")]
+        [SerializeField] private MonoBehaviour abilityStateSource;
+
         [Header("Behaviour")]
         [SerializeField] private bool rebuildOnEnable = true;
         [SerializeField] private int slotCount = 10;
 
         private readonly List<AbilityDockItem> _items = new();
+        private readonly Dictionary<string, AbilityDockItem> _abilityLookup = new(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, Sprite> _iconCache = new(StringComparer.OrdinalIgnoreCase);
 
         private RectTransform _selfRect;
         private AbilityDockItem _dragSource;
         private string _resolvedClassId;
         private bool _mounted;
+        private IDockAbilityStateSource _stateSource;
 
         public string ClassId => string.IsNullOrWhiteSpace(classId)
             ? (string.IsNullOrWhiteSpace(_resolvedClassId) ? PlayerClassStateManager.ActiveClassId : _resolvedClassId)
@@ -58,12 +63,14 @@ namespace Client.UI.HUD.Dock
             gameObject.SetActive(true);
             _mounted = true;
             PlayerClassStateManager.ActiveClassChanged += OnActiveClassChanged;
+            AttachStateSource();
             Rebind();
         }
 
         public void Unmount()
         {
             PlayerClassStateManager.ActiveClassChanged -= OnActiveClassChanged;
+            DetachStateSource();
             _mounted = false;
             gameObject.SetActive(false);
             _dragSource = null;
@@ -77,6 +84,7 @@ namespace Client.UI.HUD.Dock
         {
             if (rebuildOnEnable && _mounted)
             {
+                AttachStateSource();
                 Rebind();
             }
         }
@@ -87,6 +95,8 @@ namespace Client.UI.HUD.Dock
             {
                 PlayerClassStateManager.ActiveClassChanged -= OnActiveClassChanged;
             }
+
+            DetachStateSource();
         }
 
         internal void BeginDrag(AbilityDockItem item)
@@ -185,6 +195,11 @@ namespace Client.UI.HUD.Dock
             {
                 itemContainer = mountContainer != null ? mountContainer : _selfRect;
             }
+
+            if (itemContainer != null && !itemContainer.TryGetComponent(out DockMagnifier _))
+            {
+                itemContainer.gameObject.AddComponent<DockMagnifier>();
+            }
         }
 
         private void RebuildItems(IReadOnlyList<ClassAbilityCatalog.ClassAbilityDockEntry> entries)
@@ -249,6 +264,7 @@ namespace Client.UI.HUD.Dock
                 else if (lookup.TryGetValue(abilityId, out var entry))
                 {
                     item.Bind(entry, ResolveIcon(entry.AbilityId));
+                    _abilityLookup[entry.AbilityId] = item;
                 }
                 else
                 {
@@ -260,6 +276,7 @@ namespace Client.UI.HUD.Dock
 
             ApplyItemOrder();
             PersistCurrentLayout();
+            RefreshAbilityStates();
         }
 
         private AbilityDockItem CreateItem()
@@ -303,6 +320,7 @@ namespace Client.UI.HUD.Dock
             }
 
             _items.Clear();
+            _abilityLookup.Clear();
             _dragSource = null;
         }
 
@@ -415,6 +433,83 @@ namespace Client.UI.HUD.Dock
             }
 
             AbilityDockLayoutStore.SaveLayout(_resolvedClassId, order);
+        }
+
+        private void AttachStateSource()
+        {
+            DetachStateSource();
+
+            _stateSource = ResolveAbilityStateSource();
+            if (_stateSource != null)
+            {
+                _stateSource.AbilityStateChanged += OnAbilityStateChangedInternal;
+            }
+        }
+
+        private void DetachStateSource()
+        {
+            if (_stateSource != null)
+            {
+                _stateSource.AbilityStateChanged -= OnAbilityStateChangedInternal;
+                _stateSource = null;
+            }
+        }
+
+        private IDockAbilityStateSource ResolveAbilityStateSource()
+        {
+            if (abilityStateSource is IDockAbilityStateSource configured)
+            {
+                return configured;
+            }
+
+#if UNITY_2023_1_OR_NEWER
+            var behaviours = UnityEngine.Object.FindObjectsByType<MonoBehaviour>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+#else
+            var behaviours = FindObjectsOfType<MonoBehaviour>(true);
+#endif
+            foreach (var behaviour in behaviours)
+            {
+                if (behaviour is IDockAbilityStateSource source)
+                {
+                    return source;
+                }
+            }
+
+            return null;
+        }
+
+        private void RefreshAbilityStates()
+        {
+            if (_stateSource == null)
+            {
+                return;
+            }
+
+            foreach (var pair in _abilityLookup)
+            {
+                if (pair.Value == null)
+                {
+                    continue;
+                }
+
+                if (_stateSource.TryGetState(pair.Key, out var state))
+                {
+                    pair.Value.SetAbilityState(state);
+                }
+            }
+        }
+
+        private void OnAbilityStateChangedInternal(string abilityId, DockAbilityState state)
+        {
+            if (string.IsNullOrWhiteSpace(abilityId))
+            {
+                return;
+            }
+
+            if (_abilityLookup.TryGetValue(abilityId, out var item) && item != null)
+            {
+                item.SetAbilityState(state);
+            }
         }
 
         private void ResetDraggedItemPosition(AbilityDockItem item)

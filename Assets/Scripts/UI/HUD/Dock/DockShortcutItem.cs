@@ -14,6 +14,7 @@ namespace Client.UI.HUD.Dock
         [SerializeField] private TMP_Text label;
         [SerializeField] private CanvasGroup canvasGroup;
         [SerializeField] private Button button;
+        [SerializeField] private DockItemAnimator dockAnimator;
 
         private DockShortcutEntry _entry;
         private DockShortcutSection _owner;
@@ -44,6 +45,15 @@ namespace Client.UI.HUD.Dock
             if (label == null)
             {
                 label = GetComponentInChildren<TMP_Text>();
+            }
+
+            if (dockAnimator == null)
+            {
+                dockAnimator = GetComponent<DockItemAnimator>();
+                if (dockAnimator == null)
+                {
+                    dockAnimator = gameObject.AddComponent<DockItemAnimator>();
+                }
             }
 
             if (button != null)
@@ -81,6 +91,11 @@ namespace Client.UI.HUD.Dock
                 return;
             }
 
+            if (dockAnimator != null)
+            {
+                dockAnimator.enabled = false;
+            }
+
             _dragging = true;
             canvasGroup.alpha = 0.6f;
             canvasGroup.blocksRaycasts = false;
@@ -106,6 +121,11 @@ namespace Client.UI.HUD.Dock
             _dragging = false;
             canvasGroup.alpha = 1f;
             canvasGroup.blocksRaycasts = true;
+
+            if (dockAnimator != null)
+            {
+                dockAnimator.enabled = true;
+            }
 
             if (_owner != null && !_owner.IsDropTarget(eventData.pointerEnter))
             {
