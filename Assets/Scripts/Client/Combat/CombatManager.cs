@@ -24,6 +24,22 @@ namespace Client.Combat
         public event Action<WeaponAttackResolution> AttackResolved;
         public event Action<WeaponAttackResolution, AbilityDefinition> SpecialAttackResolved;
 
+        public bool TryGetAbilityDefinition(string abilityId, out AbilityDefinition ability)
+        {
+            if (string.IsNullOrWhiteSpace(abilityId))
+            {
+                ability = null;
+                return false;
+            }
+
+            if (_abilityLookup.TryGetValue(abilityId.Trim(), out ability))
+            {
+                return true;
+            }
+
+            return AbilityRegistry.TryGetAbility(abilityId.Trim(), out ability);
+        }
+
         private void Awake()
         {
             ResolveAttackController();

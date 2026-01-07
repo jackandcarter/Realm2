@@ -41,15 +41,20 @@ namespace Client.Combat
 
         public void HandleSpecial()
         {
+            HandleSpecial(string.Empty);
+        }
+
+        public void HandleSpecial(string abilityId)
+        {
             var weapon = PlayerEquipmentStateManager.GetEquippedItem(EquipmentSlot.Weapon) as WeaponDefinition;
             if (weapon == null)
             {
                 return;
             }
 
-            var abilityId = comboTracker != null
+            var resolvedAbilityId = string.IsNullOrWhiteSpace(abilityId) && comboTracker != null
                 ? comboTracker.CurrentSpecialAttackAbilityId
-                : string.Empty;
+                : abilityId;
 
             var request = new WeaponAttackRequest(
                 weapon,
@@ -59,7 +64,7 @@ namespace Client.Combat
                 weapon.HeavyAttack.Accuracy,
                 weapon.HeavyAttack.WindupSeconds,
                 weapon.HeavyAttack.RecoverySeconds,
-                abilityId);
+                resolvedAbilityId);
             SpecialRequested?.Invoke(request);
         }
 

@@ -70,6 +70,12 @@ namespace Client.UI.HUD.Dock
                 button = GetComponent<Button>();
             }
 
+            if (button != null)
+            {
+                button.onClick.RemoveListener(HandleClick);
+                button.onClick.AddListener(HandleClick);
+            }
+
             if (dockAnimator == null)
             {
                 dockAnimator = GetComponent<DockItemAnimator>();
@@ -77,6 +83,14 @@ namespace Client.UI.HUD.Dock
                 {
                     dockAnimator = gameObject.AddComponent<DockItemAnimator>();
                 }
+            }
+        }
+
+        private void OnDestroy()
+        {
+            if (button != null)
+            {
+                button.onClick.RemoveListener(HandleClick);
             }
         }
 
@@ -164,6 +178,16 @@ namespace Client.UI.HUD.Dock
             {
                 canvasGroup.alpha = locked ? 0.4f : 1f;
             }
+        }
+
+        private void HandleClick()
+        {
+            if (_owner == null || _isPlaceholder || _isLocked || _dragging)
+            {
+                return;
+            }
+
+            _owner.ActivateAbility(this);
         }
 
         public void OnBeginDrag(PointerEventData eventData)
