@@ -46,6 +46,27 @@ namespace Realm.Data
         public IReadOnlyList<ClassDefinition> RequiredClasses => requiredClasses;
         public IReadOnlyList<EquipmentEquipEffect> EquipEffects => equipEffects;
 
+        internal void ApplySeed(EquipmentSeedData seed)
+        {
+            if (seed == null)
+            {
+                return;
+            }
+
+            guid = string.IsNullOrWhiteSpace(seed.Guid) ? System.Guid.NewGuid().ToString("N") : seed.Guid.Trim();
+            displayName = string.IsNullOrWhiteSpace(seed.DisplayName) ? name : seed.DisplayName.Trim();
+            description = seed.Description?.Trim();
+            slot = seed.Slot;
+            requiredClassIds = seed.RequiredClassIds != null
+                ? new List<string>(seed.RequiredClassIds)
+                : new List<string>();
+            requiredClasses = new List<ClassDefinition>();
+            equipEffects = seed.EquipEffects != null
+                ? new List<EquipmentEquipEffect>(seed.EquipEffects)
+                : new List<EquipmentEquipEffect>();
+            NormalizeRequiredClassIds();
+        }
+
         protected override void OnValidate()
         {
             base.OnValidate();

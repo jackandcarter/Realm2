@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Realm.Data;
+using UnityEngine;
 
 namespace Client.Player
 {
@@ -9,8 +10,11 @@ namespace Client.Player
         private static readonly Dictionary<string, Dictionary<EquipmentSlot, EquipmentDefinition>> EquipmentByCharacter =
             new(StringComparer.OrdinalIgnoreCase);
 
+        private const string DefaultWeaponCatalogResourcePath = "Equipment/DefaultWeaponCatalog";
         private static bool _initialized;
         private static string _currentCharacterId;
+        private static DefaultWeaponCatalog _defaultWeaponCatalog;
+        private static bool _defaultWeaponCatalogLoaded;
 
         public static event Action<EquipmentSlot, EquipmentDefinition> EquipmentChanged;
         public static event Action<string, IReadOnlyList<EquipmentSlot>> EquipmentRestrictionsViolated;
@@ -96,6 +100,7 @@ namespace Client.Player
 
             _currentCharacterId = string.IsNullOrWhiteSpace(characterId) ? null : characterId;
             EnsureEquipmentCompatibility(PlayerClassStateManager.ActiveClassId);
+            EnsureDefaultWeaponEquipped(PlayerClassStateManager.ActiveClassId);
         }
 
         private static void OnSessionCleared()
@@ -110,6 +115,7 @@ namespace Client.Player
         {
             EnsureInitialized();
             EnsureEquipmentCompatibility(classId);
+            EnsureDefaultWeaponEquipped(classId);
         }
 
         private static void EnsureEquipmentCompatibility(string classId)
@@ -157,6 +163,46 @@ namespace Client.Player
             {
                 WeaponSelectionRequired?.Invoke(classId);
             }
+        }
+
+        private static void EnsureDefaultWeaponEquipped(string classId)
+        {
+            if (string.IsNullOrWhiteSpace(classId) || string.IsNullOrWhiteSpace(_currentCharacterId))
+            {
+                return;
+            }
+
+            if (GetEquippedItem(EquipmentSlot.Weapon) != null)
+            {
+                return;
+            }
+
+            if (TryGetDefaultWeapon(classId, out var weapon))
+            {
+                TryEquip(weapon);
+            }
+        }
+
+        private static bool TryGetDefaultWeapon(string classId, out WeaponDefinition weapon)
+        {
+            weapon = null;
+            if (!_defaultWeaponCatalogLoaded)
+            {
+                _defaultWeaponCatalog = Resources.Load<DefaultWeaponCatalog>(DefaultWeaponCatalogResourcePath);
+                _defaultWeaponCatalogLoaded = true;
+            }
+
+            if (_defaultWeaponCatalog == null)
+            {
+                return DefaultWeaponSeedLibrary.TryCreateDefaultWeapon(classId, out weapon);
+            }
+
+            if (_defaultWeaponCatalog.TryGetDefaultWeapon(classId, out weapon))
+            {
+                return true;
+            }
+
+            return DefaultWeaponSeedLibrary.TryCreateDefaultWeapon(classId, out weapon);
         }
 
         private static Dictionary<EquipmentSlot, EquipmentDefinition> GetOrCreateEquipmentForCharacter(string characterId)
