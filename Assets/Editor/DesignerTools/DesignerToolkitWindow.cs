@@ -191,7 +191,7 @@ namespace Realm.Editor.DesignerTools
                 CreateAsset<ArmorTypeDefinition>("ArmorTypeDefinition", profile.ArmorTypeDefinitionsFolder));
 
             DrawCreateRow(new GUIContent("Weapon", "Create a new WeaponDefinition in the configured folder."), profile.WeaponDefinitionsFolder, "WeaponDefinition", () =>
-                CreateAsset<WeaponDefinition>("WeaponDefinition", profile.WeaponDefinitionsFolder));
+                CreateWeaponDefinition(profile.WeaponDefinitionsFolder));
 
             DrawCreateRow(new GUIContent("Armor", "Create a new ArmorDefinition in the configured folder."), profile.ArmorDefinitionsFolder, "ArmorDefinition", () =>
                 CreateAsset<ArmorDefinition>("ArmorDefinition", profile.ArmorDefinitionsFolder));
@@ -383,6 +383,71 @@ namespace Realm.Editor.DesignerTools
             Selection.activeObject = asset;
             EditorGUIUtility.PingObject(asset);
             return asset;
+        }
+
+        private static WeaponDefinition CreateWeaponDefinition(string folder)
+        {
+            EnsureFolder(folder);
+            var path = AssetDatabase.GenerateUniqueAssetPath(Path.Combine(folder, "WeaponDefinition.asset"));
+            var asset = CreateInstance<WeaponDefinition>();
+            AssetDatabase.CreateAsset(asset, path);
+
+            var serializedObject = new SerializedObject(asset);
+            var baseDamage = serializedObject.FindProperty("baseDamage");
+            if (baseDamage != null)
+            {
+                baseDamage.floatValue = 10f;
+            }
+
+            ApplyAttackProfile(serializedObject.FindProperty("lightAttack"), WeaponAttackProfile.DefaultLight);
+            ApplyAttackProfile(serializedObject.FindProperty("mediumAttack"), WeaponAttackProfile.DefaultMedium);
+            ApplyAttackProfile(serializedObject.FindProperty("heavyAttack"), WeaponAttackProfile.DefaultHeavy);
+
+            var specialAttack = serializedObject.FindProperty("specialAttack");
+            if (specialAttack != null)
+            {
+                specialAttack.objectReferenceValue = null;
+            }
+
+            serializedObject.ApplyModifiedProperties();
+            EditorUtility.SetDirty(asset);
+            AssetDatabase.SaveAssets();
+            AssetDatabase.Refresh();
+            Selection.activeObject = asset;
+            EditorGUIUtility.PingObject(asset);
+            return asset;
+        }
+
+        private static void ApplyAttackProfile(SerializedProperty property, WeaponAttackProfile profile)
+        {
+            if (property == null)
+            {
+                return;
+            }
+
+            var damageMultiplier = property.FindPropertyRelative("damageMultiplier");
+            if (damageMultiplier != null)
+            {
+                damageMultiplier.floatValue = profile.DamageMultiplier;
+            }
+
+            var accuracy = property.FindPropertyRelative("accuracy");
+            if (accuracy != null)
+            {
+                accuracy.floatValue = profile.Accuracy;
+            }
+
+            var windup = property.FindPropertyRelative("windupSeconds");
+            if (windup != null)
+            {
+                windup.floatValue = profile.WindupSeconds;
+            }
+
+            var recovery = property.FindPropertyRelative("recoverySeconds");
+            if (recovery != null)
+            {
+                recovery.floatValue = profile.RecoverySeconds;
+            }
         }
 
         private static void EnsureFolder(string folderPath)
