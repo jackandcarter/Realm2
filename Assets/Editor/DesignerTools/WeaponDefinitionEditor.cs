@@ -1,3 +1,4 @@
+using Client.Combat;
 using Realm.Data;
 using UnityEditor;
 using UnityEngine;
@@ -44,6 +45,8 @@ namespace Realm.Editor.DesignerTools
             clamped |= DrawAttackProfile(_heavyAttack, "Heavy Attack");
 
             EditorGUILayout.PropertyField(_specialAttack, new GUIContent("Special Attack"));
+
+            DrawComboDefinitionWarning();
 
             if (clamped)
             {
@@ -104,6 +107,42 @@ namespace Realm.Editor.DesignerTools
 
                 return clamped;
             }
+        }
+
+        private void DrawComboDefinitionWarning()
+        {
+            var weapon = target as WeaponDefinition;
+            if (weapon == null || string.IsNullOrWhiteSpace(weapon.Guid))
+            {
+                return;
+            }
+
+            var comboDefinition = FindComboDefinition(weapon.Guid);
+            if (comboDefinition != null)
+            {
+                return;
+            }
+
+            EditorGUILayout.Space();
+            EditorGUILayout.HelpBox(
+                "WeaponComboDefinition.WeaponId must match WeaponDefinition.Guid. No combo definition was found for this weapon.",
+                MessageType.Warning);
+        }
+
+        private static WeaponComboDefinition FindComboDefinition(string weaponGuid)
+        {
+            var guids = AssetDatabase.FindAssets("t:WeaponComboDefinition");
+            foreach (var guid in guids)
+            {
+                var path = AssetDatabase.GUIDToAssetPath(guid);
+                var combo = AssetDatabase.LoadAssetAtPath<WeaponComboDefinition>(path);
+                if (combo != null && string.Equals(combo.WeaponId, weaponGuid, System.StringComparison.OrdinalIgnoreCase))
+                {
+                    return combo;
+                }
+            }
+
+            return null;
         }
     }
 }
