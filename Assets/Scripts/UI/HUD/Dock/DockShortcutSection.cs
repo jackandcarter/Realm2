@@ -217,7 +217,11 @@ namespace Client.UI.HUD.Dock
         {
             _sourceLookup.Clear();
 
+#if UNITY_2023_1_OR_NEWER
+            var behaviours = Object.FindObjectsByType<MonoBehaviour>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+#else
             var behaviours = FindObjectsOfType<MonoBehaviour>(true);
+#endif
             foreach (var behaviour in behaviours)
             {
                 if (behaviour is not IDockShortcutSource source)
