@@ -1,3 +1,4 @@
+using System;
 using Client.UI.HUD.Dock;
 using UnityEditor;
 using UnityEngine;
@@ -16,6 +17,10 @@ namespace Realm.Editor.UI
         private const int HorizontalPadding = 16;
         private const int VerticalPadding = 10;
         private static readonly Color SeparatorColor = new Color(0.25f, 0.28f, 0.33f, 0.85f);
+        private const string LeftSeparatorName = "LeftCenterSeparator";
+        private const string RightSeparatorName = "CenterRightSeparator";
+        private static readonly string[] LeftSeparatorAliases = { "LeftSectionSeparator" };
+        private static readonly string[] RightSeparatorAliases = { "RightSectionSeparator" };
 
         internal static GameObject InstantiateDockRoot(string name, string undoLabel)
         {
@@ -59,8 +64,8 @@ namespace Realm.Editor.UI
             layout.childForceExpandWidth = false;
             layout.childForceExpandHeight = true;
 
-            var leftSeparator = EnsureSeparator(root.transform, "LeftSectionSeparator");
-            var rightSeparator = EnsureSeparator(root.transform, "RightSectionSeparator");
+            var leftSeparator = EnsureSeparator(root.transform, LeftSeparatorName, LeftSeparatorAliases);
+            var rightSeparator = EnsureSeparator(root.transform, RightSeparatorName, RightSeparatorAliases);
 
             leftSection.SetSiblingIndex(0);
             leftSeparator.SetSiblingIndex(1);
@@ -150,11 +155,12 @@ namespace Realm.Editor.UI
             layout.flexibleHeight = 1f;
         }
 
-        private static RectTransform EnsureSeparator(Transform parent, string name)
+        private static RectTransform EnsureSeparator(Transform parent, string name, params string[] aliases)
         {
-            var existing = parent.Find(name);
+            var existing = FindByName(parent, name, aliases);
             if (existing != null && existing.TryGetComponent(out RectTransform existingRect))
             {
+                EnsureSeparatorName(existingRect.gameObject, name);
                 EnsureSeparatorComponents(existingRect);
                 EnsureSeparatorLayout(existingRect);
                 return existingRect;
@@ -174,6 +180,55 @@ namespace Realm.Editor.UI
             EnsureSeparatorComponents(rect);
             EnsureSeparatorLayout(rect);
             return rect;
+        }
+
+        private static Transform FindByName(Transform parent, string name, params string[] aliases)
+        {
+            if (parent == null)
+            {
+                return null;
+            }
+
+            var direct = parent.Find(name);
+            if (direct != null)
+            {
+                return direct;
+            }
+
+            if (aliases == null)
+            {
+                return null;
+            }
+
+            foreach (var alias in aliases)
+            {
+                if (string.IsNullOrWhiteSpace(alias))
+                {
+                    continue;
+                }
+
+                var match = parent.Find(alias);
+                if (match != null)
+                {
+                    return match;
+                }
+            }
+
+            return null;
+        }
+
+        private static void EnsureSeparatorName(GameObject separator, string targetName)
+        {
+            if (separator == null || string.IsNullOrWhiteSpace(targetName))
+            {
+                return;
+            }
+
+            if (!string.Equals(separator.name, targetName, StringComparison.Ordinal))
+            {
+                Undo.RecordObject(separator, "Rename Dock Separator");
+                separator.name = targetName;
+            }
         }
 
         private static void EnsureSeparatorComponents(RectTransform rect)
