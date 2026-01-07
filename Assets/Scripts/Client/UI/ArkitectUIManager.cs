@@ -486,8 +486,7 @@ namespace Client.UI
 
             if (!rect.TryGetComponent(out HorizontalLayoutGroup layout))
             {
-                Debug.LogWarning("ArkitectUIManager TabBar is missing a HorizontalLayoutGroup component.", rect);
-                return;
+                layout = rect.gameObject.AddComponent<HorizontalLayoutGroup>();
             }
 
             layout.spacing = 18f;
@@ -595,7 +594,7 @@ namespace Client.UI
                     image.color = new Color(0.298f, 0.349f, 0.482f, 0.9f);
                 }
 
-                var labelObject = new GameObject("Label", typeof(RectTransform), typeof(TMP_Text));
+                var labelObject = new GameObject("Label", typeof(RectTransform), typeof(TextMeshProUGUI));
                 labelObject.transform.SetParent(buttonObject.transform, false);
                 if (labelObject.TryGetComponent(out TMP_Text label))
                 {
@@ -793,7 +792,11 @@ namespace Client.UI
         {
             if (_dockShortcutSection == null)
             {
+#if UNITY_2023_1_OR_NEWER
+                _dockShortcutSection = Object.FindFirstObjectByType<DockShortcutSection>(FindObjectsInactive.Include);
+#else
                 _dockShortcutSection = FindObjectOfType<DockShortcutSection>(true);
+#endif
             }
 
             return _dockShortcutSection;

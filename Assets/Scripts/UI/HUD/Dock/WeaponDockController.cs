@@ -98,7 +98,11 @@ namespace Client.UI.HUD.Dock
                 return;
             }
 
+#if UNITY_2023_1_OR_NEWER
+            comboTracker = Object.FindFirstObjectByType<WeaponComboTracker>(FindObjectsInactive.Include);
+#else
             comboTracker = FindObjectOfType<WeaponComboTracker>(true);
+#endif
         }
 
         private void BindButtons()
