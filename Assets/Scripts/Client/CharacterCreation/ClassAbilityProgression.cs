@@ -18,11 +18,13 @@ namespace Client.CharacterCreation
 
         private void OnEnable()
         {
+            SyncAbilityGuids();
             _isDirty = true;
         }
 
         private void OnValidate()
         {
+            SyncAbilityGuids();
             _isDirty = true;
         }
 
@@ -125,6 +127,35 @@ namespace Client.CharacterCreation
             return _cachedLevels.Keys.ToList();
         }
 
+        private void SyncAbilityGuids()
+        {
+            if (classAbilityTracks == null)
+            {
+                return;
+            }
+
+            foreach (var track in classAbilityTracks)
+            {
+                if (track?.Levels == null)
+                {
+                    continue;
+                }
+
+                foreach (var levelEntry in track.Levels)
+                {
+                    if (levelEntry?.Abilities == null)
+                    {
+                        continue;
+                    }
+
+                    foreach (var ability in levelEntry.Abilities)
+                    {
+                        ability?.SyncGuidFromAbility();
+                    }
+                }
+            }
+        }
+
         [Serializable]
         public class ClassAbilityTrack
         {
@@ -178,11 +209,21 @@ namespace Client.CharacterCreation
             public string AbilityGuid => !string.IsNullOrWhiteSpace(ability?.Guid) ? ability.Guid : abilityGuid;
             public AbilityDefinition Ability => ability;
 
+            public void SyncGuidFromAbility()
+            {
+                if (ability == null || string.IsNullOrWhiteSpace(ability.Guid))
+                {
+                    return;
+                }
+
+                abilityGuid = ability.Guid;
+            }
+
             public ClassAbilityDefinition Clone()
             {
                 return new ClassAbilityDefinition
                 {
-                    abilityGuid = abilityGuid,
+                    abilityGuid = AbilityGuid,
                     ability = ability,
                     DisplayName = DisplayName,
                     Description = Description,
