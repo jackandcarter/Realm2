@@ -1,0 +1,33 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 48844bb0891647cea351714739b54f9a, type: 3}
+  m_Name: DefaultWeaponCatalog
+  m_EditorClassIdentifier:
+  entries:
+  - ClassId: warrior
+    Weapon: {fileID: 11400000, guid: 8e5b970a1b8d4a27a17851b42796e509, type: 2}
+  - ClassId: wizard
+    Weapon: {fileID: 11400000, guid: 13798be27ae4420d910fd758cced9fe8, type: 2}
+  - ClassId: time-mage
+    Weapon: {fileID: 11400000, guid: ed7208fc603d429d8a2974aeb71769d9, type: 2}
+  - ClassId: necromancer
+    Weapon: {fileID: 11400000, guid: a84a8c5c9dac40ee9567135a13a24c24, type: 2}
+  - ClassId: technomancer
+    Weapon: {fileID: 11400000, guid: 36d9d04b4a5f4b9a840e0280405220a6, type: 2}
+  - ClassId: sage
+    Weapon: {fileID: 11400000, guid: 95d29b9260fa4ad98b687ff6a39256ff, type: 2}
+  - ClassId: rogue
+    Weapon: {fileID: 11400000, guid: 0ebf6415b1af437d9b51236a55553276, type: 2}
+  - ClassId: ranger
+    Weapon: {fileID: 11400000, guid: fd19441bdf7b4989a8bbf24b2bcd05d5, type: 2}
+  - ClassId: builder
+    Weapon: {fileID: 11400000, guid: 8bc185d541af45a38a02fa5522fd9575, type: 2}

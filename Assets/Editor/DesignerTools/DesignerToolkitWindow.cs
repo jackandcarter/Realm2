@@ -20,14 +20,21 @@ namespace Realm.Editor.DesignerTools
         private const string ArmorTypeDefinitionFilter = "t:Realm.Data.ArmorTypeDefinition";
         private const string WeaponDefinitionFilter = "t:Realm.Data.WeaponDefinition";
         private const string ArmorDefinitionFilter = "t:Realm.Data.ArmorDefinition";
+        private const string DefaultWeaponCatalogAssetPath = "Assets/Resources/Equipment/DefaultWeaponCatalog.asset";
 
         private Vector2 _scrollPosition;
+        private DefaultWeaponCatalog _defaultWeaponCatalog;
 
         [MenuItem("Tools/Designer/Designer Toolkit", priority = 90)]
         public static void ShowWindow()
         {
             var window = GetWindow<DesignerToolkitWindow>("Designer Toolkit");
             window.minSize = new Vector2(840f, 520f);
+        }
+
+        private void OnEnable()
+        {
+            _defaultWeaponCatalog = AssetDatabase.LoadAssetAtPath<DefaultWeaponCatalog>(DefaultWeaponCatalogAssetPath);
         }
 
         private void OnGUI()
@@ -45,6 +52,8 @@ namespace Realm.Editor.DesignerTools
             {
                 _scrollPosition = scroll.scrollPosition;
                 DrawRegistrySection(profile);
+                EditorGUILayout.Space();
+                DrawDefaultWeaponCatalogSection();
                 EditorGUILayout.Space();
                 DrawAssetCreationSection(profile);
                 EditorGUILayout.Space();
@@ -197,6 +206,42 @@ namespace Realm.Editor.DesignerTools
                 CreateAsset<ArmorDefinition>("ArmorDefinition", profile.ArmorDefinitionsFolder));
         }
 
+        private void DrawDefaultWeaponCatalogSection()
+        {
+            EditorGUILayout.LabelField("Default Equipment", EditorStyles.boldLabel);
+            EditorGUILayout.HelpBox("Build the default weapon catalog from the available WeaponDefinition assets.", MessageType.Info);
+
+            EditorGUI.BeginChangeCheck();
+            var catalog = (DefaultWeaponCatalog)EditorGUILayout.ObjectField(
+                new GUIContent("Default Weapon Catalog", "Catalog that maps classes to their default weapons."),
+                _defaultWeaponCatalog,
+                typeof(DefaultWeaponCatalog),
+                false);
+            if (EditorGUI.EndChangeCheck())
+            {
+                _defaultWeaponCatalog = catalog;
+            }
+
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                using (new EditorGUI.DisabledScope(_defaultWeaponCatalog != null))
+                {
+                    if (GUILayout.Button(new GUIContent("Create Catalog", "Create the default weapon catalog asset at the standard Resources path."), GUILayout.Width(160f)))
+                    {
+                        _defaultWeaponCatalog = CreateDefaultWeaponCatalog();
+                    }
+                }
+
+                using (new EditorGUI.DisabledScope(_defaultWeaponCatalog == null))
+                {
+                    if (GUILayout.Button(new GUIContent("Build Catalog", "Populate the catalog entries from existing WeaponDefinition assets."), GUILayout.Width(160f)))
+                    {
+                        BuildDefaultWeaponCatalog(_defaultWeaponCatalog);
+                    }
+                }
+            }
+        }
+
         private static void DrawShortcutSection()
         {
             EditorGUILayout.LabelField("Shortcuts", EditorStyles.boldLabel);
@@ -288,6 +333,97 @@ namespace Realm.Editor.DesignerTools
             profile.ArmorDefinitionsFolder = "Assets/ScriptableObjects/Equipment/Armors";
             profile.RegistryAssetPath = "Assets/ScriptableObjects/Stats/StatRegistry.asset";
             profile.SaveProfile();
+        }
+
+        private static DefaultWeaponCatalog CreateDefaultWeaponCatalog()
+        {
+            EnsureFolder(Path.GetDirectoryName(DefaultWeaponCatalogAssetPath));
+            var catalog = CreateInstance<DefaultWeaponCatalog>();
+            AssetDatabase.CreateAsset(catalog, DefaultWeaponCatalogAssetPath);
+            AssetDatabase.SaveAssets();
+            AssetDatabase.Refresh();
+            Selection.activeObject = catalog;
+            EditorGUIUtility.PingObject(catalog);
+            return catalog;
+        }
+
+        private static void BuildDefaultWeaponCatalog(DefaultWeaponCatalog catalog)
+        {
+            if (catalog == null)
+            {
+                return;
+            }
+
+            var weapons = LoadAssets<WeaponDefinition>(WeaponDefinitionFilter);
+            var assignments = new Dictionary<string, WeaponDefinition>(StringComparer.OrdinalIgnoreCase);
+
+            foreach (var weapon in weapons)
+            {
+                if (weapon == null)
+                {
+                    continue;
+                }
+
+                CollectClassIds(weapon, assignments);
+            }
+
+            var classIds = new List<string>(assignments.Keys);
+            classIds.Sort(StringComparer.OrdinalIgnoreCase);
+
+            var serializedObject = new SerializedObject(catalog);
+            var entriesProperty = serializedObject.FindProperty("entries");
+            if (entriesProperty == null)
+            {
+                return;
+            }
+
+            entriesProperty.arraySize = classIds.Count;
+            for (var i = 0; i < classIds.Count; i++)
+            {
+                var entry = entriesProperty.GetArrayElementAtIndex(i);
+                entry.FindPropertyRelative("ClassId").stringValue = classIds[i];
+                entry.FindPropertyRelative("Weapon").objectReferenceValue = assignments[classIds[i]];
+            }
+
+            serializedObject.ApplyModifiedProperties();
+            EditorUtility.SetDirty(catalog);
+            AssetDatabase.SaveAssets();
+        }
+
+        private static void CollectClassIds(WeaponDefinition weapon, Dictionary<string, WeaponDefinition> assignments)
+        {
+            var classIds = new List<string>();
+            if (weapon.RequiredClassIds != null)
+            {
+                classIds.AddRange(weapon.RequiredClassIds);
+            }
+
+            if (weapon.RequiredClasses != null)
+            {
+                foreach (var definition in weapon.RequiredClasses)
+                {
+                    if (definition != null && !string.IsNullOrWhiteSpace(definition.ClassId))
+                    {
+                        classIds.Add(definition.ClassId);
+                    }
+                }
+            }
+
+            foreach (var classId in classIds)
+            {
+                if (string.IsNullOrWhiteSpace(classId))
+                {
+                    continue;
+                }
+
+                if (assignments.ContainsKey(classId))
+                {
+                    Debug.LogWarning($"Default weapon catalog already has a weapon mapped for class '{classId}'. Skipping {weapon.DisplayName}.");
+                    continue;
+                }
+
+                assignments[classId] = weapon;
+            }
         }
 
         private static StatRegistry CreateRegistryAsset(DesignerToolkitProfile profile)
