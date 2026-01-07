@@ -25,6 +25,8 @@ namespace Client.Combat
         public event Action<bool> SpecialReadyChanged;
 
         public bool IsSpecialReady { get; private set; }
+        public float SpecialCooldownSeconds => specialCooldownSeconds;
+        public float SpecialCooldownRemaining => Mathf.Max(0f, _cooldownEndsAt - Time.unscaledTime);
         public WeaponComboDefinition EquippedDefinition => _equippedDefinition;
         public string CurrentSpecialAttackAbilityId =>
             _equippedDefinition != null ? _equippedDefinition.SpecialAttackAbilityId : string.Empty;

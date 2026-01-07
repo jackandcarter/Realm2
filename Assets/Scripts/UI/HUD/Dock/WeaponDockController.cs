@@ -15,12 +15,21 @@ namespace Client.UI.HUD.Dock
         [SerializeField] private Button heavyButton;
         [SerializeField] private Button specialButton;
         [SerializeField] private Image specialReadyIndicator;
+        [SerializeField] private Image specialCooldownIndicator;
+        [SerializeField] private Outline specialReadyOutline;
+        [SerializeField] private float readyPulseScale = 1.06f;
+        [SerializeField] private float readyPulseSpeed = 2.4f;
+        [SerializeField] private float readyPulseMinAlpha = 0.25f;
 
         [Header("Runtime")]
         [SerializeField] private WeaponComboTracker comboTracker;
         [SerializeField] private WeaponAttackController attackController;
 
         private string _equippedWeaponId;
+        private Coroutine _readyPulseRoutine;
+        private Vector3 _readyIndicatorBaseScale;
+        private Color _readyIndicatorBaseColor;
+        private Color _readyOutlineBaseColor;
 
         private void Reset()
         {
@@ -30,9 +39,11 @@ namespace Client.UI.HUD.Dock
         private void Awake()
         {
             CacheButtons();
+            CacheReadyVisuals();
             ResolveComboTracker();
             ResolveAttackController();
             SetSpecialIndicator(false);
+            UpdateSpecialCooldownIndicator();
         }
 
         private void OnEnable()
@@ -60,6 +71,8 @@ namespace Client.UI.HUD.Dock
             {
                 comboTracker.SpecialReadyChanged -= OnSpecialReadyChanged;
             }
+
+            StopReadyPulse();
         }
 
         private void CacheButtons()
@@ -90,6 +103,32 @@ namespace Client.UI.HUD.Dock
                             break;
                     }
                 }
+            }
+
+            if (specialReadyOutline == null && specialButton != null)
+            {
+                specialReadyOutline = specialButton.GetComponent<Outline>();
+                if (specialReadyOutline == null)
+                {
+                    specialReadyOutline = specialButton.gameObject.AddComponent<Outline>();
+                    specialReadyOutline.effectColor = new Color(0.95f, 0.78f, 0.2f, 0.85f);
+                    specialReadyOutline.effectDistance = new Vector2(3f, -3f);
+                    specialReadyOutline.enabled = false;
+                }
+            }
+        }
+
+        private void CacheReadyVisuals()
+        {
+            if (specialReadyIndicator != null)
+            {
+                _readyIndicatorBaseScale = specialReadyIndicator.rectTransform.localScale;
+                _readyIndicatorBaseColor = specialReadyIndicator.color;
+            }
+
+            if (specialReadyOutline != null)
+            {
+                _readyOutlineBaseColor = specialReadyOutline.effectColor;
             }
         }
 
@@ -250,22 +289,40 @@ namespace Client.UI.HUD.Dock
             var canAttack = !string.IsNullOrWhiteSpace(_equippedWeaponId);
             SetButtonsInteractable(canAttack);
             UpdateSpecialButtonState();
+            UpdateSpecialCooldownIndicator();
         }
 
         private void OnSpecialReadyChanged(bool isReady)
         {
             SetSpecialIndicator(isReady);
             UpdateSpecialButtonState();
+            UpdateSpecialCooldownIndicator();
         }
 
         private void SetSpecialIndicator(bool active)
         {
             if (specialReadyIndicator == null)
             {
+                StopReadyPulse();
                 return;
             }
 
             specialReadyIndicator.enabled = active;
+
+            if (specialReadyOutline != null)
+            {
+                specialReadyOutline.enabled = active;
+            }
+
+            if (active)
+            {
+                CacheReadyVisuals();
+                StartReadyPulse();
+            }
+            else
+            {
+                StopReadyPulse();
+            }
         }
 
         private void SetButtonsInteractable(bool interactable)
@@ -295,6 +352,95 @@ namespace Client.UI.HUD.Dock
 
             var ready = comboTracker != null && comboTracker.IsSpecialReady;
             specialButton.interactable = !string.IsNullOrWhiteSpace(_equippedWeaponId) && ready;
+        }
+
+        private void Update()
+        {
+            UpdateSpecialCooldownIndicator();
+        }
+
+        private void UpdateSpecialCooldownIndicator()
+        {
+            if (specialCooldownIndicator == null)
+            {
+                return;
+            }
+
+            if (comboTracker == null)
+            {
+                specialCooldownIndicator.enabled = false;
+                return;
+            }
+
+            var remaining = comboTracker.SpecialCooldownRemaining;
+            var duration = comboTracker.SpecialCooldownSeconds;
+            var show = remaining > 0f && duration > 0f;
+
+            specialCooldownIndicator.enabled = show;
+
+            if (show)
+            {
+                specialCooldownIndicator.fillAmount = Mathf.Clamp01(remaining / duration);
+            }
+        }
+
+        private void StartReadyPulse()
+        {
+            if (_readyPulseRoutine != null)
+            {
+                return;
+            }
+
+            _readyPulseRoutine = StartCoroutine(PulseReadyIndicator());
+        }
+
+        private void StopReadyPulse()
+        {
+            if (_readyPulseRoutine != null)
+            {
+                StopCoroutine(_readyPulseRoutine);
+                _readyPulseRoutine = null;
+            }
+
+            if (specialReadyIndicator != null)
+            {
+                specialReadyIndicator.rectTransform.localScale = _readyIndicatorBaseScale == Vector3.zero
+                    ? Vector3.one
+                    : _readyIndicatorBaseScale;
+                specialReadyIndicator.color = _readyIndicatorBaseColor;
+            }
+
+            if (specialReadyOutline != null)
+            {
+                specialReadyOutline.effectColor = _readyOutlineBaseColor;
+            }
+        }
+
+        private System.Collections.IEnumerator PulseReadyIndicator()
+        {
+            while (true)
+            {
+                var pulse = (Mathf.Sin(Time.unscaledTime * readyPulseSpeed) + 1f) * 0.5f;
+
+                if (specialReadyIndicator != null)
+                {
+                    var baseScale = _readyIndicatorBaseScale == Vector3.zero ? Vector3.one : _readyIndicatorBaseScale;
+                    specialReadyIndicator.rectTransform.localScale = baseScale * Mathf.Lerp(1f, readyPulseScale, pulse);
+
+                    var color = _readyIndicatorBaseColor;
+                    color.a = Mathf.Lerp(readyPulseMinAlpha, _readyIndicatorBaseColor.a, pulse);
+                    specialReadyIndicator.color = color;
+                }
+
+                if (specialReadyOutline != null)
+                {
+                    var outlineColor = _readyOutlineBaseColor;
+                    outlineColor.a = Mathf.Lerp(readyPulseMinAlpha, _readyOutlineBaseColor.a, pulse);
+                    specialReadyOutline.effectColor = outlineColor;
+                }
+
+                yield return null;
+            }
         }
     }
 }
