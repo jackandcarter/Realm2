@@ -268,7 +268,7 @@ namespace Realm.EditorTools
 
                 if (GUILayout.Button(new GUIContent("Save As...", "Create a new AbilityDefinition asset from the working copy."), EditorStyles.toolbarButton))
                 {
-                    SaveAsNewAsset();
+                    SaveAsNewAsset(_registerInClassProgression);
                 }
             }
         }
@@ -446,6 +446,14 @@ namespace Realm.EditorTools
                 new GUIContent("Register in Class Progression on Save As", "Add this ability to the class progression asset when saving a new ability asset."),
                 _registerInClassProgression);
 
+            using (new EditorGUI.DisabledScope(_progressionAsset == null))
+            {
+                if (GUILayout.Button(new GUIContent("Save As + Register in Class Progression", "Save a new ability asset and register it at the selected class and level.")))
+                {
+                    SaveAsNewAsset(true, true);
+                }
+            }
+
             using (new EditorGUI.DisabledScope(_selectedAsset == null))
             {
                 if (GUILayout.Button(new GUIContent("Register Selected Ability", "Add the selected ability asset to the class progression asset now.")))
@@ -576,7 +584,7 @@ namespace Realm.EditorTools
             RefreshValidation();
         }
 
-        private void SaveAsNewAsset()
+        private void SaveAsNewAsset(bool registerInProgression, bool showDialogOnFailure = false)
         {
             var path = EditorUtility.SaveFilePanelInProject("Save Ability", "NewAbilityDefinition", "asset", "Choose a location for the ability definition asset.");
             if (string.IsNullOrEmpty(path))
@@ -593,11 +601,18 @@ namespace Realm.EditorTools
             _selectedAsset = asset;
             EditorGUIUtility.PingObject(asset);
 
-            if (_registerInClassProgression)
+            if (registerInProgression)
             {
                 if (!TryRegisterAbilityInProgression(asset, out var feedback))
                 {
-                    Debug.LogWarning($"Unable to register ability in class progression: {feedback}");
+                    if (showDialogOnFailure)
+                    {
+                        EditorUtility.DisplayDialog("Register Ability", feedback, "OK");
+                    }
+                    else
+                    {
+                        Debug.LogWarning($"Unable to register ability in class progression: {feedback}");
+                    }
                 }
                 else
                 {
@@ -641,7 +656,7 @@ namespace Realm.EditorTools
 
             if (_workingCopy.Icon == null)
             {
-                _validationMessages.Add(("Assign an icon to ensure the dock registry uses the AbilityDefinition icon.", MessageType.Warning));
+                _validationMessages.Add(("Assign an icon so the UI can display this ability without manual icon folder setup.", MessageType.Warning));
             }
 
             if (!string.IsNullOrWhiteSpace(abilityGuid) && _progressionAsset != null && !IsAbilityInProgression(abilityGuid))
