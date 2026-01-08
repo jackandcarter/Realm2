@@ -169,7 +169,8 @@ namespace Client.UI.HUD.Dock
         {
             var activeClass = ResolveClassId();
             var entries = ClassAbilityCatalog.GetAbilityDockEntries(activeClass);
-            RebuildItems(entries);
+            var unlockedEntries = FilterUnlockedEntries(activeClass, entries);
+            RebuildItems(unlockedEntries);
         }
 
         private string ResolveClassId()
@@ -207,7 +208,7 @@ namespace Client.UI.HUD.Dock
                 return;
             }
 
-            RefreshUnlockStates();
+            Rebind();
         }
 
         private void EnsureContainer()
@@ -310,6 +311,32 @@ namespace Client.UI.HUD.Dock
             PersistCurrentLayout();
             RefreshAbilityStates();
             RefreshUnlockStates();
+        }
+
+        private static IReadOnlyList<ClassAbilityCatalog.ClassAbilityDockEntry> FilterUnlockedEntries(
+            string classId,
+            IReadOnlyList<ClassAbilityCatalog.ClassAbilityDockEntry> entries)
+        {
+            if (string.IsNullOrWhiteSpace(classId) || entries == null || entries.Count == 0)
+            {
+                return Array.Empty<ClassAbilityCatalog.ClassAbilityDockEntry>();
+            }
+
+            var results = new List<ClassAbilityCatalog.ClassAbilityDockEntry>();
+            foreach (var entry in entries)
+            {
+                if (!entry.IsValid)
+                {
+                    continue;
+                }
+
+                if (PlayerAbilityUnlockState.IsAbilityUnlocked(classId, entry.AbilityId))
+                {
+                    results.Add(entry);
+                }
+            }
+
+            return results;
         }
 
         private AbilityDockItem CreateItem()
