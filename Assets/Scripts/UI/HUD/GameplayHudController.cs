@@ -15,6 +15,7 @@ namespace Client.UI.HUD
         [SerializeField] private GameObject masterDockPrefab;
         [SerializeField] private List<ClassUiModuleBinding> classUiModules = new();
         [SerializeField] private ClassAbilityDockModule abilityDockModule;
+        [SerializeField] private List<MonoBehaviour> lockedAbilityPanels = new();
 
         private string _activeClassId;
         private IClassUiModule _activeModule;
@@ -62,6 +63,7 @@ namespace Client.UI.HUD
         {
             PlayerClassStateManager.ActiveClassChanged += OnActiveClassChanged;
             PlayerClassStateManager.ArkitectAvailabilityChanged += OnArkitectAvailabilityChanged;
+            PlayerAbilityUnlockState.AbilityUnlocksChanged += OnAbilityUnlocksChanged;
 
             if (!_initialized)
             {
@@ -76,12 +78,14 @@ namespace Client.UI.HUD
         {
             PlayerClassStateManager.ActiveClassChanged -= OnActiveClassChanged;
             PlayerClassStateManager.ArkitectAvailabilityChanged -= OnArkitectAvailabilityChanged;
+            PlayerAbilityUnlockState.AbilityUnlocksChanged -= OnAbilityUnlocksChanged;
         }
 
         private void OnDestroy()
         {
             PlayerClassStateManager.ActiveClassChanged -= OnActiveClassChanged;
             PlayerClassStateManager.ArkitectAvailabilityChanged -= OnArkitectAvailabilityChanged;
+            PlayerAbilityUnlockState.AbilityUnlocksChanged -= OnAbilityUnlocksChanged;
         }
 
         private void OnActiveClassChanged(string classId)
@@ -92,6 +96,11 @@ namespace Client.UI.HUD
         private void OnArkitectAvailabilityChanged(bool available)
         {
             _activeModule?.OnAbilityStateChanged(ClassUnlockUtility.BuilderClassId, available);
+        }
+
+        private void OnAbilityUnlocksChanged()
+        {
+            RefreshLockedAbilityPanels(PlayerClassStateManager.ActiveClassId);
         }
 
         private void LoadClassDock(string classId)
@@ -109,6 +118,8 @@ namespace Client.UI.HUD
             {
                 CreateModuleInstance(binding);
             }
+
+            RefreshLockedAbilityPanels(classId);
         }
 
         private void CreateModuleInstance(ClassUiModuleBinding binding)
@@ -461,6 +472,43 @@ namespace Client.UI.HUD
             else
             {
                 DestroyImmediate(instance);
+            }
+        }
+
+        private void RefreshLockedAbilityPanels(string classId)
+        {
+            if (lockedAbilityPanels == null || lockedAbilityPanels.Count == 0)
+            {
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(classId))
+            {
+                return;
+            }
+
+            var classKey = classId.Trim();
+            var entries = ClassAbilityCatalog.GetAbilityDockEntries(classKey);
+            var lockedEntries = new List<ClassAbilityCatalog.ClassAbilityDockEntry>();
+            foreach (var entry in entries)
+            {
+                if (!entry.IsValid)
+                {
+                    continue;
+                }
+
+                if (!PlayerAbilityUnlockState.IsAbilityUnlocked(classKey, entry.AbilityId))
+                {
+                    lockedEntries.Add(entry);
+                }
+            }
+
+            foreach (var panel in lockedAbilityPanels)
+            {
+                if (panel is IClassLockedAbilityPanel lockedPanel)
+                {
+                    lockedPanel.SetLockedAbilities(classKey, lockedEntries);
+                }
             }
         }
     }
