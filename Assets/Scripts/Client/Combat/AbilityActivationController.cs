@@ -87,7 +87,7 @@ namespace Client.Combat
             }
 
             var cooldownDuration = definition.Resource != null ? definition.Resource.CooldownSeconds : 0f;
-            var castDuration = 0f;
+            var castDuration = definition.Resource != null ? definition.Resource.CastSeconds : 0f;
             _states[normalized] = new AbilityRuntimeState(
                 Mathf.Max(0f, castDuration),
                 now + Mathf.Max(0f, castDuration),

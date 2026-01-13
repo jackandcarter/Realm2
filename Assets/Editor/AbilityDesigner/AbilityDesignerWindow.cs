@@ -322,6 +322,7 @@ namespace Realm.EditorTools
             var typeProp = _resourceProperty.FindPropertyRelative("ResourceType");
             var costProp = _resourceProperty.FindPropertyRelative("Cost");
             var percentProp = _resourceProperty.FindPropertyRelative("PercentageCost");
+            var castProp = _resourceProperty.FindPropertyRelative("CastSeconds");
             var cooldownProp = _resourceProperty.FindPropertyRelative("CooldownSeconds");
             var gcdProp = _resourceProperty.FindPropertyRelative("GlobalCooldownSeconds");
 
@@ -340,6 +341,7 @@ namespace Realm.EditorTools
                 }
             }
 
+            EditorGUILayout.PropertyField(castProp, new GUIContent("Cast Time (s)"));
             EditorGUILayout.PropertyField(cooldownProp, new GUIContent("Cooldown (s)"));
             EditorGUILayout.PropertyField(gcdProp, new GUIContent("Global Cooldown (s)"));
         }
@@ -712,6 +714,11 @@ namespace Realm.EditorTools
             if (resource.CooldownSeconds < 0f)
             {
                 _validationMessages.Add(("Cooldown cannot be negative.", MessageType.Error));
+            }
+
+            if (resource.CastSeconds < 0f)
+            {
+                _validationMessages.Add(("Cast time cannot be negative.", MessageType.Error));
             }
 
             if (execution.OnlyWhileMoving && execution.OnlyWhileStationary)

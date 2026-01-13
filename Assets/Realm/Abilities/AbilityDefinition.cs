@@ -67,6 +67,7 @@ namespace Realm.Abilities
         public AbilityResourceType ResourceType = AbilityResourceType.Mana;
         public float Cost = 10f;
         public bool PercentageCost;
+        public float CastSeconds;
         public float CooldownSeconds = 10f;
         public float GlobalCooldownSeconds = 1.5f;
     }
@@ -185,6 +186,11 @@ namespace Realm.Abilities
             {
                 var cooldown = Resource != null ? Resource.CooldownSeconds : 0f;
                 segments.Add($"Cooldown: {cooldown:0.#}s.");
+            }
+
+            if (Resource != null && Resource.CastSeconds > 0f)
+            {
+                segments.Add($"Cast time: {Resource.CastSeconds:0.#}s.");
             }
 
             if (Effects != null)
