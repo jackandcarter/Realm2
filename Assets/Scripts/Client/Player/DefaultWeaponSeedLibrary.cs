@@ -56,7 +56,7 @@ namespace Client.Player
             {
                 Guid = guid,
                 DisplayName = displayName,
-                Description = $"Seeded weapon for {ClassCatalog.TryGetClass(classId, out var definition) ? definition.DisplayName : classId}.",
+                Description = $"Seeded weapon for {(ClassCatalog.TryGetClass(classId, out var definition) ? definition.DisplayName : classId)}.",
                 Slot = EquipmentSlot.Weapon,
                 RequiredClassIds = new List<string> { classId },
                 BaseDamage = baseDamage,
