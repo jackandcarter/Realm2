@@ -232,6 +232,11 @@ namespace Client.UI.HUD.Dock
             {
                 itemContainer.gameObject.AddComponent<DockMagnifier>();
             }
+
+            if (itemContainer != null && !itemContainer.TryGetComponent(out DockCooldownHover _))
+            {
+                itemContainer.gameObject.AddComponent<DockCooldownHover>();
+            }
         }
 
         private void RebuildItems(IReadOnlyList<ClassAbilityCatalog.ClassAbilityDockEntry> entries)

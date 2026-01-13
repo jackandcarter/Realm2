@@ -11,6 +11,7 @@ namespace Client.UI.HUD.Dock
     public class AbilityDockItem : MonoBehaviour, IBeginDragHandler, IEndDragHandler, IDragHandler, IDropHandler
     {
         [SerializeField] private Image iconImage;
+        [SerializeField] private Image cooldownOverlay;
         [SerializeField] private TMP_Text label;
         [SerializeField] private TMP_Text hotkeyLabel;
         [SerializeField] private CanvasGroup canvasGroup;
@@ -23,6 +24,9 @@ namespace Client.UI.HUD.Dock
         private bool _isPlaceholder;
         private bool _isLocked;
         private bool _dragging;
+        private bool _cooldownReveal;
+        private DockAbilityState _lastState;
+        private bool _hasState;
 
         public string AbilityId => _entry.AbilityId;
         public string LayoutId => _layoutId;
@@ -84,6 +88,8 @@ namespace Client.UI.HUD.Dock
                     dockAnimator = gameObject.AddComponent<DockItemAnimator>();
                 }
             }
+
+            EnsureCooldownOverlay();
         }
 
         private void OnDestroy()
@@ -117,6 +123,8 @@ namespace Client.UI.HUD.Dock
             }
 
             dockAnimator?.ClearAbilityTiming();
+            _hasState = false;
+            UpdateCooldownOverlay();
 
             gameObject.name = $"AbilityDockItem_{entry.AbilityId}";
         }
@@ -145,6 +153,8 @@ namespace Client.UI.HUD.Dock
             }
 
             dockAnimator?.ClearAbilityTiming();
+            _hasState = false;
+            UpdateCooldownOverlay();
 
             gameObject.name = $"AbilityDockSlot_{placeholderId}";
         }
@@ -159,11 +169,20 @@ namespace Client.UI.HUD.Dock
 
         internal void SetAbilityState(DockAbilityState state)
         {
+            _lastState = state;
+            _hasState = true;
             dockAnimator?.SetAbilityTiming(
                 state.CastDuration,
                 state.CastRemaining,
                 state.CooldownDuration,
                 state.CooldownRemaining);
+            UpdateCooldownOverlay();
+        }
+
+        internal void SetCooldownOverlayVisible(bool visible)
+        {
+            _cooldownReveal = visible;
+            UpdateCooldownOverlay();
         }
 
         internal void SetLocked(bool locked)
@@ -273,6 +292,58 @@ namespace Client.UI.HUD.Dock
             }
 
             _owner.RequestSwap(source, this);
+        }
+
+        private void EnsureCooldownOverlay()
+        {
+            if (cooldownOverlay != null)
+            {
+                cooldownOverlay.enabled = false;
+                return;
+            }
+
+            var overlayObject = new GameObject("CooldownOverlay", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            overlayObject.transform.SetParent(transform, false);
+            overlayObject.transform.SetSiblingIndex(0);
+
+            var overlayRect = overlayObject.GetComponent<RectTransform>();
+            overlayRect.anchorMin = Vector2.zero;
+            overlayRect.anchorMax = Vector2.one;
+            overlayRect.offsetMin = Vector2.zero;
+            overlayRect.offsetMax = Vector2.zero;
+            overlayRect.pivot = new Vector2(0.5f, 0.5f);
+
+            cooldownOverlay = overlayObject.GetComponent<Image>();
+            cooldownOverlay.raycastTarget = false;
+            cooldownOverlay.color = new Color(0f, 0f, 0f, 0.55f);
+            cooldownOverlay.type = Image.Type.Filled;
+            cooldownOverlay.fillMethod = Image.FillMethod.Radial360;
+            cooldownOverlay.fillOrigin = (int)Image.Origin360.Top;
+            cooldownOverlay.fillClockwise = false;
+            cooldownOverlay.enabled = false;
+        }
+
+        private void UpdateCooldownOverlay()
+        {
+            if (cooldownOverlay == null)
+            {
+                return;
+            }
+
+            if (!_cooldownReveal || !_hasState || _isPlaceholder)
+            {
+                cooldownOverlay.enabled = false;
+                return;
+            }
+
+            if (_lastState.CooldownDuration <= 0f || _lastState.CooldownRemaining <= 0f)
+            {
+                cooldownOverlay.enabled = false;
+                return;
+            }
+
+            cooldownOverlay.enabled = true;
+            cooldownOverlay.fillAmount = Mathf.Clamp01(_lastState.CooldownRemaining / _lastState.CooldownDuration);
         }
     }
 }
