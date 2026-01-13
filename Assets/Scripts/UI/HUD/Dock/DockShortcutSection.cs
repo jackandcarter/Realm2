@@ -12,6 +12,7 @@ namespace Client.UI.HUD.Dock
     public class DockShortcutSection : MonoBehaviour, IDropHandler
     {
         [SerializeField] private DockShortcutItem itemPrefab;
+        [SerializeField] private string layoutKey;
 
         private readonly List<string> _order = new();
         private readonly List<DockShortcutItem> _items = new();
@@ -133,6 +134,32 @@ namespace Client.UI.HUD.Dock
             AddShortcut(source);
         }
 
+        internal void SetLayoutKey(string key)
+        {
+            layoutKey = key;
+            if (isActiveAndEnabled)
+            {
+                Rebuild();
+            }
+        }
+
+        internal bool TryGetSource(string shortcutId, out IDockShortcutSource source)
+        {
+            if (string.IsNullOrWhiteSpace(shortcutId))
+            {
+                source = null;
+                return false;
+            }
+
+            if (_sourceLookup.TryGetValue(shortcutId, out source))
+            {
+                return true;
+            }
+
+            RefreshSources();
+            return _sourceLookup.TryGetValue(shortcutId, out source);
+        }
+
         private void AddShortcut(IDockShortcutSource source)
         {
             if (source == null)
@@ -208,7 +235,7 @@ namespace Client.UI.HUD.Dock
             }
 
             var defaultOrder = new List<string>(_sourceLookup.Keys);
-            var storedOrder = DockShortcutLayoutStore.GetLayout(defaultOrder);
+            var storedOrder = DockShortcutLayoutStore.GetLayout(layoutKey, defaultOrder);
             var finalOrder = MergeOrders(storedOrder, defaultOrder, _sourceLookup.Keys);
             _order.AddRange(finalOrder);
 
@@ -333,7 +360,7 @@ namespace Client.UI.HUD.Dock
 
         private void PersistLayout()
         {
-            DockShortcutLayoutStore.SaveLayout(_order);
+            DockShortcutLayoutStore.SaveLayout(layoutKey, _order);
         }
 
         private void EnsureLayout()

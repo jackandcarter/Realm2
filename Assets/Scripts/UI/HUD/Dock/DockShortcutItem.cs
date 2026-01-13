@@ -21,6 +21,7 @@ namespace Client.UI.HUD.Dock
         private bool _dragging;
 
         public string ShortcutId => _entry.ShortcutId;
+        internal DockShortcutEntry Entry => _entry;
         internal DockShortcutSection Owner => _owner;
 
         internal void Initialize(DockShortcutSection owner)
@@ -81,6 +82,11 @@ namespace Client.UI.HUD.Dock
             if (!string.IsNullOrWhiteSpace(entry.ShortcutId))
             {
                 gameObject.name = $"DockShortcutItem_{entry.ShortcutId}";
+            }
+
+            if (TryGetComponent(out DockShortcutFolder folder))
+            {
+                folder.ConfigureLayoutKey(entry.ShortcutId);
             }
         }
 
@@ -154,6 +160,11 @@ namespace Client.UI.HUD.Dock
 
         private void OnClick()
         {
+            if (TryGetComponent(out DockShortcutFolder folder) && folder.HandleClick())
+            {
+                return;
+            }
+
             _owner?.ActivateShortcut(ShortcutId);
         }
     }

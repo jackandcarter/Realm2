@@ -10,6 +10,7 @@ namespace Client.UI.HUD.Dock
 
         private static LayoutCache _cache;
         private static bool _loaded;
+        private static readonly Dictionary<string, LayoutCache> LayoutCaches = new(StringComparer.OrdinalIgnoreCase);
 
         [Serializable]
         private class LayoutCache
@@ -29,6 +30,22 @@ namespace Client.UI.HUD.Dock
             return new List<string>(_cache.ShortcutIds);
         }
 
+        public static IReadOnlyList<string> GetLayout(string layoutKey, IReadOnlyList<string> defaultOrder)
+        {
+            if (string.IsNullOrWhiteSpace(layoutKey))
+            {
+                return GetLayout(defaultOrder);
+            }
+
+            var cache = EnsureLoaded(layoutKey);
+            if (cache.ShortcutIds == null || cache.ShortcutIds.Count == 0)
+            {
+                return defaultOrder ?? Array.Empty<string>();
+            }
+
+            return new List<string>(cache.ShortcutIds);
+        }
+
         public static void SaveLayout(IReadOnlyList<string> shortcutOrder)
         {
             EnsureLoaded();
@@ -38,6 +55,22 @@ namespace Client.UI.HUD.Dock
                 : new List<string>();
 
             Persist();
+        }
+
+        public static void SaveLayout(string layoutKey, IReadOnlyList<string> shortcutOrder)
+        {
+            if (string.IsNullOrWhiteSpace(layoutKey))
+            {
+                SaveLayout(shortcutOrder);
+                return;
+            }
+
+            var cache = EnsureLoaded(layoutKey);
+            cache.ShortcutIds = shortcutOrder != null
+                ? new List<string>(shortcutOrder)
+                : new List<string>();
+
+            Persist(layoutKey, cache);
         }
 
         public static void Clear()
@@ -80,6 +113,40 @@ namespace Client.UI.HUD.Dock
             _loaded = true;
         }
 
+        private static LayoutCache EnsureLoaded(string layoutKey)
+        {
+            if (LayoutCaches.TryGetValue(layoutKey, out var cached))
+            {
+                return cached;
+            }
+
+            var key = $"{PlayerPrefKey}-{layoutKey}";
+            var cache = new LayoutCache();
+            if (PlayerPrefs.HasKey(key))
+            {
+                var raw = PlayerPrefs.GetString(key, string.Empty);
+                if (!string.IsNullOrWhiteSpace(raw))
+                {
+                    try
+                    {
+                        var parsed = JsonUtility.FromJson<LayoutCache>(raw);
+                        if (parsed?.ShortcutIds != null)
+                        {
+                            cache.ShortcutIds = parsed.ShortcutIds;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.LogWarning($"DockShortcutLayoutStore failed to parse cached shortcuts ({layoutKey}): {ex.Message}");
+                    }
+                }
+            }
+
+            cache.ShortcutIds ??= new List<string>();
+            LayoutCaches[layoutKey] = cache;
+            return cache;
+        }
+
         private static void Persist()
         {
             if (_cache == null)
@@ -96,6 +163,25 @@ namespace Client.UI.HUD.Dock
             catch (Exception ex)
             {
                 Debug.LogWarning($"DockShortcutLayoutStore failed to persist shortcuts: {ex.Message}");
+            }
+        }
+
+        private static void Persist(string layoutKey, LayoutCache cache)
+        {
+            if (cache == null || string.IsNullOrWhiteSpace(layoutKey))
+            {
+                return;
+            }
+
+            try
+            {
+                var json = JsonUtility.ToJson(cache);
+                PlayerPrefs.SetString($"{PlayerPrefKey}-{layoutKey}", json);
+                PlayerPrefs.Save();
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"DockShortcutLayoutStore failed to persist shortcuts ({layoutKey}): {ex.Message}");
             }
         }
     }
