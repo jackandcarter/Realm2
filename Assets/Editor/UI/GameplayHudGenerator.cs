@@ -1,4 +1,5 @@
 using System.IO;
+using Client.CharacterCreation;
 using Client.UI.HUD;
 using Client.UI.Maps;
 using UnityEditor;
@@ -14,6 +15,7 @@ namespace Realm.Editor.UI
         private const string MiniMapPrefabPath = "Assets/UI/HUD/MiniMapPanel.prefab";
         private const string WorldMapPrefabPath = "Assets/UI/Maps/WorldMapOverlay.prefab";
         private const string MasterDockPrefabPath = "Assets/UI/Shared/Dock/MasterDock.prefab";
+        private const string ArkitectPrefabPath = "Assets/UI/Arkitect/ArkitectCanvas.prefab";
         private const string MenuRoot = "Tools/Realm/UI";
 
         [MenuItem(MenuRoot + "/Generate Gameplay HUD", priority = 110)]
@@ -33,6 +35,7 @@ namespace Realm.Editor.UI
 
             BindMapReferences(miniMap, worldMap);
             ApplyControllerBindings(controller, root.GetComponent<Canvas>(), classDockAnchor, LoadPrefab(MasterDockPrefabPath));
+            EnsureClassModuleBinding(controller, ClassUnlockUtility.BuilderClassId, LoadPrefab(ArkitectPrefabPath));
 
             RemoveMissingScripts(root);
             SavePrefab(root);
@@ -168,6 +171,47 @@ namespace Realm.Editor.UI
             serialized.FindProperty("mainCanvas").objectReferenceValue = canvas;
             serialized.FindProperty("classDockAnchor").objectReferenceValue = classDockAnchor;
             serialized.FindProperty("masterDockPrefab").objectReferenceValue = masterDockPrefab;
+            serialized.ApplyModifiedPropertiesWithoutUndo();
+        }
+
+        private static void EnsureClassModuleBinding(GameplayHudController controller, string classId, GameObject prefab)
+        {
+            if (controller == null || string.IsNullOrWhiteSpace(classId) || prefab == null)
+            {
+                return;
+            }
+
+            var serialized = new SerializedObject(controller);
+            var modules = serialized.FindProperty("classUiModules");
+            if (modules == null || !modules.isArray)
+            {
+                return;
+            }
+
+            var trimmedId = classId.Trim();
+            for (var i = 0; i < modules.arraySize; i++)
+            {
+                var entry = modules.GetArrayElementAtIndex(i);
+                var idProperty = entry.FindPropertyRelative("classId");
+                if (idProperty == null)
+                {
+                    continue;
+                }
+
+                if (!string.Equals(idProperty.stringValue?.Trim(), trimmedId, System.StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                entry.FindPropertyRelative("prefab").objectReferenceValue = prefab;
+                serialized.ApplyModifiedPropertiesWithoutUndo();
+                return;
+            }
+
+            modules.InsertArrayElementAtIndex(modules.arraySize);
+            var newEntry = modules.GetArrayElementAtIndex(modules.arraySize - 1);
+            newEntry.FindPropertyRelative("classId").stringValue = trimmedId;
+            newEntry.FindPropertyRelative("prefab").objectReferenceValue = prefab;
             serialized.ApplyModifiedPropertiesWithoutUndo();
         }
 
