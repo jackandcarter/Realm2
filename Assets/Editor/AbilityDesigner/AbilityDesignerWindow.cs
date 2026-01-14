@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using Client.CharacterCreation;
+using Realm.Editor.DesignerTools;
 using UnityEditor;
 using UnityEditorInternal;
 using UnityEngine;
@@ -256,6 +258,11 @@ namespace Realm.EditorTools
                     ResetWorkingCopy();
                 }
 
+                if (GUILayout.Button(new GUIContent("Create Asset", "Create a new AbilityDefinition asset in the default abilities folder."), EditorStyles.toolbarButton))
+                {
+                    SaveAsNewAsset(_registerInClassProgression, false, GetDefaultAbilityAssetPath());
+                }
+
                 GUILayout.FlexibleSpace();
 
                 using (new EditorGUI.DisabledScope(_selectedAsset == null))
@@ -448,14 +455,6 @@ namespace Realm.EditorTools
                 new GUIContent("Register in Class Progression on Save As", "Add this ability to the class progression asset when saving a new ability asset."),
                 _registerInClassProgression);
 
-            using (new EditorGUI.DisabledScope(_progressionAsset == null))
-            {
-                if (GUILayout.Button(new GUIContent("Save As + Register in Class Progression", "Save a new ability asset and register it at the selected class and level.")))
-                {
-                    SaveAsNewAsset(true, true);
-                }
-            }
-
             using (new EditorGUI.DisabledScope(_selectedAsset == null))
             {
                 if (GUILayout.Button(new GUIContent("Register Selected Ability", "Add the selected ability asset to the class progression asset now.")))
@@ -588,7 +587,13 @@ namespace Realm.EditorTools
 
         private void SaveAsNewAsset(bool registerInProgression, bool showDialogOnFailure = false)
         {
-            var path = EditorUtility.SaveFilePanelInProject("Save Ability", "NewAbilityDefinition", "asset", "Choose a location for the ability definition asset.");
+            SaveAsNewAsset(registerInProgression, showDialogOnFailure, null);
+        }
+
+        private void SaveAsNewAsset(bool registerInProgression, bool showDialogOnFailure, string pathOverride)
+        {
+            var defaultName = GetDefaultAbilityAssetName();
+            var path = pathOverride ?? EditorUtility.SaveFilePanelInProject("Save Ability", defaultName, "asset", "Choose a location for the ability definition asset.");
             if (string.IsNullOrEmpty(path))
             {
                 return;
@@ -600,7 +605,7 @@ namespace Realm.EditorTools
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
 
-            _selectedAsset = asset;
+            LoadFromAsset(asset);
             EditorGUIUtility.PingObject(asset);
 
             if (registerInProgression)
@@ -621,6 +626,10 @@ namespace Realm.EditorTools
                     ShowNotification(new GUIContent(feedback));
                 }
             }
+            else
+            {
+                UpdateProgressionAbilityEntries(asset);
+            }
         }
 
         private void SaveToExistingAsset()
@@ -633,6 +642,7 @@ namespace Realm.EditorTools
             EditorUtility.CopySerialized(_workingCopy, _selectedAsset);
             EditorUtility.SetDirty(_selectedAsset);
             AssetDatabase.SaveAssets();
+            UpdateProgressionAbilityEntries(_selectedAsset);
         }
 
         private void RefreshValidation()
@@ -1015,6 +1025,68 @@ namespace Realm.EditorTools
             }
         }
 
+        private void UpdateProgressionAbilityEntries(AbilityDefinition ability)
+        {
+            if (_progressionAsset == null || ability == null || string.IsNullOrWhiteSpace(ability.Guid))
+            {
+                return;
+            }
+
+            var serializedProgression = new SerializedObject(_progressionAsset);
+            var tracksProperty = serializedProgression.FindProperty("classAbilityTracks");
+            if (tracksProperty == null || !tracksProperty.isArray)
+            {
+                return;
+            }
+
+            var updated = false;
+            for (var i = 0; i < tracksProperty.arraySize; i++)
+            {
+                var track = tracksProperty.GetArrayElementAtIndex(i);
+                var levelsProperty = track.FindPropertyRelative("Levels");
+                if (levelsProperty == null || !levelsProperty.isArray)
+                {
+                    continue;
+                }
+
+                for (var j = 0; j < levelsProperty.arraySize; j++)
+                {
+                    var levelEntry = levelsProperty.GetArrayElementAtIndex(j);
+                    var abilitiesProperty = levelEntry.FindPropertyRelative("Abilities");
+                    if (abilitiesProperty == null || !abilitiesProperty.isArray)
+                    {
+                        continue;
+                    }
+
+                    for (var k = 0; k < abilitiesProperty.arraySize; k++)
+                    {
+                        var abilityEntry = abilitiesProperty.GetArrayElementAtIndex(k);
+                        var guidProperty = abilityEntry.FindPropertyRelative("abilityGuid");
+                        var abilityProperty = abilityEntry.FindPropertyRelative("ability");
+                        var matchesGuid = guidProperty != null
+                            && string.Equals(guidProperty.stringValue, ability.Guid, StringComparison.OrdinalIgnoreCase);
+                        var matchesReference = abilityProperty != null && abilityProperty.objectReferenceValue == ability;
+                        if (!matchesGuid && !matchesReference)
+                        {
+                            continue;
+                        }
+
+                        PopulateAbilityEntry(abilityEntry, ability);
+                        updated = true;
+                    }
+                }
+            }
+
+            if (!updated)
+            {
+                return;
+            }
+
+            serializedProgression.ApplyModifiedProperties();
+            EditorUtility.SetDirty(_progressionAsset);
+            AssetDatabase.SaveAssets();
+        }
+
         private bool IsAbilityInProgression(string abilityGuid)
         {
             if (_progressionAsset == null || string.IsNullOrWhiteSpace(abilityGuid))
@@ -1064,6 +1136,60 @@ namespace Realm.EditorTools
             }
 
             return _workingCopy != null ? _workingCopy.Guid : string.Empty;
+        }
+
+        private string GetDefaultAbilityAssetName()
+        {
+            var rawName = _workingCopy != null ? _workingCopy.AbilityName : string.Empty;
+            if (string.IsNullOrWhiteSpace(rawName))
+            {
+                rawName = "NewAbilityDefinition";
+            }
+
+            var invalidChars = Path.GetInvalidFileNameChars();
+            var sanitized = new string(rawName.Select(ch => invalidChars.Contains(ch) ? '_' : ch).ToArray());
+            return string.IsNullOrWhiteSpace(sanitized) ? "NewAbilityDefinition" : sanitized;
+        }
+
+        private string GetDefaultAbilityAssetPath()
+        {
+            var profile = DesignerToolkitProfile.Instance;
+            var folder = profile != null ? profile.AbilityDefinitionsFolder : "Assets/ScriptableObjects/Abilities";
+            if (string.IsNullOrWhiteSpace(folder))
+            {
+                folder = "Assets";
+            }
+
+            if (!folder.StartsWith("Assets", StringComparison.OrdinalIgnoreCase))
+            {
+                folder = "Assets";
+            }
+
+            EnsureFolderExists(folder);
+            var defaultName = GetDefaultAbilityAssetName();
+            var path = $"{folder.TrimEnd('/')}/{defaultName}.asset";
+            return AssetDatabase.GenerateUniqueAssetPath(path);
+        }
+
+        private static void EnsureFolderExists(string folderPath)
+        {
+            if (AssetDatabase.IsValidFolder(folderPath))
+            {
+                return;
+            }
+
+            var parts = folderPath.Split('/');
+            var current = parts[0];
+            for (var i = 1; i < parts.Length; i++)
+            {
+                var next = $"{current}/{parts[i]}";
+                if (!AssetDatabase.IsValidFolder(next))
+                {
+                    AssetDatabase.CreateFolder(current, parts[i]);
+                }
+
+                current = next;
+            }
         }
     }
 }
