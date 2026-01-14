@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Realm.Abilities;
 using UnityEngine;
+using Object = UnityEngine.Object;
 
 namespace Client.Combat
 {

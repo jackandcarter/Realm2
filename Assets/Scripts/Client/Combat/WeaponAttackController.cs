@@ -2,6 +2,7 @@ using System;
 using Client.Player;
 using Realm.Data;
 using UnityEngine;
+using Object = UnityEngine.Object;
 
 namespace Client.Combat
 {

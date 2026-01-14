@@ -1,12 +1,14 @@
 using System;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 namespace Building
 {
     [DefaultExecutionOrder(-40)]
     public class FloatModeController : MonoBehaviour
     {
-        [SerializeField] private SimpleTransformHandle transformHandle;
+        [FormerlySerializedAs("transformHandle")]
+        [SerializeField] private SimpleTransformHandle floatTransformHandle;
 
         private ConstructionInstance _activeInstance;
         private bool _isFloating;
@@ -20,20 +22,20 @@ namespace Building
 
         private void Awake()
         {
-            if (transformHandle == null)
+            if (floatTransformHandle == null)
             {
                 var go = new GameObject("FloatTransformHandle");
                 go.hideFlags = HideFlags.HideInHierarchy;
-                transformHandle = go.AddComponent<SimpleTransformHandle>();
+                floatTransformHandle = go.AddComponent<SimpleTransformHandle>();
                 DontDestroyOnLoad(go);
             }
         }
 
         private void OnDestroy()
         {
-            if (transformHandle != null && transformHandle.gameObject != null)
+            if (floatTransformHandle != null && floatTransformHandle.gameObject != null)
             {
-                Destroy(transformHandle.gameObject);
+                Destroy(floatTransformHandle.gameObject);
             }
         }
 
@@ -48,7 +50,7 @@ namespace Building
             _isFloating = true;
 
             PrepareInstanceForFloat(instance);
-            transformHandle.Attach(instance.transform);
+            floatTransformHandle.Attach(instance.transform);
             FloatModeStarted?.Invoke(instance);
         }
 
@@ -60,7 +62,7 @@ namespace Building
             }
 
             _isFloating = false;
-            transformHandle.Detach();
+            floatTransformHandle.Detach();
             FloatModeEnded?.Invoke(_activeInstance);
         }
 

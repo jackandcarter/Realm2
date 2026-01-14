@@ -28,7 +28,7 @@ namespace Realm.Data
         public WeaponAttackProfile HeavyAttack => heavyAttack;
         public AbilityDefinition SpecialAttack => specialAttack;
 
-        internal void ApplySeed(WeaponSeedData seed)
+        public void ApplySeed(WeaponSeedData seed)
         {
             ApplySeed(seed as EquipmentSeedData);
             if (seed == null)
