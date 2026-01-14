@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Client.CharacterCreation;
 using Client.Player;
+using Client.UI;
 using Client.UI.HUD.Dock;
 using UnityEngine;
 
@@ -31,6 +32,7 @@ namespace Client.UI.HUD
         {
             public string classId;
             public GameObject prefab;
+            public MonoBehaviour sceneModule;
         }
 
         private void Awake()
@@ -67,6 +69,7 @@ namespace Client.UI.HUD
 
             if (!_initialized)
             {
+                EnsureArkitectModuleBinding();
                 AdoptExistingModule(PlayerClassStateManager.ActiveClassId);
                 _initialized = true;
             }
@@ -116,7 +119,10 @@ namespace Client.UI.HUD
 
             if (!AdoptExistingModule(classId) && TryGetBinding(classId, out var binding))
             {
-                CreateModuleInstance(binding);
+                if (!TryMountSceneModule(binding))
+                {
+                    CreateModuleInstance(binding);
+                }
             }
 
             RefreshLockedAbilityPanels(classId);
@@ -144,6 +150,28 @@ namespace Client.UI.HUD
             _activeInstance = component.gameObject;
             _activeClassId = ResolveClassId(module, binding.classId?.Trim());
             _ownsActiveInstance = true;
+        }
+
+        private bool TryMountSceneModule(ClassUiModuleBinding binding)
+        {
+            if (binding?.sceneModule == null)
+            {
+                return false;
+            }
+
+            if (binding.sceneModule is not IClassUiModule module)
+            {
+                return false;
+            }
+
+            var moduleTransform = binding.sceneModule.transform;
+            module.Mount(GetModuleContainer());
+
+            _activeModule = module;
+            _activeInstance = moduleTransform.gameObject;
+            _activeClassId = ResolveClassId(module, binding.classId?.Trim());
+            _ownsActiveInstance = false;
+            return true;
         }
 
         private bool AdoptExistingModule(string classId)
@@ -233,6 +261,31 @@ namespace Client.UI.HUD
             _rightSection = FindSection(instance.transform, "RightSection");
             InitializeShortcutSection();
             EnsureAbilityDockModule();
+        }
+
+        private void EnsureArkitectModuleBinding()
+        {
+            if (TryGetBinding(ClassUnlockUtility.BuilderClassId, out var existing))
+            {
+                if (existing.sceneModule == null && existing.prefab == null)
+                {
+                    existing.sceneModule = FindFirstObjectByType<ArkitectUIManager>();
+                }
+
+                return;
+            }
+
+            var manager = FindFirstObjectByType<ArkitectUIManager>();
+            if (manager == null)
+            {
+                return;
+            }
+
+            classUiModules.Add(new ClassUiModuleBinding
+            {
+                classId = ClassUnlockUtility.BuilderClassId,
+                sceneModule = manager
+            });
         }
 
         private static RectTransform FindSection(Transform root, string name)
