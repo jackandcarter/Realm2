@@ -61,7 +61,10 @@ namespace Realm.EditorTools
             if (_workingCopy == null)
             {
                 _workingCopy = CreateInstance<AbilityDefinition>();
-                _workingCopy.hideFlags = HideFlags.HideAndDontSave;
+                _workingCopy.hideFlags = HideFlags.HideInHierarchy
+                                          | HideFlags.DontSaveInEditor
+                                          | HideFlags.DontSaveInBuild
+                                          | HideFlags.DontUnloadUnusedAsset;
             }
 
             if (_workingCopy.Effects == null)
@@ -601,6 +604,7 @@ namespace Realm.EditorTools
 
             var asset = CreateInstance<AbilityDefinition>();
             EditorUtility.CopySerialized(_workingCopy, asset);
+            asset.name = Path.GetFileNameWithoutExtension(path);
             AssetDatabase.CreateAsset(asset, path);
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
