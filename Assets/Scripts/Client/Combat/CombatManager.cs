@@ -19,8 +19,12 @@ namespace Client.Combat
         [Header("Fallback Hitbox")]
         [SerializeField] private AbilityHitboxConfig defaultWeaponHitbox = new AbilityHitboxConfig();
 
+        [Header("Combat Stats")]
+        [SerializeField] private MonoBehaviour statsProvider;
+
         private readonly Dictionary<string, AbilityDefinition> _abilityLookup =
             new Dictionary<string, AbilityDefinition>(StringComparer.OrdinalIgnoreCase);
+        private ICombatStatsProvider _statsProvider;
 
         public event Action<WeaponAttackResolution> AttackResolved;
         public event Action<WeaponAttackResolution, AbilityDefinition> SpecialAttackResolved;
@@ -45,6 +49,7 @@ namespace Client.Combat
         {
             ResolveAttackController();
             ResolveComboTracker();
+            ResolveStatsProvider();
             BuildAbilityLookup();
         }
 
@@ -52,6 +57,7 @@ namespace Client.Combat
         {
             ResolveAttackController();
             ResolveComboTracker();
+            ResolveStatsProvider();
             BindAttackController();
         }
 
@@ -65,6 +71,11 @@ namespace Client.Combat
             if (defaultWeaponHitbox == null)
             {
                 defaultWeaponHitbox = new AbilityHitboxConfig();
+            }
+
+            if (statsProvider != null && statsProvider is not ICombatStatsProvider)
+            {
+                statsProvider = null;
             }
 
             BuildAbilityLookup();
@@ -96,6 +107,36 @@ namespace Client.Combat
 #else
             comboTracker = FindObjectOfType<WeaponComboTracker>(true);
 #endif
+        }
+
+        private void ResolveStatsProvider()
+        {
+            if (statsProvider != null && statsProvider is ICombatStatsProvider provider)
+            {
+                _statsProvider = provider;
+                return;
+            }
+
+            _statsProvider = FindStatsProviderInScene();
+        }
+
+        private static ICombatStatsProvider FindStatsProviderInScene()
+        {
+#if UNITY_2023_1_OR_NEWER
+            var behaviours = Object.FindObjectsByType<MonoBehaviour>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+#else
+            var behaviours = FindObjectsOfType<MonoBehaviour>(true);
+#endif
+
+            foreach (var behaviour in behaviours)
+            {
+                if (behaviour is ICombatStatsProvider provider)
+                {
+                    return provider;
+                }
+            }
+
+            return null;
         }
 
         private void BindAttackController()
@@ -144,7 +185,9 @@ namespace Client.Combat
 
         private WeaponAttackResolution BuildResolution(WeaponAttackRequest request, AbilityDefinition ability)
         {
-            var damage = request.BaseDamage * request.DamageMultiplier;
+            var attackerStats = _statsProvider?.GetCombatStats() ?? CombatStats.Default;
+            var damageBreakdown = PhysicalDamageCalculator.Calculate(request, attackerStats);
+            var damage = damageBreakdown.TotalDamage;
             var accuracy = request.Accuracy;
             var hitbox = ability != null ? ability.Hitbox : defaultWeaponHitbox;
 
@@ -153,7 +196,9 @@ namespace Client.Combat
                 damage,
                 accuracy,
                 CloneHitbox(hitbox),
-                ability);
+                ability,
+                attackerStats,
+                damageBreakdown);
         }
 
         private AbilityDefinition ResolveSpecialAbility(WeaponAttackRequest request)

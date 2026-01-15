@@ -9,19 +9,25 @@ namespace Client.Combat
         public readonly float Accuracy;
         public readonly AbilityHitboxConfig Hitbox;
         public readonly AbilityDefinition SpecialAbility;
+        public readonly CombatStats AttackerStats;
+        public readonly PhysicalDamageResult DamageBreakdown;
 
         public WeaponAttackResolution(
             WeaponAttackRequest request,
             float totalDamage,
             float accuracy,
             AbilityHitboxConfig hitbox,
-            AbilityDefinition specialAbility)
+            AbilityDefinition specialAbility,
+            CombatStats attackerStats,
+            PhysicalDamageResult damageBreakdown)
         {
             Request = request;
             TotalDamage = totalDamage;
             Accuracy = accuracy;
             Hitbox = hitbox;
             SpecialAbility = specialAbility;
+            AttackerStats = attackerStats;
+            DamageBreakdown = damageBreakdown;
         }
     }
 }
