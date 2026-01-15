@@ -164,6 +164,18 @@ namespace Realm.Abilities
 
             AbilityName = string.IsNullOrWhiteSpace(AbilityName) ? name : AbilityName.Trim();
             Description = Description?.Trim();
+
+#if UNITY_EDITOR
+            var assetPath = UnityEditor.AssetDatabase.GetAssetPath(this);
+            if (!string.IsNullOrWhiteSpace(assetPath))
+            {
+                var fileName = System.IO.Path.GetFileNameWithoutExtension(assetPath);
+                if (!string.IsNullOrWhiteSpace(fileName) && !string.Equals(name, fileName, StringComparison.Ordinal))
+                {
+                    name = fileName;
+                }
+            }
+#endif
         }
 
         public string BuildSummary()
