@@ -1,5 +1,6 @@
 using System;
 using Realm.Abilities;
+using Realm.Combat.Data;
 using UnityEngine;
 
 namespace Realm.Data
@@ -21,12 +22,20 @@ namespace Realm.Data
         [SerializeField, Tooltip("Optional special attack ability tied to this weapon.")]
         private AbilityDefinition specialAttack;
 
+        [SerializeField, Tooltip("Combo graph definition for this weapon.")]
+        private WeaponCombatDefinition combatDefinition;
+
+        [SerializeField, Tooltip("Optional special unlock rules for this weapon.")]
+        private WeaponSpecialDefinition specialDefinition;
+
         public WeaponTypeDefinition WeaponType => weaponType;
         public float BaseDamage => baseDamage;
         public WeaponAttackProfile LightAttack => lightAttack;
         public WeaponAttackProfile MediumAttack => mediumAttack;
         public WeaponAttackProfile HeavyAttack => heavyAttack;
         public AbilityDefinition SpecialAttack => specialAttack;
+        public WeaponCombatDefinition CombatDefinition => combatDefinition;
+        public WeaponSpecialDefinition SpecialDefinition => specialDefinition;
 
         public void ApplySeed(WeaponSeedData seed)
         {
@@ -41,6 +50,8 @@ namespace Realm.Data
             mediumAttack = seed.MediumAttack;
             heavyAttack = seed.HeavyAttack;
             specialAttack = seed.SpecialAttack;
+            combatDefinition = seed.CombatDefinition;
+            specialDefinition = seed.SpecialDefinition;
         }
     }
 

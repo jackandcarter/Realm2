@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Realm.Abilities;
+using Realm.Combat.Data;
 
 namespace Realm.Data
 {
@@ -10,5 +11,7 @@ namespace Realm.Data
         public WeaponAttackProfile MediumAttack = WeaponAttackProfile.DefaultMedium;
         public WeaponAttackProfile HeavyAttack = WeaponAttackProfile.DefaultHeavy;
         public AbilityDefinition SpecialAttack;
+        public WeaponCombatDefinition CombatDefinition;
+        public WeaponSpecialDefinition SpecialDefinition;
     }
 }
