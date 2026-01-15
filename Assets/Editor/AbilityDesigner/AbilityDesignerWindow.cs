@@ -201,6 +201,8 @@ namespace Realm.EditorTools
                 CreateWorkingCopy();
             }
 
+            GUI.enabled = true;
+
             _wrapStyle ??= new GUIStyle(EditorStyles.label)
             {
                 wordWrap = true
