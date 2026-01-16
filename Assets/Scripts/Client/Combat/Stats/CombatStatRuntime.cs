@@ -6,7 +6,7 @@ using UnityEngine;
 namespace Client.Combat.Stats
 {
     [DisallowMultipleComponent]
-    public class CombatStatRuntime : MonoBehaviour, ICombatStatProvider
+    public class CombatStatRuntime : MonoBehaviour, ICombatStatProvider, ICombatStatSnapshotProvider
     {
         [Header("Definitions")]
         [SerializeField] private StatRegistry statRegistry;
@@ -93,6 +93,12 @@ namespace Client.Combat.Stats
             }
 
             return _snapshot.GetStat(statId, fallback);
+        }
+
+        public IReadOnlyDictionary<string, float> GetStatsSnapshot()
+        {
+            EnsureSnapshot();
+            return _snapshot?.FinalStats ?? new Dictionary<string, float>();
         }
 
         public void SetLevel(int newLevel)
