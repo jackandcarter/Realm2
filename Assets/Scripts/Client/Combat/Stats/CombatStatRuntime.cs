@@ -21,6 +21,7 @@ namespace Client.Combat.Stats
 
         private readonly CombatStatCalculator _calculator = new();
         private CombatStatSnapshot _snapshot;
+        private bool _isDirty = true;
 
         public event Action<CombatStatSnapshot> StatsRefreshed;
 
@@ -46,12 +47,13 @@ namespace Client.Combat.Stats
             normalizedRandom = Mathf.Clamp01(normalizedRandom);
             if (autoRefresh && Application.isPlaying)
             {
-                RefreshStats();
+                MarkDirty();
             }
         }
 
         public void RefreshStats()
         {
+            _isDirty = false;
             var profile = statProfileOverride != null
                 ? statProfileOverride
                 : classDefinition != null
@@ -72,6 +74,7 @@ namespace Client.Combat.Stats
         public bool TryGetStat(string statId, out float value)
         {
             value = 0f;
+            EnsureSnapshot();
             if (_snapshot == null || string.IsNullOrWhiteSpace(statId))
             {
                 return false;
@@ -83,12 +86,103 @@ namespace Client.Combat.Stats
 
         public float GetStatOrDefault(string statId, float fallback = 0f)
         {
+            EnsureSnapshot();
             if (_snapshot == null)
             {
                 return fallback;
             }
 
             return _snapshot.GetStat(statId, fallback);
+        }
+
+        public void SetLevel(int newLevel)
+        {
+            var clamped = Mathf.Max(1, newLevel);
+            if (level == clamped)
+            {
+                return;
+            }
+
+            level = clamped;
+            MarkDirty();
+        }
+
+        public void SetClassDefinition(ClassDefinition newClass)
+        {
+            if (classDefinition == newClass)
+            {
+                return;
+            }
+
+            classDefinition = newClass;
+            MarkDirty();
+        }
+
+        public void SetStatProfileOverride(StatProfileDefinition profile)
+        {
+            if (statProfileOverride == profile)
+            {
+                return;
+            }
+
+            statProfileOverride = profile;
+            MarkDirty();
+        }
+
+        public void AddModifier(CombatStatModifier modifier)
+        {
+            modifiers ??= new List<CombatStatModifier>();
+            modifiers.Add(modifier);
+            MarkDirty();
+        }
+
+        public bool RemoveModifier(CombatStatModifier modifier)
+        {
+            if (modifiers == null)
+            {
+                return false;
+            }
+
+            var removed = modifiers.Remove(modifier);
+            if (removed)
+            {
+                MarkDirty();
+            }
+
+            return removed;
+        }
+
+        public void ClearModifiers()
+        {
+            if (modifiers == null || modifiers.Count == 0)
+            {
+                return;
+            }
+
+            modifiers.Clear();
+            MarkDirty();
+        }
+
+        public void MarkDirty()
+        {
+            _isDirty = true;
+            if (autoRefresh && Application.isPlaying)
+            {
+                RefreshStats();
+            }
+        }
+
+        private void EnsureSnapshot()
+        {
+            if (!_isDirty)
+            {
+                return;
+            }
+
+            if (autoRefresh && Application.isPlaying)
+            {
+                RefreshStats();
+            }
         }
     }
 }

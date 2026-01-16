@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Client.Combat;
@@ -8,6 +9,24 @@ namespace Client.Combat.Pipeline
 {
     public static class CombatHitboxResolver
     {
+        public static List<CombatEntity> ResolveHitTargets(
+            AbilityHitboxConfig hitbox,
+            CombatEntity caster,
+            IEnumerable<CombatEntity> candidates,
+            bool usePhysicsQuery,
+            LayerMask hitboxMask,
+            QueryTriggerInteraction triggerInteraction)
+        {
+            var resolvedCandidates = usePhysicsQuery
+                ? ResolvePhysicsContacts(hitbox, caster, hitboxMask, triggerInteraction)
+                : candidates?.Where(candidate => candidate != null).ToList() ?? new List<CombatEntity>();
+
+            var filtered = FilterTargets(hitbox, caster, resolvedCandidates);
+            return filtered
+                .OrderBy(target => target != null ? target.EntityId : string.Empty)
+                .ToList();
+        }
+
         public static List<CombatEntity> FilterTargets(
             AbilityHitboxConfig hitbox,
             CombatEntity caster,
@@ -29,6 +48,81 @@ namespace Client.Combat.Pipeline
                 if (IsWithinHitbox(hitbox, caster, candidate.Position))
                 {
                     results.Add(candidate);
+                }
+            }
+
+            return results;
+        }
+
+        private static List<CombatEntity> ResolvePhysicsContacts(
+            AbilityHitboxConfig hitbox,
+            CombatEntity caster,
+            LayerMask hitboxMask,
+            QueryTriggerInteraction triggerInteraction)
+        {
+            var results = new List<CombatEntity>();
+            if (hitbox == null)
+            {
+                return results;
+            }
+
+            var originTransform = caster != null ? caster.AimOrigin : null;
+            var origin = originTransform != null ? originTransform.position : Vector3.zero;
+            var forward = originTransform != null ? originTransform.forward : Vector3.forward;
+            var rotation = hitbox.UseCasterFacing && originTransform != null ? originTransform.rotation : Quaternion.identity;
+            var offset = hitbox.UseCasterFacing ? rotation * hitbox.Offset : hitbox.Offset;
+            var center = origin + offset;
+
+            Collider[] overlaps;
+            switch (hitbox.Shape)
+            {
+                case AbilityHitboxShape.Sphere:
+                    overlaps = Physics.OverlapSphere(center, Mathf.Max(0f, hitbox.Radius), hitboxMask, triggerInteraction);
+                    break;
+                case AbilityHitboxShape.Capsule:
+                    {
+                        var halfLength = Mathf.Max(0f, hitbox.Length) * 0.5f;
+                        var start = center - forward.normalized * halfLength;
+                        var end = center + forward.normalized * halfLength;
+                        overlaps = Physics.OverlapCapsule(
+                            start,
+                            end,
+                            Mathf.Max(0f, hitbox.Radius),
+                            hitboxMask,
+                            triggerInteraction);
+                        break;
+                    }
+                case AbilityHitboxShape.Box:
+                    overlaps = Physics.OverlapBox(
+                        center,
+                        hitbox.Size * 0.5f,
+                        rotation,
+                        hitboxMask,
+                        triggerInteraction);
+                    break;
+                case AbilityHitboxShape.Cone:
+                    overlaps = Physics.OverlapSphere(
+                        center,
+                        Mathf.Max(hitbox.Length, hitbox.Radius),
+                        hitboxMask,
+                        triggerInteraction);
+                    break;
+                default:
+                    overlaps = Array.Empty<Collider>();
+                    break;
+            }
+
+            foreach (var collider in overlaps)
+            {
+                if (collider == null)
+                {
+                    continue;
+                }
+
+                var entity = collider.GetComponentInParent<CombatEntity>();
+                if (entity != null)
+                {
+                    results.Add(entity);
                 }
             }
 
