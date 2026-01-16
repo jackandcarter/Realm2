@@ -96,9 +96,9 @@ namespace Client.UI.HUD
             LoadClassDock(classId);
         }
 
-        private void OnArkitectAvailabilityChanged(bool available)
+        private void OnArkitectAvailabilityChanged(bool _)
         {
-            _activeModule?.OnAbilityStateChanged(ClassUnlockUtility.BuilderClassId, available);
+            ApplyArkitectAvailabilityIfNeeded();
         }
 
         private void OnAbilityUnlocksChanged()
@@ -126,6 +126,7 @@ namespace Client.UI.HUD
             }
 
             RefreshLockedAbilityPanels(classId);
+            ApplyArkitectAvailabilityIfNeeded();
         }
 
         private void CreateModuleInstance(ClassUiModuleBinding binding)
@@ -452,6 +453,23 @@ namespace Client.UI.HUD
             _activeInstance = null;
             _activeClassId = null;
             _ownsActiveInstance = false;
+        }
+
+        private void ApplyArkitectAvailabilityIfNeeded()
+        {
+            if (_activeModule == null)
+            {
+                return;
+            }
+
+            if (!string.Equals(_activeModule.ClassId, ClassUnlockUtility.BuilderClassId, StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+
+            _activeModule.OnAbilityStateChanged(
+                ClassUnlockUtility.BuilderClassId,
+                PlayerClassStateManager.IsArkitectAvailable);
         }
 
         private static MonoBehaviour FindModuleComponent(GameObject root)
