@@ -1,4 +1,5 @@
 using Client.Combat;
+using Client.Combat.Runtime;
 using Client.Player;
 using Realm.Data;
 using UnityEngine;
@@ -24,12 +25,14 @@ namespace Client.UI.HUD.Dock
         [Header("Runtime")]
         [SerializeField] private WeaponComboTracker comboTracker;
         [SerializeField] private WeaponAttackController attackController;
+        [SerializeField] private CombatStateMachine combatStateMachine;
 
         private string _equippedWeaponId;
         private Coroutine _readyPulseRoutine;
         private Vector3 _readyIndicatorBaseScale;
         private Color _readyIndicatorBaseColor;
         private Color _readyOutlineBaseColor;
+        private bool _specialAlwaysReady;
 
         private void Reset()
         {
@@ -42,6 +45,7 @@ namespace Client.UI.HUD.Dock
             CacheReadyVisuals();
             ResolveComboTracker();
             ResolveAttackController();
+            ResolveCombatStateMachine();
             SetSpecialIndicator(false);
             UpdateSpecialCooldownIndicator();
         }
@@ -53,9 +57,15 @@ namespace Client.UI.HUD.Dock
             PlayerClassStateManager.ActiveClassChanged += OnActiveClassChanged;
 
             ResolveComboTracker();
-            if (comboTracker != null)
+            ResolveCombatStateMachine();
+            if (comboTracker != null && combatStateMachine == null)
             {
                 comboTracker.SpecialReadyChanged += OnSpecialReadyChanged;
+            }
+
+            if (combatStateMachine != null)
+            {
+                combatStateMachine.SpecialReadyChanged += OnSpecialReadyChanged;
             }
 
             RefreshEquippedWeapon();
@@ -70,6 +80,11 @@ namespace Client.UI.HUD.Dock
             if (comboTracker != null)
             {
                 comboTracker.SpecialReadyChanged -= OnSpecialReadyChanged;
+            }
+
+            if (combatStateMachine != null)
+            {
+                combatStateMachine.SpecialReadyChanged -= OnSpecialReadyChanged;
             }
 
             StopReadyPulse();
@@ -160,6 +175,20 @@ namespace Client.UI.HUD.Dock
 #endif
         }
 
+        private void ResolveCombatStateMachine()
+        {
+            if (combatStateMachine != null)
+            {
+                return;
+            }
+
+#if UNITY_2023_1_OR_NEWER
+            combatStateMachine = Object.FindFirstObjectByType<CombatStateMachine>(FindObjectsInactive.Include);
+#else
+            combatStateMachine = FindObjectOfType<CombatStateMachine>(true);
+#endif
+        }
+
         private void BindButtons()
         {
             if (lightButton != null)
@@ -230,12 +259,23 @@ namespace Client.UI.HUD.Dock
 
         private void HandleSpecialClicked()
         {
-            if (comboTracker == null)
+            if (_specialAlwaysReady)
             {
+                attackController?.HandleSpecial();
                 return;
             }
 
-            if (comboTracker.TryConsumeSpecialReady())
+            if (combatStateMachine != null)
+            {
+                if (combatStateMachine.TryConsumeSpecialReady())
+                {
+                    attackController?.HandleSpecial();
+                }
+
+                return;
+            }
+
+            if (comboTracker != null && comboTracker.TryConsumeSpecialReady())
             {
                 attackController?.HandleSpecial();
             }
@@ -243,7 +283,7 @@ namespace Client.UI.HUD.Dock
 
         private void RegisterAttack(WeaponComboInputType inputType)
         {
-            if (comboTracker == null || string.IsNullOrWhiteSpace(_equippedWeaponId))
+            if (comboTracker == null || combatStateMachine != null || string.IsNullOrWhiteSpace(_equippedWeaponId))
             {
                 return;
             }
@@ -275,15 +315,22 @@ namespace Client.UI.HUD.Dock
         private void RefreshEquippedWeapon(WeaponDefinition weapon)
         {
             _equippedWeaponId = weapon != null ? weapon.Guid : string.Empty;
+            _specialAlwaysReady = weapon != null && weapon.SpecialDefinition == null && weapon.SpecialAttack != null;
 
-            if (comboTracker != null)
+            if (combatStateMachine != null)
+            {
+                combatStateMachine.SetCombatDefinition(weapon != null ? weapon.CombatDefinition : null);
+                combatStateMachine.SetSpecialDefinition(weapon != null ? weapon.SpecialDefinition : null);
+                SetSpecialIndicator(_specialAlwaysReady || combatStateMachine.IsSpecialReady);
+            }
+            else if (comboTracker != null)
             {
                 comboTracker.SetEquippedWeaponId(_equippedWeaponId);
-                SetSpecialIndicator(comboTracker.IsSpecialReady);
+                SetSpecialIndicator(_specialAlwaysReady || comboTracker.IsSpecialReady);
             }
             else
             {
-                SetSpecialIndicator(false);
+                SetSpecialIndicator(_specialAlwaysReady);
             }
 
             var canAttack = !string.IsNullOrWhiteSpace(_equippedWeaponId);
@@ -350,7 +397,9 @@ namespace Client.UI.HUD.Dock
                 return;
             }
 
-            var ready = comboTracker != null && comboTracker.IsSpecialReady;
+            var ready = _specialAlwaysReady || (combatStateMachine != null
+                ? combatStateMachine.IsSpecialReady
+                : comboTracker != null && comboTracker.IsSpecialReady);
             specialButton.interactable = !string.IsNullOrWhiteSpace(_equippedWeaponId) && ready;
         }
 
@@ -366,14 +415,24 @@ namespace Client.UI.HUD.Dock
                 return;
             }
 
-            if (comboTracker == null)
+            if (comboTracker == null && combatStateMachine == null)
             {
                 specialCooldownIndicator.enabled = false;
                 return;
             }
 
-            var remaining = comboTracker.SpecialCooldownRemaining;
-            var duration = comboTracker.SpecialCooldownSeconds;
+            if (_specialAlwaysReady)
+            {
+                specialCooldownIndicator.enabled = false;
+                return;
+            }
+
+            var remaining = combatStateMachine != null
+                ? combatStateMachine.SpecialCooldownRemaining
+                : comboTracker.SpecialCooldownRemaining;
+            var duration = combatStateMachine != null
+                ? combatStateMachine.SpecialCooldownSeconds
+                : comboTracker.SpecialCooldownSeconds;
             var show = remaining > 0f && duration > 0f;
 
             specialCooldownIndicator.enabled = show;
