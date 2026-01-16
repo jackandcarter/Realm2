@@ -1,5 +1,8 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
+using Client;
+using Client.Combat;
 using UnityEngine;
 
 namespace Client.Combat.Pipeline
@@ -7,31 +10,89 @@ namespace Client.Combat.Pipeline
     [Serializable]
     public struct CombatAbilityRequest
     {
-        public string RequestId;
-        public string AbilityId;
-        public string CasterId;
-        public List<string> TargetIds;
-        public Vector3 TargetPoint;
-        public float ClientTime;
+        public string requestId;
+        public string abilityId;
+        public string casterId;
+        public string primaryTargetId;
+        public List<string> targetIds;
+        public Vector3 targetPoint;
+        public float clientTime;
+        public float baseDamage;
+        public List<CombatParticipantSnapshot> participants;
     }
 
     [Serializable]
     public struct CombatAbilityConfirmation
     {
-        public string RequestId;
-        public string AbilityId;
-        public string CasterId;
-        public List<string> TargetIds;
-        public float ServerTime;
+        public string requestId;
+        public string abilityId;
+        public string casterId;
+        public List<string> targetIds;
+        public float serverTime;
+        public List<CombatAbilityEvent> events;
+    }
+
+    [Serializable]
+    public struct CombatAbilityEvent
+    {
+        public string kind;
+        public string targetId;
+        public float amount;
+        public string stateId;
+        public float durationSeconds;
+    }
+
+    [Serializable]
+    public struct CombatParticipantSnapshot
+    {
+        public string id;
+        public string team;
+        public float health;
+        public float maxHealth;
+        public List<CombatParticipantStat> stats;
+        public List<CombatParticipantState> states;
+    }
+
+    [Serializable]
+    public struct CombatParticipantStat
+    {
+        public string id;
+        public float value;
+    }
+
+    [Serializable]
+    public struct CombatParticipantState
+    {
+        public string id;
+        public float durationSeconds;
     }
 
     [DisallowMultipleComponent]
     public class CombatServerBridge : MonoBehaviour
     {
-        [SerializeField] private bool autoConfirm = true;
+        [SerializeField] private ApiEnvironmentConfig environmentConfig;
+        [SerializeField] private string fallbackBaseApiUrl = "http://localhost:3000";
+        [SerializeField] private bool useMockServer;
+        [SerializeField] private bool autoConfirm;
+        [SerializeField] private bool fallbackToLocalOnError;
+
+        private CombatApiClient _apiClient;
 
         public event Action<CombatAbilityRequest> AbilityRequested;
         public event Action<CombatAbilityConfirmation> AbilityConfirmed;
+
+        private void Awake()
+        {
+            InitializeClient();
+        }
+
+        private void OnValidate()
+        {
+            if (string.IsNullOrWhiteSpace(fallbackBaseApiUrl))
+            {
+                fallbackBaseApiUrl = "http://localhost:3000";
+            }
+        }
 
         public void RequestAbilityExecution(CombatAbilityRequest request)
         {
@@ -39,16 +100,17 @@ namespace Client.Combat.Pipeline
 
             if (!autoConfirm)
             {
+                StartCoroutine(SendAbilityRequest(request));
                 return;
             }
 
             var confirmation = new CombatAbilityConfirmation
             {
-                RequestId = request.RequestId,
-                AbilityId = request.AbilityId,
-                CasterId = request.CasterId,
-                TargetIds = request.TargetIds,
-                ServerTime = Time.time
+                requestId = request.requestId,
+                abilityId = request.abilityId,
+                casterId = request.casterId,
+                targetIds = request.targetIds,
+                serverTime = Time.time
             };
 
             ReceiveServerConfirmation(confirmation);
@@ -57,6 +119,50 @@ namespace Client.Combat.Pipeline
         public void ReceiveServerConfirmation(CombatAbilityConfirmation confirmation)
         {
             AbilityConfirmed?.Invoke(confirmation);
+        }
+
+        private IEnumerator SendAbilityRequest(CombatAbilityRequest request)
+        {
+            if (_apiClient == null)
+            {
+                yield break;
+            }
+
+            CombatAbilityConfirmation confirmation = default;
+            ApiError requestError = null;
+
+            yield return _apiClient.ExecuteAbility(
+                request,
+                result => confirmation = result,
+                error => requestError = error);
+
+            if (requestError != null)
+            {
+                Debug.LogWarning($"CombatServerBridge failed to send ability request: {requestError.Message}", this);
+                if (fallbackToLocalOnError)
+                {
+                    ReceiveServerConfirmation(new CombatAbilityConfirmation
+                    {
+                        requestId = request.requestId,
+                        abilityId = request.abilityId,
+                        casterId = request.casterId,
+                        targetIds = request.targetIds,
+                        serverTime = Time.time
+                    });
+                }
+
+                yield break;
+            }
+
+            ReceiveServerConfirmation(confirmation);
+        }
+
+        private void InitializeClient()
+        {
+            var baseUrl = environmentConfig != null && !string.IsNullOrWhiteSpace(environmentConfig.BaseApiUrl)
+                ? environmentConfig.BaseApiUrl
+                : fallbackBaseApiUrl;
+            _apiClient = new CombatApiClient(baseUrl, useMockServer);
         }
     }
 }

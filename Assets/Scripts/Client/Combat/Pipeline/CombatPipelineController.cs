@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Client.Combat;
+using Client.Combat.Stats;
 using Realm.Abilities;
 using UnityEngine;
 
@@ -172,7 +173,7 @@ namespace Client.Combat.Pipeline
 
             var predictedResults = BuildEffectResults(ability, resolution.TotalDamage, resolvedTargets);
             var requestId = Guid.NewGuid().ToString("N");
-            var request = SendAbilityRequest(requestId, ability, resolvedTargets, groundPoint);
+            var request = SendAbilityRequest(requestId, ability, resolvedTargets, groundPoint, resolution.TotalDamage);
 
             if (applyPredictedEffects)
             {
@@ -196,7 +197,8 @@ namespace Client.Combat.Pipeline
             string requestId,
             AbilityDefinition ability,
             IEnumerable<CombatEntity> targets,
-            Vector3? groundPoint)
+            Vector3? groundPoint,
+            float baseDamage)
         {
             var targetIds = targets?.Where(target => target != null)
                 .Select(target => target.EntityId)
@@ -204,14 +206,21 @@ namespace Client.Combat.Pipeline
                 .Distinct()
                 .ToList() ?? new List<string>();
 
+            var primaryTargetId = targetSelection != null && targetSelection.PrimaryTarget != null
+                ? targetSelection.PrimaryTarget.EntityId
+                : targetIds.FirstOrDefault();
+
             var request = new CombatAbilityRequest
             {
-                RequestId = requestId,
-                AbilityId = ability != null ? ability.Guid : "basic-attack",
-                CasterId = caster != null ? caster.EntityId : string.Empty,
-                TargetIds = targetIds,
-                TargetPoint = groundPoint ?? caster.Position,
-                ClientTime = Time.time
+                requestId = requestId,
+                abilityId = ability != null ? ability.Guid : "basic-attack",
+                casterId = caster != null ? caster.EntityId : string.Empty,
+                primaryTargetId = primaryTargetId,
+                targetIds = targetIds,
+                targetPoint = groundPoint ?? caster.Position,
+                clientTime = Time.time,
+                baseDamage = baseDamage,
+                participants = BuildParticipantSnapshots()
             };
 
             if (serverBridge != null)
@@ -256,15 +265,15 @@ namespace Client.Combat.Pipeline
                 return;
             }
 
-            if (!_pendingAbilities.TryGetValue(confirmation.RequestId ?? string.Empty, out var pending))
+            if (!_pendingAbilities.TryGetValue(confirmation.requestId ?? string.Empty, out var pending))
             {
                 return;
             }
 
-            _pendingAbilities.Remove(confirmation.RequestId ?? string.Empty);
+            _pendingAbilities.Remove(confirmation.requestId ?? string.Empty);
 
             var confirmedTargets = ResolveConfirmedTargets(confirmation, pending);
-            var confirmedResults = BuildEffectResults(pending.Ability, pending.BaseDamage, confirmedTargets);
+            var confirmedResults = BuildConfirmedResults(confirmation, pending, confirmedTargets);
 
             if (!deferImpactUntilConfirmed && pending.PredictedApplied)
             {
@@ -274,14 +283,9 @@ namespace Client.Combat.Pipeline
 
             if (pending.PredictedApplied)
             {
-                var predictedIds = new HashSet<string>(
-                    pending.PredictedTargets.Where(target => target != null)
-                        .Select(target => target.EntityId));
-                var missingResults = confirmedResults
-                    .Where(result => result.Target != null && !predictedIds.Contains(result.Target.EntityId))
-                    .ToList();
-                CombatEffectResolver.ApplyResolvedEffects(missingResults);
-                AbilityConfirmed?.Invoke(confirmation, missingResults);
+                var reconciledResults = ReconcilePredictedResults(pending, confirmedResults);
+                CombatEffectResolver.ApplyResolvedEffects(reconciledResults);
+                AbilityConfirmed?.Invoke(confirmation, reconciledResults);
                 return;
             }
 
@@ -293,10 +297,15 @@ namespace Client.Combat.Pipeline
             CombatAbilityConfirmation confirmation,
             PendingCombatAbility pending)
         {
-            if (confirmation.TargetIds != null && confirmation.TargetIds.Count > 0)
+            if (confirmation.events != null && confirmation.events.Count > 0)
+            {
+                return ResolveTargetsFromEvents(confirmation.events);
+            }
+
+            if (confirmation.targetIds != null && confirmation.targetIds.Count > 0)
             {
                 var targets = new List<CombatEntity>();
-                foreach (var targetId in confirmation.TargetIds)
+                foreach (var targetId in confirmation.targetIds)
                 {
                     if (string.IsNullOrWhiteSpace(targetId))
                     {
@@ -317,6 +326,19 @@ namespace Client.Combat.Pipeline
             return pending.PredictedTargets ?? new List<CombatEntity>();
         }
 
+        private List<CombatEffectResult> BuildConfirmedResults(
+            CombatAbilityConfirmation confirmation,
+            PendingCombatAbility pending,
+            IReadOnlyList<CombatEntity> confirmedTargets)
+        {
+            if (confirmation.events != null && confirmation.events.Count > 0)
+            {
+                return BuildResultsFromEvents(confirmation.events);
+            }
+
+            return BuildEffectResults(pending.Ability, pending.BaseDamage, confirmedTargets);
+        }
+
         private List<CombatEffectResult> BuildEffectResults(
             AbilityDefinition ability,
             float baseDamage,
@@ -328,6 +350,212 @@ namespace Client.Combat.Pipeline
             }
 
             return BuildBasicDamageResults(baseDamage, targets);
+        }
+
+        private List<CombatEffectResult> BuildResultsFromEvents(IReadOnlyList<CombatAbilityEvent> events)
+        {
+            var results = new List<CombatEffectResult>();
+            if (events == null)
+            {
+                return results;
+            }
+
+            foreach (var serverEvent in events)
+            {
+                if (string.IsNullOrWhiteSpace(serverEvent.targetId))
+                {
+                    continue;
+                }
+
+                var target = CombatEntityRegistry.All.FirstOrDefault(entity =>
+                    entity != null && string.Equals(entity.EntityId, serverEvent.targetId, StringComparison.OrdinalIgnoreCase));
+                if (target == null)
+                {
+                    continue;
+                }
+
+                var effectType = ResolveEffectType(serverEvent.kind);
+                var stateName = serverEvent.stateId;
+
+                results.Add(new CombatEffectResult
+                {
+                    EffectType = effectType,
+                    Target = target,
+                    Amount = serverEvent.amount,
+                    StateName = stateName,
+                    DurationSeconds = serverEvent.durationSeconds
+                });
+            }
+
+            return results;
+        }
+
+        private AbilityEffectType ResolveEffectType(string serverKind)
+        {
+            if (string.IsNullOrWhiteSpace(serverKind))
+            {
+                return AbilityEffectType.Custom;
+            }
+
+            switch (serverKind.Trim().ToLowerInvariant())
+            {
+                case "damage":
+                    return AbilityEffectType.Damage;
+                case "heal":
+                    return AbilityEffectType.Heal;
+                case "stateapplied":
+                    return AbilityEffectType.StateChange;
+                default:
+                    return AbilityEffectType.Custom;
+            }
+        }
+
+        private List<CombatEffectResult> ReconcilePredictedResults(
+            PendingCombatAbility pending,
+            IReadOnlyList<CombatEffectResult> confirmedResults)
+        {
+            var reconciled = new List<CombatEffectResult>();
+            if (confirmedResults == null)
+            {
+                return reconciled;
+            }
+
+            var predictedLookup = new Dictionary<(string, AbilityEffectType, string), CombatEffectResult>();
+            if (pending.PredictedResults != null)
+            {
+                foreach (var result in pending.PredictedResults)
+                {
+                    if (result.Target == null)
+                    {
+                        continue;
+                    }
+
+                    var key = (result.Target.EntityId, result.EffectType, result.StateName ?? string.Empty);
+                    predictedLookup[key] = result;
+                }
+            }
+
+            foreach (var confirmed in confirmedResults)
+            {
+                if (confirmed.Target == null)
+                {
+                    continue;
+                }
+
+                var key = (confirmed.Target.EntityId, confirmed.EffectType, confirmed.StateName ?? string.Empty);
+                if (!predictedLookup.TryGetValue(key, out var predicted))
+                {
+                    reconciled.Add(confirmed);
+                    continue;
+                }
+
+                if (confirmed.EffectType == AbilityEffectType.Damage || confirmed.EffectType == AbilityEffectType.Heal)
+                {
+                    var delta = confirmed.Amount - predicted.Amount;
+                    if (Mathf.Abs(delta) > 0.01f)
+                    {
+                        reconciled.Add(new CombatEffectResult
+                        {
+                            EffectType = delta >= 0f
+                                ? confirmed.EffectType
+                                : confirmed.EffectType == AbilityEffectType.Damage
+                                    ? AbilityEffectType.Heal
+                                    : AbilityEffectType.Damage,
+                            Target = confirmed.Target,
+                            Amount = Mathf.Abs(delta),
+                            StateName = confirmed.StateName,
+                            DurationSeconds = confirmed.DurationSeconds,
+                            CustomSummary = confirmed.CustomSummary
+                        });
+                    }
+
+                    continue;
+                }
+            }
+
+            return reconciled;
+        }
+
+        private static List<CombatEntity> ResolveTargetsFromEvents(IEnumerable<CombatAbilityEvent> events)
+        {
+            var targets = new List<CombatEntity>();
+            if (events == null)
+            {
+                return targets;
+            }
+
+            foreach (var serverEvent in events)
+            {
+                if (string.IsNullOrWhiteSpace(serverEvent.targetId))
+                {
+                    continue;
+                }
+
+                var entity = CombatEntityRegistry.All.FirstOrDefault(candidate =>
+                    candidate != null && string.Equals(candidate.EntityId, serverEvent.targetId, StringComparison.OrdinalIgnoreCase));
+                if (entity != null)
+                {
+                    targets.Add(entity);
+                }
+            }
+
+            return targets;
+        }
+
+        private List<CombatParticipantSnapshot> BuildParticipantSnapshots()
+        {
+            var participants = new List<CombatParticipantSnapshot>();
+            foreach (var entity in CombatEntityRegistry.All)
+            {
+                if (entity == null)
+                {
+                    continue;
+                }
+
+                var stats = BuildParticipantStats(entity);
+                participants.Add(new CombatParticipantSnapshot
+                {
+                    id = entity.EntityId,
+                    team = entity.Team.ToString().ToLowerInvariant(),
+                    health = entity.CurrentHealth,
+                    maxHealth = entity.MaxHealth,
+                    stats = stats
+                });
+            }
+
+            return participants;
+        }
+
+        private static List<CombatParticipantStat> BuildParticipantStats(CombatEntity entity)
+        {
+            var provider = entity.GetComponent<ICombatStatSnapshotProvider>();
+            if (provider == null)
+            {
+                return new List<CombatParticipantStat>();
+            }
+
+            var snapshot = provider.GetStatsSnapshot();
+            var stats = new List<CombatParticipantStat>();
+            if (snapshot == null)
+            {
+                return stats;
+            }
+
+            foreach (var entry in snapshot)
+            {
+                if (string.IsNullOrWhiteSpace(entry.Key))
+                {
+                    continue;
+                }
+
+                stats.Add(new CombatParticipantStat
+                {
+                    id = entry.Key,
+                    value = entry.Value
+                });
+            }
+
+            return stats;
         }
 
         private static List<CombatEffectResult> BuildBasicDamageResults(
