@@ -27,6 +27,15 @@ namespace Client.Combat.Stats
         public float FlatModifier => flatModifier;
         public float PercentModifier => percentModifier;
 
+        public CombatStatModifier(string resolvedStatId, CombatStatModifierSource modifierSource, float flatValue)
+        {
+            stat = null;
+            statId = resolvedStatId;
+            source = modifierSource;
+            flatModifier = flatValue;
+            percentModifier = 0f;
+        }
+
         public string ResolveStatId()
         {
             if (stat != null && !string.IsNullOrWhiteSpace(stat.Guid))

@@ -9,17 +9,25 @@ import { generatedAbilityDefinitions } from '../gameplay/combat/generated/abilit
 import { generatedStatDefinitions } from '../gameplay/combat/generated/statRegistry';
 import { CombatEntitySnapshot, CombatStateInstance } from '../gameplay/combat/types';
 import { HttpError } from '../utils/errors';
+import { findCharacterById } from '../db/characterRepository';
 
 const statRegistry = new CombatStatRegistry(generatedStatDefinitions);
 const abilityRegistry = new AbilityRegistry(generatedAbilityDefinitions);
 const executor = new AbilityExecutor({ stats: statRegistry, abilities: abilityRegistry });
+const lastClientTimes = new Map<string, number>();
+
+interface CombatExecutionContext {
+  userId: string;
+}
 
 export function executeCombatAbility(
   request: CombatAbilityExecutionRequestDto,
+  context: CombatExecutionContext,
 ): CombatAbilityExecutionResponseDto {
-  const participants = request.participants.map((participant) => toCombatEntitySnapshot(participant));
   const casterId = request.casterId.trim();
   const abilityId = request.abilityId.trim();
+  validateCombatRequest(request, context);
+  const participants = request.participants.map((participant) => toCombatEntitySnapshot(participant));
   const hasCaster = participants.some((participant) => participant.id === casterId);
   if (!hasCaster) {
     throw new HttpError(400, `Caster '${casterId}' was not included in participants.`);
@@ -42,10 +50,41 @@ export function executeCombatAbility(
     requestId: request.requestId,
     abilityId,
     casterId,
+    clientTime: request.clientTime,
     targetIds,
     serverTime: Date.now() / 1000,
     events: result.events as CombatAbilityEventDto[],
   };
+}
+
+function validateCombatRequest(
+  request: CombatAbilityExecutionRequestDto,
+  context: CombatExecutionContext,
+): void {
+  const casterId = request.casterId.trim();
+  const casterCharacter = findCharacterById(casterId);
+  if (!casterCharacter) {
+    throw new HttpError(404, `Caster '${casterId}' does not exist.`);
+  }
+
+  if (casterCharacter.userId !== context.userId) {
+    throw new HttpError(403, 'You do not have access to this caster.');
+  }
+
+  const realmId = casterCharacter.realmId;
+  request.participants.forEach((participant) => {
+    const participantCharacter = findCharacterById(participant.id);
+    if (participantCharacter && participantCharacter.realmId !== realmId) {
+      throw new HttpError(400, `Participant '${participant.id}' is not in the same realm.`);
+    }
+  });
+
+  const key = `${context.userId}:${casterId}`;
+  const lastClientTime = lastClientTimes.get(key);
+  if (lastClientTime !== undefined && request.clientTime <= lastClientTime) {
+    throw new HttpError(409, 'Out-of-order combat request detected.');
+  }
+  lastClientTimes.set(key, request.clientTime);
 }
 
 function toCombatEntitySnapshot(participant: CombatParticipantSnapshotDto): CombatEntitySnapshot {

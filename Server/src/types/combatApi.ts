@@ -30,7 +30,7 @@ export interface CombatAbilityExecutionRequestDto {
   primaryTargetId?: string;
   targetIds?: string[];
   targetPoint?: CombatVector3Dto;
-  clientTime?: number;
+  clientTime: number;
   baseDamage?: number;
   participants: CombatParticipantSnapshotDto[];
 }
@@ -47,6 +47,7 @@ export interface CombatAbilityExecutionResponseDto {
   requestId: string;
   abilityId: string;
   casterId: string;
+  clientTime: number;
   targetIds: string[];
   serverTime: number;
   events: CombatAbilityEventDto[];
