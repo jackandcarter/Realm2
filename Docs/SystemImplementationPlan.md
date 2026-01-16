@@ -14,6 +14,34 @@
 - Add a **server-side fusion state machine** that records overlapping casts, validates timing windows, and persists fusion outcomes to combat logs for auditing.
 - Implement **party category + level sync** usage in matchmaking and encounter instancing so boss scaling uses `resolvePartyCategory`/`scaleBossLevel` before spawning.
 - Extend combat events with **fusion-specific VFX/state payloads** (e.g., fused states, failure penalties) to support UI feedback described in the context docs.
+- Implement **combo system runtime (client)**: add `ComboSystem` that consumes `WeaponCombatDefinition.ComboGraph`, tracks current node, and returns `ComboStepDefinition` for L/M/H input.
+- Implement **combat state machine (client)**: create `CombatStateMachine` with Idle/BasicAttack/Recovery states, action gating, and combo input buffering tied to combo continuation windows.
+- Implement **animation combat driver hooks (client)**: emit normalized time events for hit windows, combo continuation windows, cancel-to-ability windows, and animation completion.
+- Wire **dock input → combat pipeline (client)**: route `WeaponDockController` L/M/H/Special clicks through `CombatStateMachine` + `ComboSystem` and drive `AnimationCombatDriver`.
+
+### Client Combat Runtime Task Stubs (ordered)
+- [ ] **Task 1: ComboSystem runtime skeleton**
+  - [ ] Add `ComboSystem` class (new file under `Assets/Scripts/Client/Combat/Runtime/`).
+  - [ ] Define `ComboSystemState` (current node id, last input time, active step timings).
+  - [ ] Build a graph lookup cache from `WeaponCombatDefinition.ComboGraph` (start nodes, node map, edge map).
+  - [ ] Implement `TryAdvanceCombo(ComboInputType input, float now, out ComboStepDefinition step)` and `ResetCombo()`.
+  - [ ] Add simple validation guards for missing start nodes / invalid edges.
+- [ ] **Task 2: CombatStateMachine skeleton**
+  - [ ] Add `CombatStateMachine` class (new file under `Assets/Scripts/Client/Combat/Runtime/`).
+  - [ ] Define states `Idle`, `BasicAttack`, `Recovery`.
+  - [ ] Define `ActionCategory`, `ActionRequirements`, and `BufferedAction` structs/classes.
+  - [ ] Implement `CanStartAction`, `TryBufferAction`, `StartAction`, `EndAction`.
+  - [ ] Add logic to accept buffered combo input only during continue windows.
+- [ ] **Task 3: AnimationCombatDriver hooks**
+  - [ ] Add `AnimationCombatDriver` component (new file under `Assets/Scripts/Client/Combat/Runtime/`).
+  - [ ] Expose events: `OnHitEvent`, `OnContinueWindowOpened/Closed`, `OnCancelableIntoAbilityOpened/Closed`, `OnActionAnimationComplete`.
+  - [ ] Implement normalized time sampling from the active animation state.
+  - [ ] Map `ComboStepDefinition` timing fields to event thresholds.
+- [ ] **Task 4: Pipeline wiring to existing UI**
+  - [ ] Update `WeaponAttackController` to request state gating from `CombatStateMachine`.
+  - [ ] Update `WeaponDockController` click handlers to call into the new `CombatStateMachine` + `ComboSystem` flow.
+  - [ ] Replace or wrap `WeaponComboTracker` usage so specials rely on the new combo runtime.
+  - [ ] Hook `AnimationCombatDriver` events to open/close combo buffers and end recovery.
 
 ### Classes, Professions, and Items
 - Flesh out **class ability libraries** per `coreClassDefinitions`, mapping each signature and leveling perk into ability graphs/stat scalars that plug into the executor.
