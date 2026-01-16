@@ -12,7 +12,7 @@ export const combatRouter = Router();
 combatRouter.post('/execute', requireAuth, (req, res, next) => {
   try {
     const payload = toCombatAbilityExecutionRequest(req.body);
-    const confirmation = executeCombatAbility(payload);
+    const confirmation = executeCombatAbility(payload, { userId: req.user!.id });
     res.json(confirmation);
   } catch (error) {
     next(error);
@@ -58,7 +58,7 @@ function toCombatAbilityExecutionRequest(body: unknown): CombatAbilityExecutionR
       ? value.targetIds.filter((id): id is string => typeof id === 'string' && id.trim() !== '')
       : undefined,
     targetPoint: parseVector3(value.targetPoint),
-    clientTime: ensureNumber(value.clientTime),
+    clientTime: ensureRequiredNumber(value.clientTime, 'clientTime'),
     baseDamage: ensureNumber(value.baseDamage),
     participants,
   };
