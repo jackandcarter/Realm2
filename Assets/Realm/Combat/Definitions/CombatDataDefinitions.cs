@@ -50,6 +50,15 @@ namespace Realm.Combat.Data
         Ignore
     }
 
+    public enum StatusDispelType
+    {
+        None,
+        Magic,
+        Curse,
+        Poison,
+        Disease
+    }
+
     public enum AbilityTargetingType
     {
         Self,
@@ -263,6 +272,9 @@ namespace Realm.Combat.Data
         [SerializeField] private string displayName;
         [SerializeField] private Sprite icon;
         [SerializeField] private StatusEffectType type;
+        [SerializeField] private StatusRefreshRule refreshRule = StatusRefreshRule.RefreshDuration;
+        [SerializeField] private int maxStacks = 1;
+        [SerializeField] private StatusDispelType dispelType = StatusDispelType.None;
         [SerializeField] private string durationModelId;
         [SerializeField] private string stackingRuleId;
         [SerializeField] private List<StatusStatModifierDefinition> modifiers = new();
@@ -273,6 +285,9 @@ namespace Realm.Combat.Data
         public string DisplayName => displayName;
         public Sprite Icon => icon;
         public StatusEffectType Type => type;
+        public StatusRefreshRule RefreshRule => refreshRule;
+        public int MaxStacks => maxStacks;
+        public StatusDispelType DispelType => dispelType;
         public string DurationModelId => durationModelId;
         public string StackingRuleId => stackingRuleId;
         public IReadOnlyList<StatusStatModifierDefinition> Modifiers => modifiers;
