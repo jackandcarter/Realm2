@@ -31,6 +31,10 @@ namespace Client.Combat
         public Vector3 Position => AimOrigin != null ? AimOrigin.position : transform.position;
 
         public event Action<float, float> HealthChanged;
+        public event Action<string, float, float> BuffApplied;
+        public event Action<string, float, float> DebuffApplied;
+        public event Action<string, float> StateChanged;
+        public event Action<string, float> CustomEffectApplied;
 
         private void Awake()
         {
@@ -108,6 +112,46 @@ namespace Client.Combat
                 currentHealth = newHealth;
                 HealthChanged?.Invoke(currentHealth, maxHealth);
             }
+        }
+
+        public void ApplyBuff(string buffName, float durationSeconds, float magnitude)
+        {
+            if (string.IsNullOrWhiteSpace(buffName))
+            {
+                return;
+            }
+
+            BuffApplied?.Invoke(buffName, durationSeconds, magnitude);
+        }
+
+        public void ApplyDebuff(string debuffName, float durationSeconds, float magnitude)
+        {
+            if (string.IsNullOrWhiteSpace(debuffName))
+            {
+                return;
+            }
+
+            DebuffApplied?.Invoke(debuffName, durationSeconds, magnitude);
+        }
+
+        public void ApplyStateChange(string stateName, float durationSeconds)
+        {
+            if (string.IsNullOrWhiteSpace(stateName))
+            {
+                return;
+            }
+
+            StateChanged?.Invoke(stateName, durationSeconds);
+        }
+
+        public void ApplyCustomEffect(string summary, float magnitude)
+        {
+            if (string.IsNullOrWhiteSpace(summary))
+            {
+                return;
+            }
+
+            CustomEffectApplied?.Invoke(summary, magnitude);
         }
 
         private void ResolveStatProvider()

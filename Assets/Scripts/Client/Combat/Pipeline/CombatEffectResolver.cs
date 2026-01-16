@@ -11,6 +11,8 @@ namespace Client.Combat.Pipeline
         public CombatEntity Target;
         public float Amount;
         public string StateName;
+        public float DurationSeconds;
+        public string CustomSummary;
     }
 
     [System.Serializable]
@@ -24,6 +26,17 @@ namespace Client.Combat.Pipeline
     public static class CombatEffectResolver
     {
         public static List<CombatEffectResult> ApplyEffects(
+            CombatEntity caster,
+            IEnumerable<CombatEntity> targets,
+            IEnumerable<AbilityEffect> effects,
+            IReadOnlyList<AbilityEffectScalingRule> scalingRules)
+        {
+            var results = ResolveEffects(caster, targets, effects, scalingRules);
+            ApplyResolvedEffects(results);
+            return results;
+        }
+
+        public static List<CombatEffectResult> ResolveEffects(
             CombatEntity caster,
             IEnumerable<CombatEntity> targets,
             IEnumerable<AbilityEffect> effects,
@@ -50,18 +63,64 @@ namespace Client.Combat.Pipeline
                     }
 
                     var amount = ResolveEffectAmount(effect, caster, scalingRules);
-                    ApplyEffectToTarget(effect, target, amount);
+                    var stateName = string.IsNullOrWhiteSpace(effect.StateName) ? effect.Name : effect.StateName;
+                    var summary = string.IsNullOrWhiteSpace(effect.CustomSummary) ? effect.Name : effect.CustomSummary;
                     results.Add(new CombatEffectResult
                     {
                         EffectType = effect.EffectType,
                         Target = target,
                         Amount = amount,
-                        StateName = effect.StateName
+                        StateName = stateName,
+                        DurationSeconds = effect.DurationSeconds,
+                        CustomSummary = summary
                     });
                 }
             }
 
             return results;
+        }
+
+        public static void ApplyResolvedEffects(IEnumerable<CombatEffectResult> results)
+        {
+            if (results == null)
+            {
+                return;
+            }
+
+            foreach (var result in results)
+            {
+                ApplyResolvedEffect(result);
+            }
+        }
+
+        private static void ApplyResolvedEffect(CombatEffectResult result)
+        {
+            if (result.Target == null)
+            {
+                return;
+            }
+
+            switch (result.EffectType)
+            {
+                case AbilityEffectType.Damage:
+                    result.Target.ApplyDamage(result.Amount);
+                    break;
+                case AbilityEffectType.Heal:
+                    result.Target.ApplyHeal(result.Amount);
+                    break;
+                case AbilityEffectType.Buff:
+                    result.Target.ApplyBuff(result.StateName, result.DurationSeconds, result.Amount);
+                    break;
+                case AbilityEffectType.Debuff:
+                    result.Target.ApplyDebuff(result.StateName, result.DurationSeconds, result.Amount);
+                    break;
+                case AbilityEffectType.StateChange:
+                    result.Target.ApplyStateChange(result.StateName, result.DurationSeconds);
+                    break;
+                case AbilityEffectType.Custom:
+                    result.Target.ApplyCustomEffect(result.CustomSummary, result.Amount);
+                    break;
+            }
         }
 
         private static float ResolveEffectAmount(
@@ -103,17 +162,5 @@ namespace Client.Combat.Pipeline
             return (string.Empty, 0f);
         }
 
-        private static void ApplyEffectToTarget(AbilityEffect effect, CombatEntity target, float amount)
-        {
-            switch (effect.EffectType)
-            {
-                case AbilityEffectType.Damage:
-                    target.ApplyDamage(amount);
-                    break;
-                case AbilityEffectType.Heal:
-                    target.ApplyHeal(amount);
-                    break;
-            }
-        }
     }
 }

@@ -7,6 +7,7 @@ namespace Client.Combat.Pipeline
     [Serializable]
     public struct CombatAbilityRequest
     {
+        public string RequestId;
         public string AbilityId;
         public string CasterId;
         public List<string> TargetIds;
@@ -17,6 +18,7 @@ namespace Client.Combat.Pipeline
     [Serializable]
     public struct CombatAbilityConfirmation
     {
+        public string RequestId;
         public string AbilityId;
         public string CasterId;
         public List<string> TargetIds;
@@ -42,12 +44,18 @@ namespace Client.Combat.Pipeline
 
             var confirmation = new CombatAbilityConfirmation
             {
+                RequestId = request.RequestId,
                 AbilityId = request.AbilityId,
                 CasterId = request.CasterId,
                 TargetIds = request.TargetIds,
                 ServerTime = Time.time
             };
 
+            ReceiveServerConfirmation(confirmation);
+        }
+
+        public void ReceiveServerConfirmation(CombatAbilityConfirmation confirmation)
+        {
             AbilityConfirmed?.Invoke(confirmation);
         }
     }

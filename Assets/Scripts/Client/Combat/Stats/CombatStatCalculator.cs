@@ -87,6 +87,7 @@ namespace Client.Combat.Stats
                 return;
             }
 
+            var modifierBuckets = new Dictionary<string, StatModifierBucket[]>(StringComparer.OrdinalIgnoreCase);
             foreach (var modifier in modifiers)
             {
                 var statId = modifier.ResolveStatId();
@@ -95,15 +96,61 @@ namespace Client.Combat.Stats
                     continue;
                 }
 
-                if (!stats.TryGetValue(statId, out var value))
+                if (!modifierBuckets.TryGetValue(statId, out var buckets))
                 {
-                    value = 0f;
+                    buckets = new StatModifierBucket[ModifierSourceOrder.Length];
+                    modifierBuckets[statId] = buckets;
                 }
 
-                value += modifier.FlatModifier;
-                value *= 1f + modifier.PercentModifier;
-                stats[statId] = value;
+                var index = ResolveBucketIndex(modifier.Source);
+                buckets[index].Flat += modifier.FlatModifier;
+                buckets[index].Percent += modifier.PercentModifier;
             }
+
+            foreach (var pair in modifierBuckets)
+            {
+                var value = stats.TryGetValue(pair.Key, out var existing) ? existing : 0f;
+                var buckets = pair.Value;
+                for (var i = 0; i < ModifierSourceOrder.Length; i++)
+                {
+                    var bucket = buckets[i];
+                    if (Mathf.Approximately(bucket.Flat, 0f) && Mathf.Approximately(bucket.Percent, 0f))
+                    {
+                        continue;
+                    }
+
+                    value = (value + bucket.Flat) * (1f + bucket.Percent);
+                }
+
+                stats[pair.Key] = value;
+            }
+        }
+
+        private static int ResolveBucketIndex(CombatStatModifierSource source)
+        {
+            for (var i = 0; i < ModifierSourceOrder.Length; i++)
+            {
+                if (ModifierSourceOrder[i] == source)
+                {
+                    return i;
+                }
+            }
+
+            return ModifierSourceOrder.Length - 1;
+        }
+
+        private static readonly CombatStatModifierSource[] ModifierSourceOrder =
+        {
+            CombatStatModifierSource.Equipment,
+            CombatStatModifierSource.Buff,
+            CombatStatModifierSource.Debuff,
+            CombatStatModifierSource.Other
+        };
+
+        private struct StatModifierBucket
+        {
+            public float Flat;
+            public float Percent;
         }
 
         private static Dictionary<string, float> EvaluateDerivedStats(
