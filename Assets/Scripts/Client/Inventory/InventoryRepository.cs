@@ -193,7 +193,7 @@ namespace Client.Inventory
                 {
                     itemId = item.itemId.Trim(),
                     quantity = item.quantity,
-                    metadataJson = item.metadataJson
+                    metadataJson = string.IsNullOrWhiteSpace(item.metadataJson) ? "{}" : item.metadataJson.Trim()
                 });
             }
 
