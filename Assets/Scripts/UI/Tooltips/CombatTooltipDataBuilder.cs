@@ -112,6 +112,22 @@ namespace Realm.UI.Tooltips
 
         public static CombatTooltipPayload BuildFromItem(Object itemDefinition)
         {
+            if (itemDefinition is ItemDefinition item)
+            {
+                return new CombatTooltipPayload
+                {
+                    Title = ResolveTitle(item.DisplayName, item.name, item.ItemId),
+                    Description = item.Description ?? string.Empty,
+                    Icon = item.InventoryIcon,
+                    StatModifiers = new List<CombatTooltipStatModifier>(),
+                    DurationSeconds = 0f,
+                    DurationLabel = string.Empty,
+                    MaxStacks = 0,
+                    RefreshRule = string.Empty,
+                    DispelType = string.Empty
+                };
+            }
+
             if (itemDefinition is not EquipmentDefinition equipment)
             {
                 return BuildEmptyPayload();
