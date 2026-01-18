@@ -65,6 +65,7 @@ export interface InventoryItemInput {
   itemId: string;
   quantity: number;
   metadata?: JsonValue | undefined;
+  metadataJson?: string | undefined;
 }
 
 export interface QuestStateInput {
@@ -155,6 +156,22 @@ function serializeJson(value: JsonValue | undefined): string {
   } catch (_error) {
     return '{}';
   }
+}
+
+function normalizeInventoryMetadata(item: InventoryItemInput): JsonValue | undefined {
+  if (typeof item.metadata !== 'undefined') {
+    return item.metadata;
+  }
+
+  if (typeof item.metadataJson === 'string' && item.metadataJson.trim().length > 0) {
+    try {
+      return JSON.parse(item.metadataJson);
+    } catch (_error) {
+      return undefined;
+    }
+  }
+
+  return undefined;
 }
 
 export function getCharacterProgressionSnapshot(characterId: string): CharacterProgressionSnapshot {
@@ -421,12 +438,13 @@ export function replaceInventory(
       );
 
       for (const item of items) {
+        const metadata = normalizeInventoryMetadata(item);
         insertStmt.run({
           id: randomUUID(),
           characterId,
           itemId: item.itemId,
           quantity: item.quantity,
-          metadataJson: serializeJson(item.metadata),
+          metadataJson: serializeJson(metadata),
         });
       }
     }
@@ -447,7 +465,7 @@ export function replaceInventory(
     items: items.map((item) => ({
       itemId: item.itemId,
       quantity: item.quantity,
-      metadataJson: serializeJson(item.metadata),
+      metadataJson: serializeJson(normalizeInventoryMetadata(item)),
     })),
   };
 }
