@@ -2,6 +2,7 @@ using Client.Combat;
 using Client.Combat.Runtime;
 using Client.Player;
 using Realm.Data;
+using Realm.UI.Tooltips;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -33,6 +34,7 @@ namespace Client.UI.HUD.Dock
         private Color _readyIndicatorBaseColor;
         private Color _readyOutlineBaseColor;
         private bool _specialAlwaysReady;
+        private CombatTooltipTrigger _specialTooltipTrigger;
 
         private void Reset()
         {
@@ -316,6 +318,7 @@ namespace Client.UI.HUD.Dock
         {
             _equippedWeaponId = weapon != null ? weapon.Guid : string.Empty;
             _specialAlwaysReady = weapon != null && weapon.SpecialDefinition == null && weapon.SpecialAttack != null;
+            UpdateSpecialTooltip(weapon);
 
             if (combatStateMachine != null)
             {
@@ -337,6 +340,30 @@ namespace Client.UI.HUD.Dock
             SetButtonsInteractable(canAttack);
             UpdateSpecialButtonState();
             UpdateSpecialCooldownIndicator();
+        }
+
+        private void UpdateSpecialTooltip(WeaponDefinition weapon)
+        {
+            if (specialButton == null)
+            {
+                return;
+            }
+
+            _specialTooltipTrigger ??= specialButton.GetComponent<CombatTooltipTrigger>() ?? specialButton.gameObject.AddComponent<CombatTooltipTrigger>();
+
+            if (weapon == null)
+            {
+                _specialTooltipTrigger.Configure(null, CombatTooltipSourceType.Equipment, null);
+                return;
+            }
+
+            if (weapon.SpecialAttack != null)
+            {
+                _specialTooltipTrigger.Configure(null, CombatTooltipSourceType.Ability, weapon.SpecialAttack);
+                return;
+            }
+
+            _specialTooltipTrigger.Configure(null, CombatTooltipSourceType.Equipment, weapon);
         }
 
         private void OnSpecialReadyChanged(bool isReady)

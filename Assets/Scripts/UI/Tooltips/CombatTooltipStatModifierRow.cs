@@ -30,12 +30,22 @@ namespace Realm.UI.Tooltips
 
         private static string FormatModifier(float flatDelta, float percentDelta)
         {
-            if (percentDelta != 0f)
+            var value = percentDelta != 0f
+                ? percentDelta.ToString("+0.##%;-0.##%;0%")
+                : flatDelta.ToString("+0.##;-0.##;0");
+
+            var delta = percentDelta != 0f ? percentDelta : flatDelta;
+            if (delta > 0f)
             {
-                return percentDelta.ToString("+0.##%;-0.##%;0%") ;
+                return $"<color=#7BE082>{value}</color>";
             }
 
-            return flatDelta.ToString("+0.##;-0.##;0");
+            if (delta < 0f)
+            {
+                return $"<color=#F26D6D>{value}</color>";
+            }
+
+            return value;
         }
     }
 }

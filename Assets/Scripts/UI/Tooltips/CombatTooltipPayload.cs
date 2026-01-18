@@ -21,6 +21,7 @@ namespace Realm.UI.Tooltips
         public Sprite Icon;
         public IReadOnlyList<CombatTooltipStatModifier> StatModifiers;
         public float DurationSeconds;
+        public string DurationLabel;
         public int MaxStacks;
         public string RefreshRule;
         public string DispelType;

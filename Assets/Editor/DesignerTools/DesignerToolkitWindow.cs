@@ -268,6 +268,11 @@ namespace Realm.Editor.DesignerTools
                 {
                     EquipmentDesignerWindow.ShowWindow();
                 }
+
+                if (GUILayout.Button(new GUIContent("Tooltip Preview", "Preview combat tooltip payloads for status, ability, or equipment assets."), GUILayout.Width(170f)))
+                {
+                    Realm.EditorTools.Tooltips.CombatTooltipPreviewWindow.ShowWindow();
+                }
             }
         }
 

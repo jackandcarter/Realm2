@@ -21,6 +21,7 @@ namespace Realm.UI.Tooltips
         [Header("Stat Modifiers")]
         [SerializeField] private RectTransform statModifierContainer;
         [SerializeField] private CombatTooltipStatModifierRow statModifierRowPrefab;
+        private readonly List<CombatTooltipStatModifierRow> _statModifierRows = new();
 
         public void Bind(CombatTooltipPayload payload)
         {
@@ -50,22 +51,33 @@ namespace Realm.UI.Tooltips
             // TODO: Format duration/stacks/refresh/dispel fields with proper labels.
             if (durationLabel != null)
             {
-                durationLabel.text = payload.DurationSeconds > 0f ? payload.DurationSeconds.ToString("0.##") : string.Empty;
+                if (!string.IsNullOrWhiteSpace(payload.DurationLabel))
+                {
+                    durationLabel.text = $"Duration: {payload.DurationLabel}";
+                }
+                else
+                {
+                    durationLabel.text = payload.DurationSeconds > 0f ? $"Duration: {payload.DurationSeconds:0.##}s" : string.Empty;
+                }
             }
 
             if (stacksLabel != null)
             {
-                stacksLabel.text = payload.MaxStacks > 0 ? payload.MaxStacks.ToString() : string.Empty;
+                stacksLabel.text = payload.MaxStacks > 1 ? $"Max Stacks: {payload.MaxStacks}" : string.Empty;
             }
 
             if (refreshRuleLabel != null)
             {
-                refreshRuleLabel.text = payload.RefreshRule ?? string.Empty;
+                refreshRuleLabel.text = !string.IsNullOrWhiteSpace(payload.RefreshRule)
+                    ? $"Refresh: {payload.RefreshRule}"
+                    : string.Empty;
             }
 
             if (dispelTypeLabel != null)
             {
-                dispelTypeLabel.text = payload.DispelType ?? string.Empty;
+                dispelTypeLabel.text = !string.IsNullOrWhiteSpace(payload.DispelType)
+                    ? $"Dispel: {payload.DispelType}"
+                    : string.Empty;
             }
         }
 
@@ -77,20 +89,47 @@ namespace Realm.UI.Tooltips
                 return;
             }
 
-            for (int i = statModifierContainer.childCount - 1; i >= 0; i--)
-            {
-                Destroy(statModifierContainer.GetChild(i).gameObject);
-            }
+            EnsureRowCount(modifiers?.Count ?? 0);
 
             if (modifiers == null)
+            {
+                HideAllRows();
+                return;
+            }
+
+            for (var i = 0; i < modifiers.Count; i++)
+            {
+                var row = _statModifierRows[i];
+                row.gameObject.SetActive(true);
+                row.Bind(modifiers[i]);
+            }
+
+            for (var i = modifiers.Count; i < _statModifierRows.Count; i++)
+            {
+                _statModifierRows[i].gameObject.SetActive(false);
+            }
+        }
+
+        private void EnsureRowCount(int count)
+        {
+            if (count <= _statModifierRows.Count)
             {
                 return;
             }
 
-            foreach (var modifier in modifiers)
+            for (var i = _statModifierRows.Count; i < count; i++)
             {
                 var row = Instantiate(statModifierRowPrefab, statModifierContainer);
-                row.Bind(modifier);
+                row.gameObject.SetActive(false);
+                _statModifierRows.Add(row);
+            }
+        }
+
+        private void HideAllRows()
+        {
+            foreach (var row in _statModifierRows)
+            {
+                row.gameObject.SetActive(false);
             }
         }
     }
