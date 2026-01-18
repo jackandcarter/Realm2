@@ -66,41 +66,54 @@ We welcome collaborators across disciplines—designers, engineers, artists, wri
 
 REALM is built by fans of immersive MMOs who want to push the boundaries of player-driven storytelling and construction. If that resonates with you, we’d love your help forging the future of Elysium.
 
-## Development Setup
+## Development Setup (Current)
 
 ### Backend API (Server/)
 
-The authentication and realm management API lives in the `Server/` directory.
+The backend in `Server/` provides authentication, realm membership, character progression, and realm
+world-state persistence (terrain/plots/structures) for Realm2. Terrain changes are stored per realm chunk,
+then fanned out through a change feed and real-time channels. Builders are the only role allowed to mutate
+chunk/structure data, while all realm members can read snapshots and change feeds.
 
-1. Install prerequisites: Node.js 18+ and npm 9+.
-2. Duplicate the sample environment file and customize values as needed:
+#### Prerequisites
 
-   ```bash
-   cd Server
-   npm install
-   npm run setup:local
-   ```
+- Node.js 18+
+- npm 9+
+- MariaDB 10.6+ (local or remote)
 
-3. Start the service locally:
+#### Install and configure
 
-   ```bash
-   npm run dev
-   ```
+```bash
+cd Server
+npm install
+npm run setup:local
+```
 
-   The API listens on <http://localhost:3000>. Swagger docs are served from `/docs` once the server is running.
+Edit `Server/.env` (created from `.env.example`) with your MariaDB connection details. On startup, the
+server runs migrations and seeds the default realms automatically.
 
-4. To run the backend inside Docker (optional, useful for parity with CI):
+#### Run the API
 
-   ```bash
-   docker compose up --build
-   ```
+```bash
+npm run dev
+```
 
-5. Execute quality checks before opening a pull request:
+The API listens on <http://localhost:3000>. Swagger docs are served from `/docs` once the server is running.
 
-   ```bash
-   npm run lint
-   npm test
-   ```
+#### World-state sync endpoints
+
+- **Snapshot**: `GET /realms/:realmId/chunks` (optional `?since=` ISO timestamp)
+- **Change feed**: `GET /realms/:realmId/chunks/changes` (optional `?since=` and `?limit=`)
+- **Server-sent events**: `GET /realms/:realmId/chunks/stream`
+- **WebSocket (chunks)**: `ws://localhost:3000/ws/chunks?token=JWT`
+- **WebSocket (progression)**: `ws://localhost:3000/ws/progression?token=JWT&characterId=...`
+
+#### Quality checks
+
+```bash
+npm run lint
+npm test
+```
 
 ### Unity Client
 
