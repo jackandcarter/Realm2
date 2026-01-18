@@ -11,7 +11,6 @@ namespace Realm.UI.Tooltips
 
         public void ShowTooltip(CombatTooltipPayload payload)
         {
-            // Task Stub 6: Hook into UI anchors and show tooltip at cursor/target position.
             if (tooltipView != null)
             {
                 tooltipView.Bind(payload);

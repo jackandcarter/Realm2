@@ -25,7 +25,19 @@ namespace Realm.EditorTools.Combat
             EditorGUILayout.PropertyField(serializedObject.FindProperty("actionRestrictions"));
             EditorGUILayout.PropertyField(serializedObject.FindProperty("periodicEffects"));
 
-            // TODO: Add warnings when MaxStacks > 1 but refresh rule is not AddStacks.
+            var maxStacksProperty = serializedObject.FindProperty("maxStacks");
+            var refreshRuleProperty = serializedObject.FindProperty("refreshRule");
+            if (maxStacksProperty != null && refreshRuleProperty != null)
+            {
+                var maxStacks = maxStacksProperty.intValue;
+                var refreshRule = (StatusRefreshRule)refreshRuleProperty.enumValueIndex;
+                if (maxStacks > 1 && refreshRule != StatusRefreshRule.AddStacks)
+                {
+                    EditorGUILayout.HelpBox(
+                        "MaxStacks > 1 but RefreshRule is not AddStacks.",
+                        MessageType.Warning);
+                }
+            }
 
             serializedObject.ApplyModifiedProperties();
         }

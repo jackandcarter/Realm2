@@ -25,16 +25,8 @@ namespace Realm.UI.Tooltips
 
         public void Bind(CombatTooltipPayload payload)
         {
-            // Task Stub 4: Populate UI fields from payload and drive stat modifier rows.
-            if (titleLabel != null)
-            {
-                titleLabel.text = payload.Title;
-            }
-
-            if (descriptionLabel != null)
-            {
-                descriptionLabel.text = payload.Description;
-            }
+            ApplyLabel(titleLabel, payload.Title);
+            ApplyLabel(descriptionLabel, payload.Description);
 
             if (iconImage != null)
             {
@@ -48,63 +40,60 @@ namespace Realm.UI.Tooltips
 
         private void ApplyMetadata(CombatTooltipPayload payload)
         {
-            // TODO: Format duration/stacks/refresh/dispel fields with proper labels.
             if (durationLabel != null)
             {
-                if (!string.IsNullOrWhiteSpace(payload.DurationLabel))
-                {
-                    durationLabel.text = $"Duration: {payload.DurationLabel}";
-                }
-                else
-                {
-                    durationLabel.text = payload.DurationSeconds > 0f ? $"Duration: {payload.DurationSeconds:0.##}s" : string.Empty;
-                }
+                var durationText = !string.IsNullOrWhiteSpace(payload.DurationLabel)
+                    ? $"Duration: {payload.DurationLabel}"
+                    : payload.DurationSeconds > 0f ? $"Duration: {payload.DurationSeconds:0.##}s" : string.Empty;
+                ApplyLabel(durationLabel, durationText);
             }
 
             if (stacksLabel != null)
             {
-                stacksLabel.text = payload.MaxStacks > 1 ? $"Max Stacks: {payload.MaxStacks}" : string.Empty;
+                ApplyLabel(stacksLabel, payload.MaxStacks > 1 ? $"Max Stacks: {payload.MaxStacks}" : string.Empty);
             }
 
             if (refreshRuleLabel != null)
             {
-                refreshRuleLabel.text = !string.IsNullOrWhiteSpace(payload.RefreshRule)
+                ApplyLabel(refreshRuleLabel, !string.IsNullOrWhiteSpace(payload.RefreshRule)
                     ? $"Refresh: {payload.RefreshRule}"
-                    : string.Empty;
+                    : string.Empty);
             }
 
             if (dispelTypeLabel != null)
             {
-                dispelTypeLabel.text = !string.IsNullOrWhiteSpace(payload.DispelType)
+                ApplyLabel(dispelTypeLabel, !string.IsNullOrWhiteSpace(payload.DispelType)
                     ? $"Dispel: {payload.DispelType}"
-                    : string.Empty;
+                    : string.Empty);
             }
         }
 
         private void ApplyStatModifiers(IReadOnlyList<CombatTooltipStatModifier> modifiers)
         {
-            // TODO: Pool or clear rows before populating with stat modifier data.
             if (statModifierContainer == null || statModifierRowPrefab == null)
             {
                 return;
             }
 
-            EnsureRowCount(modifiers?.Count ?? 0);
+            var modifierCount = modifiers?.Count ?? 0;
+            statModifierContainer.gameObject.SetActive(modifierCount > 0);
 
-            if (modifiers == null)
+            if (modifierCount == 0)
             {
                 HideAllRows();
                 return;
             }
 
-            for (var i = 0; i < modifiers.Count; i++)
+            EnsureRowCount(modifierCount);
+
+            for (var i = 0; i < modifierCount; i++)
             {
                 var row = _statModifierRows[i];
                 row.gameObject.SetActive(true);
                 row.Bind(modifiers[i]);
             }
 
-            for (var i = modifiers.Count; i < _statModifierRows.Count; i++)
+            for (var i = modifierCount; i < _statModifierRows.Count; i++)
             {
                 _statModifierRows[i].gameObject.SetActive(false);
             }
@@ -131,6 +120,17 @@ namespace Realm.UI.Tooltips
             {
                 row.gameObject.SetActive(false);
             }
+        }
+
+        private static void ApplyLabel(TMP_Text label, string value)
+        {
+            if (label == null)
+            {
+                return;
+            }
+
+            label.text = value ?? string.Empty;
+            label.gameObject.SetActive(!string.IsNullOrWhiteSpace(value));
         }
     }
 }
