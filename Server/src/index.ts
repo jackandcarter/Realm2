@@ -5,15 +5,22 @@ import { env } from './config/env';
 import { registerProgressionSocketHandlers } from './services/progressionService';
 import { registerChunkSocketHandlers } from './services/chunkSocketService';
 import { logger } from './observability/logger';
-import { startBackupScheduler } from './maintenance/backupManager';
+import { initializeDatabase } from './db/database';
 
-const server = http.createServer(app);
-const wsServer = new WebSocketServer({ server, path: '/ws/progression' });
-registerProgressionSocketHandlers(wsServer);
-const chunkWsServer = new WebSocketServer({ server, path: '/ws/chunks' });
-registerChunkSocketHandlers(chunkWsServer);
+async function startServer(): Promise<void> {
+  await initializeDatabase();
+  const server = http.createServer(app);
+  const wsServer = new WebSocketServer({ server, path: '/ws/progression' });
+  registerProgressionSocketHandlers(wsServer);
+  const chunkWsServer = new WebSocketServer({ server, path: '/ws/chunks' });
+  registerChunkSocketHandlers(chunkWsServer);
 
-server.listen(env.port, () => {
-  logger.info({ port: env.port }, 'Server listening');
-  startBackupScheduler();
+  server.listen(env.port, () => {
+    logger.info({ port: env.port }, 'Server listening');
+  });
+}
+
+startServer().catch((error) => {
+  logger.error({ err: error }, 'Server failed to start');
+  process.exit(1);
 });

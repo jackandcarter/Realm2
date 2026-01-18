@@ -1,4 +1,4 @@
-process.env.DB_PATH = ':memory:';
+process.env.DB_NAME = process.env.DB_NAME ?? 'realm2_test';
 process.env.JWT_SECRET = 'test-secret';
 
 import { resetDatabase } from '../../../src/db/database';
@@ -27,27 +27,27 @@ function parseProgress(progressJson: string | undefined): any {
 }
 
 describe('class unlock quest scripts', () => {
-  beforeEach(() => {
-    resetDatabase();
+  beforeEach(async () => {
+    await resetDatabase();
   });
 
-  it('unlocks the Ranger class when the ascension quest succeeds', () => {
-    const user = createUser('felarian-ranger@example.com', 'swift-ranger', 'hash');
-    const character = createCharacter({
+  it('unlocks the Ranger class when the ascension quest succeeds', async () => {
+    const user = await createUser('felarian-ranger@example.com', 'swift-ranger', 'hash');
+    const character = await createCharacter({
       userId: user.id,
       realmId: DEFAULT_REALM_ID,
       name: 'Swift Ranger',
       raceId: 'felarian',
     });
 
-    const result = completeRangerAscensionQuest(character.id);
+    const result = await completeRangerAscensionQuest(character.id);
 
     expect(result.status).toBe('completed');
     expect(result.unlockGranted).toBe(true);
     expect(result.questStateVersion).toBeGreaterThan(0);
     expect(result.classUnlockVersion).toBeGreaterThan(0);
 
-    const snapshot = getCharacterProgressionSnapshot(character.id);
+    const snapshot = await getCharacterProgressionSnapshot(character.id);
     const rangerUnlock = snapshot.classUnlocks.unlocks.find(
       (entry) => entry.classId.trim().toLowerCase() === 'ranger',
     );
@@ -75,24 +75,24 @@ describe('class unlock quest scripts', () => {
     );
   });
 
-  it('records a graceful completion when the Ranger class was already unlocked', () => {
-    const user = createUser('veteran-ranger@example.com', 'veteran-ranger', 'hash');
-    const character = createCharacter({
+  it('records a graceful completion when the Ranger class was already unlocked', async () => {
+    const user = await createUser('veteran-ranger@example.com', 'veteran-ranger', 'hash');
+    const character = await createCharacter({
       userId: user.id,
       realmId: DEFAULT_REALM_ID,
       name: 'Veteran Ranger',
       raceId: 'felarian',
     });
 
-    const first = completeRangerAscensionQuest(character.id);
+    const first = await completeRangerAscensionQuest(character.id);
     expect(first.unlockGranted).toBe(true);
 
-    const second = completeRangerAscensionQuest(character.id);
+    const second = await completeRangerAscensionQuest(character.id);
     expect(second.status).toBe('completed');
     expect(second.unlockGranted).toBe(false);
     expect(second.unlockError).toBeUndefined();
 
-    const snapshot = getCharacterProgressionSnapshot(character.id);
+    const snapshot = await getCharacterProgressionSnapshot(character.id);
     const questRecord = snapshot.quests.quests.find((quest) => quest.questId === RANGER_QUEST_ID);
     const progress = parseProgress(questRecord?.progressJson);
     const infoNotifications = progress.notifications.filter(
@@ -101,22 +101,22 @@ describe('class unlock quest scripts', () => {
     expect(infoNotifications.length).toBeGreaterThan(0);
   });
 
-  it('marks the Ranger quest as failed when the class cannot be unlocked for the race', () => {
-    const user = createUser('human-adventurer@example.com', 'human-hero', 'hash');
-    const character = createCharacter({
+  it('marks the Ranger quest as failed when the class cannot be unlocked for the race', async () => {
+    const user = await createUser('human-adventurer@example.com', 'human-hero', 'hash');
+    const character = await createCharacter({
       userId: user.id,
       realmId: DEFAULT_REALM_ID,
       name: 'Human Adventurer',
       raceId: 'human',
     });
 
-    const result = completeRangerAscensionQuest(character.id);
+    const result = await completeRangerAscensionQuest(character.id);
 
     expect(result.status).toBe('failed');
     expect(result.unlockGranted).toBe(false);
     expect(result.unlockError).toBe('Class ranger cannot be unlocked for race human');
 
-    const snapshot = getCharacterProgressionSnapshot(character.id);
+    const snapshot = await getCharacterProgressionSnapshot(character.id);
     const questRecord = snapshot.quests.quests.find((quest) => quest.questId === RANGER_QUEST_ID);
     expect(questRecord?.status).toBe('failed');
     const progress = parseProgress(questRecord?.progressJson);
@@ -130,21 +130,21 @@ describe('class unlock quest scripts', () => {
     );
   });
 
-  it('unlocks the Time Mage class and records the journal feedback', () => {
-    const user = createUser('chrononaut@example.com', 'chrono-walker', 'hash');
-    const character = createCharacter({
+  it('unlocks the Time Mage class and records the journal feedback', async () => {
+    const user = await createUser('chrononaut@example.com', 'chrono-walker', 'hash');
+    const character = await createCharacter({
       userId: user.id,
       realmId: DEFAULT_REALM_ID,
       name: 'Chrono Walker',
       raceId: 'human',
     });
 
-    const result = completeTimeMageConvergenceQuest(character.id);
+    const result = await completeTimeMageConvergenceQuest(character.id);
 
     expect(result.status).toBe('completed');
     expect(result.unlockGranted).toBe(true);
 
-    const snapshot = getCharacterProgressionSnapshot(character.id);
+    const snapshot = await getCharacterProgressionSnapshot(character.id);
     const unlock = snapshot.classUnlocks.unlocks.find(
       (entry) => entry.classId.trim().toLowerCase() === 'time-mage',
     );

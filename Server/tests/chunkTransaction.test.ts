@@ -1,4 +1,4 @@
-process.env.DB_PATH = ':memory:';
+process.env.DB_NAME = process.env.DB_NAME ?? 'realm2_test';
 process.env.JWT_SECRET = 'test-secret';
 
 import { resetDatabase } from '../src/db/database';
@@ -13,9 +13,9 @@ const REALM_ID = 'realm-elysium-nexus';
 const CHUNK_ID = 'chunk-test-hub';
 
 describe('chunk build transactions', () => {
-  beforeEach(() => {
-    resetDatabase();
-    upsertChunk({
+  beforeEach(async () => {
+    await resetDatabase();
+    await upsertChunk({
       id: CHUNK_ID,
       realmId: REALM_ID,
       chunkX: 0,
@@ -25,12 +25,12 @@ describe('chunk build transactions', () => {
     });
   });
 
-  it('deducts resources and records a change for authorized builders', () => {
-    const builder = createUser('builder@example.com', 'builder', 'hash');
-    createMembership(builder.id, REALM_ID, 'builder');
-    applyResourceAdjustments(REALM_ID, builder.id, [{ resourceType: 'stone', delta: 25 }]);
+  it('deducts resources and records a change for authorized builders', async () => {
+    const builder = await createUser('builder@example.com', 'builder', 'hash');
+    await createMembership(builder.id, REALM_ID, 'builder');
+    await applyResourceAdjustments(REALM_ID, builder.id, [{ resourceType: 'stone', delta: 25 }]);
 
-    const change = recordChunkChange(
+    const change = await recordChunkChange(
       builder.id,
       REALM_ID,
       CHUNK_ID,
@@ -49,16 +49,16 @@ describe('chunk build transactions', () => {
     expect(change.structures).toHaveLength(1);
     expect(change.resources).toEqual([{ resourceType: 'stone', quantity: 5 }]);
 
-    const wallet = listWalletEntries(REALM_ID, builder.id);
+    const wallet = await listWalletEntries(REALM_ID, builder.id);
     const stoneBalance = wallet.find((entry) => entry.resourceType === 'stone');
     expect(stoneBalance?.quantity).toBe(20);
   });
 
-  it('blocks non-builders from modifying structures', () => {
-    const player = createUser('player@example.com', 'player', 'hash');
-    createMembership(player.id, REALM_ID, 'player');
+  it('blocks non-builders from modifying structures', async () => {
+    const player = await createUser('player@example.com', 'player', 'hash');
+    await createMembership(player.id, REALM_ID, 'player');
 
-    expect(() =>
+    await expect(
       recordChunkChange(
         player.id,
         REALM_ID,
@@ -73,18 +73,18 @@ describe('chunk build transactions', () => {
         undefined,
         [{ resourceType: 'iron', quantity: 3 }]
       )
-    ).toThrow(HttpError);
+    ).rejects.toThrow(HttpError);
   });
 
-  it('enforces plot ownership rules for players', () => {
-    const builder = createUser('architect@example.com', 'architect', 'hash');
-    createMembership(builder.id, REALM_ID, 'builder');
-    const owner = createUser('owner@example.com', 'owner', 'hash');
-    createMembership(owner.id, REALM_ID, 'player');
-    const intruder = createUser('intruder@example.com', 'intruder', 'hash');
-    createMembership(intruder.id, REALM_ID, 'player');
+  it('enforces plot ownership rules for players', async () => {
+    const builder = await createUser('architect@example.com', 'architect', 'hash');
+    await createMembership(builder.id, REALM_ID, 'builder');
+    const owner = await createUser('owner@example.com', 'owner', 'hash');
+    await createMembership(owner.id, REALM_ID, 'player');
+    const intruder = await createUser('intruder@example.com', 'intruder', 'hash');
+    await createMembership(intruder.id, REALM_ID, 'player');
 
-    recordChunkChange(
+    await recordChunkChange(
       builder.id,
       REALM_ID,
       CHUNK_ID,
@@ -99,7 +99,7 @@ describe('chunk build transactions', () => {
       ]
     );
 
-    expect(() =>
+    await expect(
       recordChunkChange(
         intruder.id,
         REALM_ID,
@@ -114,16 +114,16 @@ describe('chunk build transactions', () => {
           },
         ]
       )
-    ).toThrow(HttpError);
+    ).rejects.toThrow(HttpError);
   });
 
-  it('rejects mutations when the user lacks sufficient resources', () => {
-    const builder = createUser('artisan@example.com', 'artisan', 'hash');
-    createMembership(builder.id, REALM_ID, 'builder');
-    applyResourceAdjustments(REALM_ID, builder.id, [{ resourceType: 'lumber', delta: 2 }]);
+  it('rejects mutations when the user lacks sufficient resources', async () => {
+    const builder = await createUser('artisan@example.com', 'artisan', 'hash');
+    await createMembership(builder.id, REALM_ID, 'builder');
+    await applyResourceAdjustments(REALM_ID, builder.id, [{ resourceType: 'lumber', delta: 2 }]);
 
     try {
-      recordChunkChange(
+      await recordChunkChange(
         builder.id,
         REALM_ID,
         CHUNK_ID,
@@ -145,7 +145,7 @@ describe('chunk build transactions', () => {
       expect(httpError.status).toBe(409);
     }
 
-    const wallet = listWalletEntries(REALM_ID, builder.id);
+    const wallet = await listWalletEntries(REALM_ID, builder.id);
     const lumber = wallet.find((entry) => entry.resourceType === 'lumber');
     expect(lumber?.quantity).toBe(2);
   });

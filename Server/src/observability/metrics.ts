@@ -5,7 +5,7 @@ collectDefaultMetrics({ register: metricsRegistry });
 
 export const persistenceLatencyHistogram = new Histogram({
   name: 'realm2_persistence_operation_duration_seconds',
-  help: 'Latency distribution for SQLite persistence operations.',
+  help: 'Latency distribution for persistence operations.',
   labelNames: ['operation'],
   registers: [metricsRegistry],
 });
@@ -35,6 +35,22 @@ export function measurePersistenceOperation<T>(operation: string, fn: () => T): 
   const end = persistenceLatencyHistogram.startTimer({ operation });
   try {
     return fn();
+  } catch (error) {
+    const type = error instanceof Error ? error.name : 'unknown_error';
+    persistenceErrorCounter.inc({ operation, type });
+    throw error;
+  } finally {
+    end();
+  }
+}
+
+export async function measurePersistenceOperationAsync<T>(
+  operation: string,
+  fn: () => Promise<T>
+): Promise<T> {
+  const end = persistenceLatencyHistogram.startTimer({ operation });
+  try {
+    return await fn();
   } catch (error) {
     const type = error instanceof Error ? error.name : 'unknown_error';
     persistenceErrorCounter.inc({ operation, type });

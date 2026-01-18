@@ -58,11 +58,11 @@ type SocketRegistry = Map<string, Set<WebSocket>>;
 
 const subscribers: SocketRegistry = new Map();
 
-export function getCharacterProgressionForUser(
+export async function getCharacterProgressionForUser(
   userId: string,
   characterId: string
-): CharacterProgressionSnapshot {
-  const character = findCharacterById(characterId);
+): Promise<CharacterProgressionSnapshot> {
+  const character = await findCharacterById(characterId);
   if (!character) {
     throw new HttpError(404, 'Character not found');
   }
@@ -71,16 +71,16 @@ export function getCharacterProgressionForUser(
     throw new HttpError(403, 'You do not have access to this character');
   }
 
-  initializeCharacterProgressionState(characterId);
+  await initializeCharacterProgressionState(characterId);
   return getCharacterProgressionSnapshot(characterId);
 }
 
-export function updateCharacterProgressionForUser(
+export async function updateCharacterProgressionForUser(
   userId: string,
   characterId: string,
   input: ProgressionUpdateInput
-): CharacterProgressionSnapshot {
-  const character = findCharacterById(characterId);
+): Promise<CharacterProgressionSnapshot> {
+  const character = await findCharacterById(characterId);
   if (!character) {
     throw new HttpError(404, 'Character not found');
   }
@@ -89,16 +89,20 @@ export function updateCharacterProgressionForUser(
     throw new HttpError(403, 'You do not have access to this character');
   }
 
-  initializeCharacterProgressionState(characterId);
+  await initializeCharacterProgressionState(characterId);
 
   if (input.progression) {
     const { level, xp, expectedVersion } = input.progression;
-    updateProgressionLevels(characterId, level, xp, expectedVersion);
+    await updateProgressionLevels(characterId, level, xp, expectedVersion);
   }
 
   if (input.classUnlocks) {
     try {
-      replaceClassUnlocks(characterId, input.classUnlocks.unlocks, input.classUnlocks.expectedVersion);
+      await replaceClassUnlocks(
+        characterId,
+        input.classUnlocks.unlocks,
+        input.classUnlocks.expectedVersion
+      );
     } catch (error) {
       if (error instanceof ForbiddenClassUnlockError) {
         throw new HttpError(400, error.message);
@@ -108,39 +112,39 @@ export function updateCharacterProgressionForUser(
   }
 
   if (input.inventory) {
-    replaceInventory(characterId, input.inventory.items, input.inventory.expectedVersion);
+    await replaceInventory(characterId, input.inventory.items, input.inventory.expectedVersion);
   }
 
   if (input.quests) {
-    replaceQuestStates(characterId, input.quests.quests, input.quests.expectedVersion);
+    await replaceQuestStates(characterId, input.quests.quests, input.quests.expectedVersion);
   }
 
-  const snapshot = getCharacterProgressionSnapshot(characterId);
+  const snapshot = await getCharacterProgressionSnapshot(characterId);
   broadcastProgression(characterId, snapshot);
   return snapshot;
 }
 
 export function registerProgressionSocketHandlers(server: WebSocketServer): void {
-  server.on('connection', (socket, request) => {
+  server.on('connection', async (socket, request) => {
     try {
-      const { userId, characterId } = authenticateSocket(request);
+      const { userId, characterId } = await authenticateSocket(request);
       if (!characterId) {
         socket.close(1008, 'Missing characterId');
         return;
       }
 
-      const character = findCharacterById(characterId);
+      const character = await findCharacterById(characterId);
       if (!character || character.userId !== userId) {
         socket.close(1008, 'Forbidden');
         return;
       }
 
-      initializeCharacterProgressionState(characterId);
+      await initializeCharacterProgressionState(characterId);
       addSubscriber(characterId, socket);
-      sendSnapshot(socket, getCharacterProgressionSnapshot(characterId));
+      sendSnapshot(socket, await getCharacterProgressionSnapshot(characterId));
 
       socket.on('message', (data) => {
-        handleSocketMessage(socket, userId, characterId, data);
+        void handleSocketMessage(socket, userId, characterId, data);
       });
 
       socket.on('close', () => {
@@ -156,12 +160,12 @@ export function registerProgressionSocketHandlers(server: WebSocketServer): void
   });
 }
 
-function handleSocketMessage(
+async function handleSocketMessage(
   socket: WebSocket,
   userId: string,
   defaultCharacterId: string,
   raw: RawData
-): void {
+): Promise<void> {
   let message: ProgressionSocketMessage;
   try {
     message = JSON.parse(raw.toString()) as ProgressionSocketMessage;
@@ -183,7 +187,11 @@ function handleSocketMessage(
         return;
       }
       try {
-        const snapshot = updateCharacterProgressionForUser(userId, characterId, message.payload ?? {});
+        const snapshot = await updateCharacterProgressionForUser(
+          userId,
+          characterId,
+          message.payload ?? {}
+        );
         sendSnapshot(socket, snapshot);
       } catch (error) {
         handleSocketError(socket, error);
@@ -198,12 +206,12 @@ function handleSocketMessage(
       }
 
       try {
-        const character = findCharacterById(characterId);
+        const character = await findCharacterById(characterId);
         if (!character || character.userId !== userId) {
           throw new HttpError(403, 'You do not have access to this character');
         }
         addSubscriber(characterId, socket);
-        sendSnapshot(socket, getCharacterProgressionSnapshot(characterId));
+        sendSnapshot(socket, await getCharacterProgressionSnapshot(characterId));
       } catch (error) {
         handleSocketError(socket, error);
       }
@@ -230,7 +238,9 @@ function handleSocketError(socket: WebSocket, error: unknown): void {
   sendError(socket, 'Unexpected error while processing update');
 }
 
-function authenticateSocket(request: IncomingMessage): { userId: string; characterId?: string } {
+async function authenticateSocket(
+  request: IncomingMessage
+): Promise<{ userId: string; characterId?: string }> {
   const url = new URL(request.url ?? '/', 'http://localhost');
   const token = url.searchParams.get('token');
   if (!token) {
@@ -244,7 +254,7 @@ function authenticateSocket(request: IncomingMessage): { userId: string; charact
     throw new HttpError(401, 'Invalid token');
   }
 
-  const user = findUserById(payload.sub);
+  const user = await findUserById(payload.sub);
   if (!user) {
     throw new HttpError(401, 'Invalid token');
   }

@@ -1,5 +1,5 @@
 import { randomUUID } from 'crypto';
-import { db } from './database';
+import { db, DbExecutor } from './database';
 import { setReplicationQueueLength } from '../observability/metrics';
 
 export interface RealmChunkRecord {
@@ -124,234 +124,266 @@ function mapChangeRow(row: any): ChunkChangeRecord {
   };
 }
 
-function refreshReplicationGauge(realmId: string): void {
-  const row = db
-    .prepare('SELECT COUNT(*) as total FROM chunk_change_log WHERE realm_id = ?')
-    .get(realmId) as { total?: number } | undefined;
-  const total = typeof row?.total === 'number' ? row.total : 0;
+async function refreshReplicationGauge(realmId: string, executor: DbExecutor = db): Promise<void> {
+  const rows = await executor.query<{ total: number }[]>(
+    'SELECT COUNT(*) as total FROM chunk_change_log WHERE realm_id = ?',
+    [realmId]
+  );
+  const total = typeof rows[0]?.total === 'number' ? rows[0].total : 0;
   setReplicationQueueLength(realmId, total);
 }
 
-export function findChunkById(id: string): RealmChunkRecord | undefined {
-  const stmt = db.prepare(
+export async function findChunkById(
+  id: string,
+  executor: DbExecutor = db
+): Promise<RealmChunkRecord | undefined> {
+  const rows = await executor.query(
     `SELECT id, realm_id, chunk_x, chunk_z, payload_json, is_deleted, created_at, updated_at
      FROM realm_chunks
-     WHERE id = ?`
+     WHERE id = ?`,
+    [id]
   );
-  const row = stmt.get(id);
+  const row = rows[0];
   return row ? mapChunkRow(row) : undefined;
 }
 
-export function findChunkByRealmAndCoords(
+export async function findChunkByRealmAndCoords(
   realmId: string,
   chunkX: number,
-  chunkZ: number
-): RealmChunkRecord | undefined {
-  const stmt = db.prepare(
+  chunkZ: number,
+  executor: DbExecutor = db
+): Promise<RealmChunkRecord | undefined> {
+  const rows = await executor.query(
     `SELECT id, realm_id, chunk_x, chunk_z, payload_json, is_deleted, created_at, updated_at
      FROM realm_chunks
-     WHERE realm_id = ? AND chunk_x = ? AND chunk_z = ?`
+     WHERE realm_id = ? AND chunk_x = ? AND chunk_z = ?`,
+    [realmId, chunkX, chunkZ]
   );
-  const row = stmt.get(realmId, chunkX, chunkZ);
+  const row = rows[0];
   return row ? mapChunkRow(row) : undefined;
 }
 
-export function upsertChunk(input: UpsertChunkInput): RealmChunkRecord {
+export async function upsertChunk(
+  input: UpsertChunkInput,
+  executor: DbExecutor = db
+): Promise<RealmChunkRecord> {
   const now = new Date().toISOString();
-  const stmt = db.prepare(
+  await executor.execute(
     `INSERT INTO realm_chunks (id, realm_id, chunk_x, chunk_z, payload_json, is_deleted, created_at, updated_at)
-     VALUES (@id, @realmId, @chunkX, @chunkZ, @payloadJson, @isDeleted, @createdAt, @updatedAt)
-     ON CONFLICT(id) DO UPDATE SET
-       realm_id = excluded.realm_id,
-       chunk_x = excluded.chunk_x,
-       chunk_z = excluded.chunk_z,
-       payload_json = excluded.payload_json,
-       is_deleted = excluded.is_deleted,
-       updated_at = excluded.updated_at`
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+     ON DUPLICATE KEY UPDATE
+       realm_id = VALUES(realm_id),
+       chunk_x = VALUES(chunk_x),
+       chunk_z = VALUES(chunk_z),
+       payload_json = VALUES(payload_json),
+       is_deleted = VALUES(is_deleted),
+       updated_at = VALUES(updated_at)`,
+    [
+      input.id,
+      input.realmId,
+      input.chunkX,
+      input.chunkZ,
+      input.payloadJson,
+      input.isDeleted ? 1 : 0,
+      now,
+      now,
+    ]
   );
-  stmt.run({
-    id: input.id,
-    realmId: input.realmId,
-    chunkX: input.chunkX,
-    chunkZ: input.chunkZ,
-    payloadJson: input.payloadJson,
-    isDeleted: input.isDeleted ? 1 : 0,
-    createdAt: now,
-    updatedAt: now,
-  });
-  return findChunkById(input.id)!;
+  return (await findChunkById(input.id, executor))!;
 }
 
-export function listChunksByRealm(
+export async function listChunksByRealm(
   realmId: string,
-  updatedAfter?: string
-): RealmChunkRecord[] {
+  updatedAfter?: string,
+  executor: DbExecutor = db
+): Promise<RealmChunkRecord[]> {
   if (updatedAfter) {
-    const stmt = db.prepare(
+    const rows = await executor.query(
       `SELECT id, realm_id, chunk_x, chunk_z, payload_json, is_deleted, created_at, updated_at
        FROM realm_chunks
        WHERE realm_id = ? AND updated_at > ?
-       ORDER BY updated_at ASC`
+       ORDER BY updated_at ASC`,
+      [realmId, updatedAfter]
     );
-    return stmt.all(realmId, updatedAfter).map(mapChunkRow);
+    return rows.map(mapChunkRow);
   }
-  const stmt = db.prepare(
+  const rows = await executor.query(
     `SELECT id, realm_id, chunk_x, chunk_z, payload_json, is_deleted, created_at, updated_at
      FROM realm_chunks
      WHERE realm_id = ?
-     ORDER BY updated_at ASC`
+     ORDER BY updated_at ASC`,
+    [realmId]
   );
-  return stmt.all(realmId).map(mapChunkRow);
+  return rows.map(mapChunkRow);
 }
 
-export function listStructuresForChunks(chunkIds: string[]): ChunkStructureRecord[] {
+export async function listStructuresForChunks(
+  chunkIds: string[],
+  executor: DbExecutor = db
+): Promise<ChunkStructureRecord[]> {
   if (chunkIds.length === 0) {
     return [];
   }
   const placeholders = chunkIds.map(() => '?').join(', ');
-  const stmt = db.prepare(
+  const rows = await executor.query(
     `SELECT id, realm_id, chunk_id, structure_type, data_json, is_deleted, created_at, updated_at
      FROM chunk_structures
      WHERE chunk_id IN (${placeholders}) AND is_deleted = 0
-     ORDER BY updated_at ASC`
+     ORDER BY updated_at ASC`,
+    chunkIds
   );
-  return stmt.all(...chunkIds).map(mapStructureRow);
+  return rows.map(mapStructureRow);
 }
 
-export function listPlotsForChunks(chunkIds: string[]): ChunkPlotRecord[] {
+export async function listPlotsForChunks(
+  chunkIds: string[],
+  executor: DbExecutor = db
+): Promise<ChunkPlotRecord[]> {
   if (chunkIds.length === 0) {
     return [];
   }
   const placeholders = chunkIds.map(() => '?').join(', ');
-  const stmt = db.prepare(
+  const rows = await executor.query(
     `SELECT id, realm_id, chunk_id, plot_identifier, owner_user_id, data_json, is_deleted, created_at, updated_at
      FROM chunk_plots
      WHERE chunk_id IN (${placeholders}) AND is_deleted = 0
-     ORDER BY updated_at ASC`
+     ORDER BY updated_at ASC`,
+    chunkIds
   );
-  return stmt.all(...chunkIds).map(mapPlotRow);
+  return rows.map(mapPlotRow);
 }
 
-export function findPlotById(plotId: string): ChunkPlotRecord | undefined {
-  const stmt = db.prepare(
+export async function findPlotById(
+  plotId: string,
+  executor: DbExecutor = db
+): Promise<ChunkPlotRecord | undefined> {
+  const rows = await executor.query(
     `SELECT id, realm_id, chunk_id, plot_identifier, owner_user_id, data_json, is_deleted, created_at, updated_at
      FROM chunk_plots
-     WHERE id = ?`
+     WHERE id = ?`,
+    [plotId]
   );
-  const row = stmt.get(plotId);
+  const row = rows[0];
   return row ? mapPlotRow(row) : undefined;
 }
 
-export function findPlotByIdentifier(
+export async function findPlotByIdentifier(
   realmId: string,
   chunkId: string,
-  plotIdentifier: string
-): ChunkPlotRecord | undefined {
-  const stmt = db.prepare(
+  plotIdentifier: string,
+  executor: DbExecutor = db
+): Promise<ChunkPlotRecord | undefined> {
+  const rows = await executor.query(
     `SELECT id, realm_id, chunk_id, plot_identifier, owner_user_id, data_json, is_deleted, created_at, updated_at
      FROM chunk_plots
-     WHERE realm_id = ? AND chunk_id = ? AND plot_identifier = ?`
+     WHERE realm_id = ? AND chunk_id = ? AND plot_identifier = ?`,
+    [realmId, chunkId, plotIdentifier]
   );
-  const row = stmt.get(realmId, chunkId, plotIdentifier);
+  const row = rows[0];
   return row ? mapPlotRow(row) : undefined;
 }
 
-export function upsertStructures(structures: UpsertStructureInput[]): ChunkStructureRecord[] {
+export async function upsertStructures(
+  structures: UpsertStructureInput[],
+  executor: DbExecutor = db
+): Promise<ChunkStructureRecord[]> {
   if (structures.length === 0) {
     return [];
   }
-  const stmt = db.prepare(
-    `INSERT INTO chunk_structures (id, realm_id, chunk_id, structure_type, data_json, is_deleted, created_at, updated_at)
-     VALUES (@id, @realmId, @chunkId, @structureType, @dataJson, @isDeleted, @createdAt, @updatedAt)
-     ON CONFLICT(id) DO UPDATE SET
-       realm_id = excluded.realm_id,
-       chunk_id = excluded.chunk_id,
-       structure_type = excluded.structure_type,
-       data_json = excluded.data_json,
-       is_deleted = excluded.is_deleted,
-       updated_at = excluded.updated_at`
-  );
   const now = new Date().toISOString();
   const results: ChunkStructureRecord[] = [];
-  const selectStmt = db.prepare(
-    `SELECT id, realm_id, chunk_id, structure_type, data_json, is_deleted, created_at, updated_at
-     FROM chunk_structures
-     WHERE id = ?`
-  );
-  const insertMany = db.transaction((items: UpsertStructureInput[]) => {
-    for (const item of items) {
-      stmt.run({
-        id: item.id,
-        realmId: item.realmId,
-        chunkId: item.chunkId,
-        structureType: item.structureType,
-        dataJson: item.dataJson,
-        isDeleted: item.isDeleted ? 1 : 0,
-        createdAt: now,
-        updatedAt: now,
-      });
-      const row = selectStmt.get(item.id);
-      if (row) {
-        results.push(mapStructureRow(row));
-      }
+  const tx = executor;
+  for (const item of structures) {
+    await tx.execute(
+      `INSERT INTO chunk_structures (id, realm_id, chunk_id, structure_type, data_json, is_deleted, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+       ON DUPLICATE KEY UPDATE
+         realm_id = VALUES(realm_id),
+         chunk_id = VALUES(chunk_id),
+         structure_type = VALUES(structure_type),
+         data_json = VALUES(data_json),
+         is_deleted = VALUES(is_deleted),
+         updated_at = VALUES(updated_at)`,
+      [
+        item.id,
+        item.realmId,
+        item.chunkId,
+        item.structureType,
+        item.dataJson,
+        item.isDeleted ? 1 : 0,
+        now,
+        now,
+      ]
+    );
+    const rows = await tx.query(
+      `SELECT id, realm_id, chunk_id, structure_type, data_json, is_deleted, created_at, updated_at
+       FROM chunk_structures
+       WHERE id = ?`,
+      [item.id]
+    );
+    const row = rows[0];
+    if (row) {
+      results.push(mapStructureRow(row));
     }
-  });
-  insertMany(structures);
+  }
   return results;
 }
 
-export function upsertPlots(plots: UpsertPlotInput[]): ChunkPlotRecord[] {
+export async function upsertPlots(
+  plots: UpsertPlotInput[],
+  executor: DbExecutor = db
+): Promise<ChunkPlotRecord[]> {
   if (plots.length === 0) {
     return [];
   }
-  const stmt = db.prepare(
-    `INSERT INTO chunk_plots (id, realm_id, chunk_id, plot_identifier, owner_user_id, data_json, is_deleted, created_at, updated_at)
-     VALUES (@id, @realmId, @chunkId, @plotIdentifier, @ownerUserId, @dataJson, @isDeleted, @createdAt, @updatedAt)
-     ON CONFLICT(id) DO UPDATE SET
-       realm_id = excluded.realm_id,
-       chunk_id = excluded.chunk_id,
-       plot_identifier = excluded.plot_identifier,
-       owner_user_id = excluded.owner_user_id,
-       data_json = excluded.data_json,
-       is_deleted = excluded.is_deleted,
-       updated_at = excluded.updated_at`
-  );
   const now = new Date().toISOString();
   const results: ChunkPlotRecord[] = [];
-  const selectStmt = db.prepare(
-    `SELECT id, realm_id, chunk_id, plot_identifier, owner_user_id, data_json, is_deleted, created_at, updated_at
-     FROM chunk_plots
-     WHERE id = ?`
-  );
-  const insertMany = db.transaction((items: UpsertPlotInput[]) => {
-    for (const item of items) {
-      stmt.run({
-        id: item.id,
-        realmId: item.realmId,
-        chunkId: item.chunkId,
-        plotIdentifier: item.plotIdentifier,
-        ownerUserId: item.ownerUserId,
-        dataJson: item.dataJson,
-        isDeleted: item.isDeleted ? 1 : 0,
-        createdAt: now,
-        updatedAt: now,
-      });
-      const row = selectStmt.get(item.id);
-      if (row) {
-        results.push(mapPlotRow(row));
-      }
+  const tx = executor;
+  for (const item of plots) {
+    await tx.execute(
+      `INSERT INTO chunk_plots (id, realm_id, chunk_id, plot_identifier, owner_user_id, data_json, is_deleted, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+       ON DUPLICATE KEY UPDATE
+         realm_id = VALUES(realm_id),
+         chunk_id = VALUES(chunk_id),
+         plot_identifier = VALUES(plot_identifier),
+         owner_user_id = VALUES(owner_user_id),
+         data_json = VALUES(data_json),
+         is_deleted = VALUES(is_deleted),
+         updated_at = VALUES(updated_at)`,
+      [
+        item.id,
+        item.realmId,
+        item.chunkId,
+        item.plotIdentifier,
+        item.ownerUserId,
+        item.dataJson,
+        item.isDeleted ? 1 : 0,
+        now,
+        now,
+      ]
+    );
+    const rows = await tx.query(
+      `SELECT id, realm_id, chunk_id, plot_identifier, owner_user_id, data_json, is_deleted, created_at, updated_at
+       FROM chunk_plots
+       WHERE id = ?`,
+      [item.id]
+    );
+    const row = rows[0];
+    if (row) {
+      results.push(mapPlotRow(row));
     }
-  });
-  insertMany(plots);
+  }
   return results;
 }
 
-export function logChunkChange(
+export async function logChunkChange(
   realmId: string,
   chunkId: string,
   changeType: string,
-  payloadJson: string
-): ChunkChangeRecord {
+  payloadJson: string,
+  executor: DbExecutor = db
+): Promise<ChunkChangeRecord> {
   const change: ChunkChangeRecord = {
     id: randomUUID(),
     realmId,
@@ -360,44 +392,51 @@ export function logChunkChange(
     payloadJson,
     createdAt: new Date().toISOString(),
   };
-  const stmt = db.prepare(
+  await executor.execute(
     `INSERT INTO chunk_change_log (id, realm_id, chunk_id, change_type, payload_json, created_at)
-     VALUES (@id, @realmId, @chunkId, @changeType, @payloadJson, @createdAt)`
+     VALUES (?, ?, ?, ?, ?, ?)`,
+    [change.id, change.realmId, change.chunkId, change.changeType, change.payloadJson, change.createdAt]
   );
-  stmt.run(change);
-  refreshReplicationGauge(realmId);
+  await refreshReplicationGauge(realmId, executor);
   return change;
 }
 
-export function listChunkChanges(
+export async function listChunkChanges(
   realmId: string,
   createdAfter?: string,
-  limit = 500
-): ChunkChangeRecord[] {
+  limit = 500,
+  executor: DbExecutor = db
+): Promise<ChunkChangeRecord[]> {
   if (createdAfter) {
-    const stmt = db.prepare(
+    const rows = await executor.query(
       `SELECT id, realm_id, chunk_id, change_type, payload_json, created_at
        FROM chunk_change_log
        WHERE realm_id = ? AND created_at > ?
        ORDER BY created_at ASC
-       LIMIT ?`
+       LIMIT ?`,
+      [realmId, createdAfter, limit]
     );
-    return stmt.all(realmId, createdAfter, limit).map(mapChangeRow);
+    return rows.map(mapChangeRow);
   }
-  const stmt = db.prepare(
+  const rows = await executor.query(
     `SELECT id, realm_id, chunk_id, change_type, payload_json, created_at
      FROM chunk_change_log
      WHERE realm_id = ?
      ORDER BY created_at ASC
-     LIMIT ?`
+     LIMIT ?`,
+    [realmId, limit]
   );
-  return stmt.all(realmId, limit).map(mapChangeRow);
+  return rows.map(mapChangeRow);
 }
 
-export function deleteChunkChangeLogBefore(realmId: string, cutoff: string): void {
-  const stmt = db.prepare(
-    `DELETE FROM chunk_change_log WHERE realm_id = ? AND created_at < ?`
-  );
-  stmt.run(realmId, cutoff);
-  refreshReplicationGauge(realmId);
+export async function deleteChunkChangeLogBefore(
+  realmId: string,
+  cutoff: string,
+  executor: DbExecutor = db
+): Promise<void> {
+  await executor.execute(`DELETE FROM chunk_change_log WHERE realm_id = ? AND created_at < ?`, [
+    realmId,
+    cutoff,
+  ]);
+  await refreshReplicationGauge(realmId, executor);
 }

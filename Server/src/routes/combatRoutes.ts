@@ -9,10 +9,10 @@ import {
 
 export const combatRouter = Router();
 
-combatRouter.post('/execute', requireAuth, (req, res, next) => {
+combatRouter.post('/execute', requireAuth, async (req, res, next) => {
   try {
     const payload = toCombatAbilityExecutionRequest(req.body);
-    const confirmation = executeCombatAbility(payload, { userId: req.user!.id });
+    const confirmation = await executeCombatAbility(payload, { userId: req.user!.id });
     res.json(confirmation);
   } catch (error) {
     next(error);

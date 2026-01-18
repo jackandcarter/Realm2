@@ -1,5 +1,3 @@
-import path from 'path';
-import fs from 'fs';
 import dotenv from 'dotenv';
 
 if (!process.env.DOTENV_LOG_LEVEL) {
@@ -7,23 +5,16 @@ if (!process.env.DOTENV_LOG_LEVEL) {
 }
 dotenv.config();
 
-const dataDir = process.env.DATA_DIR ?? path.join(process.cwd(), 'data');
-if (!fs.existsSync(dataDir)) {
-  fs.mkdirSync(dataDir, { recursive: true });
-}
-
-const backupDir = process.env.DB_BACKUP_DIR ?? path.join(dataDir, 'backups');
-if (!fs.existsSync(backupDir)) {
-  fs.mkdirSync(backupDir, { recursive: true });
-}
-
 export const env = {
   port: parseInt(process.env.PORT ?? '3000', 10),
   jwtSecret: process.env.JWT_SECRET ?? 'dev-secret-change-me',
   accessTokenTtlSeconds: parseInt(process.env.ACCESS_TOKEN_TTL ?? '900', 10), // 15 minutes
   refreshTokenTtlSeconds: parseInt(process.env.REFRESH_TOKEN_TTL ?? '604800', 10), // 7 days
-  databasePath: process.env.DB_PATH ?? process.env.DATABASE_URL ?? path.join(dataDir, 'app.db'),
-  databaseBackupDir: backupDir,
-  databaseBackupIntervalMinutes: parseInt(process.env.DB_BACKUP_INTERVAL_MINUTES ?? '60', 10),
-  databaseBackupRetentionDays: parseInt(process.env.DB_BACKUP_RETENTION_DAYS ?? '7', 10),
+  databaseHost: process.env.DB_HOST ?? '127.0.0.1',
+  databasePort: parseInt(process.env.DB_PORT ?? '3306', 10),
+  databaseUser: process.env.DB_USER ?? 'realm2',
+  databasePassword: process.env.DB_PASSWORD ?? '',
+  databaseName: process.env.DB_NAME ?? 'realm2',
+  databaseSsl: process.env.DB_SSL === 'true',
+  databaseConnectionLimit: parseInt(process.env.DB_POOL_LIMIT ?? '10', 10),
 };

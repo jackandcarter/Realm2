@@ -17,6 +17,8 @@ const TIME_MAGE_QUEST_OPTIONS: ClassUnlockQuestOptions = {
   },
 };
 
-export function completeTimeMageConvergenceQuest(characterId: string): QuestCompletionResult {
+export async function completeTimeMageConvergenceQuest(
+  characterId: string
+): Promise<QuestCompletionResult> {
   return completeClassUnlockQuest(characterId, TIME_MAGE_QUEST_OPTIONS);
 }

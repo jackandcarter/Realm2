@@ -7,16 +7,16 @@ export interface Realm {
   createdAt: string;
 }
 
-export function listRealms(): Realm[] {
-  const stmt = db.prepare(
+export async function listRealms(): Promise<Realm[]> {
+  return db.query<Realm[]>(
     'SELECT id, name, narrative, created_at as createdAt FROM realms ORDER BY name ASC'
   );
-  return stmt.all() as Realm[];
 }
 
-export function findRealmById(id: string): Realm | undefined {
-  const stmt = db.prepare(
-    'SELECT id, name, narrative, created_at as createdAt FROM realms WHERE id = ?'
+export async function findRealmById(id: string): Promise<Realm | undefined> {
+  const rows = await db.query<Realm[]>(
+    'SELECT id, name, narrative, created_at as createdAt FROM realms WHERE id = ?',
+    [id]
   );
-  return stmt.get(id) as Realm | undefined;
+  return rows[0];
 }

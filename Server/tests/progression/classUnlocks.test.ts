@@ -1,4 +1,4 @@
-process.env.DB_PATH = ':memory:';
+process.env.DB_NAME = process.env.DB_NAME ?? 'realm2_test';
 process.env.JWT_SECRET = 'test-secret';
 
 import { resetDatabase } from '../../src/db/database';
@@ -13,20 +13,20 @@ import {
 const DEFAULT_REALM_ID = 'realm-elysium-nexus';
 
 describe('class unlock rules', () => {
-  beforeEach(() => {
-    resetDatabase();
+  beforeEach(async () => {
+    await resetDatabase();
   });
 
-  it('allows unlocking classes permitted for the character race', () => {
-    const user = createUser('ranger@example.com', 'felarian-ranger', 'hash');
-    const character = createCharacter({
+  it('allows unlocking classes permitted for the character race', async () => {
+    const user = await createUser('ranger@example.com', 'felarian-ranger', 'hash');
+    const character = await createCharacter({
       userId: user.id,
       realmId: DEFAULT_REALM_ID,
       name: 'Swift Ranger',
       raceId: 'felarian',
     });
 
-    const result = replaceClassUnlocks(
+    const result = await replaceClassUnlocks(
       character.id,
       [
         {
@@ -45,7 +45,7 @@ describe('class unlock rules', () => {
     });
     expect(result.unlocks[0].unlockedAt).toEqual(expect.any(String));
 
-    const snapshot = getCharacterProgressionSnapshot(character.id);
+    const snapshot = await getCharacterProgressionSnapshot(character.id);
     expect(snapshot.classUnlocks.unlocks).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -56,16 +56,16 @@ describe('class unlock rules', () => {
     );
   });
 
-  it('rejects unlocking classes forbidden for the character race', () => {
-    const user = createUser('human@example.com', 'human-player', 'hash');
-    const character = createCharacter({
+  it('rejects unlocking classes forbidden for the character race', async () => {
+    const user = await createUser('human@example.com', 'human-player', 'hash');
+    const character = await createCharacter({
       userId: user.id,
       realmId: DEFAULT_REALM_ID,
       name: 'Curious Human',
       raceId: 'human',
     });
 
-    expect(() =>
+    await expect(
       replaceClassUnlocks(
         character.id,
         [
@@ -75,10 +75,10 @@ describe('class unlock rules', () => {
           },
         ],
         0,
-      ),
-    ).toThrow(ForbiddenClassUnlockError);
+      )
+    ).rejects.toThrow(ForbiddenClassUnlockError);
 
-    expect(() =>
+    await expect(
       replaceClassUnlocks(
         character.id,
         [
@@ -88,20 +88,20 @@ describe('class unlock rules', () => {
           },
         ],
         0,
-      ),
-    ).toThrow('Class necromancer cannot be unlocked for race human');
+      )
+    ).rejects.toThrow('Class necromancer cannot be unlocked for race human');
   });
 
-  it('allows locked states to be recorded for forbidden classes', () => {
-    const user = createUser('revenant@example.com', 'revenant-player', 'hash');
-    const character = createCharacter({
+  it('allows locked states to be recorded for forbidden classes', async () => {
+    const user = await createUser('revenant@example.com', 'revenant-player', 'hash');
+    const character = await createCharacter({
       userId: user.id,
       realmId: DEFAULT_REALM_ID,
       name: 'Wary Revenant',
       raceId: 'human',
     });
 
-    const result = replaceClassUnlocks(
+    const result = await replaceClassUnlocks(
       character.id,
       [
         {

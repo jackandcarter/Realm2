@@ -1,4 +1,4 @@
-process.env.DB_PATH = ':memory:';
+process.env.DB_NAME = process.env.DB_NAME ?? 'realm2_test';
 process.env.JWT_SECRET = 'test-secret';
 
 import request from 'supertest';
@@ -6,8 +6,8 @@ import { app } from '../src/app';
 import { resetDatabase } from '../src/db/database';
 
 describe('Auth API', () => {
-  beforeEach(() => {
-    resetDatabase();
+  beforeEach(async () => {
+    await resetDatabase();
   });
 
   it('registers a new user and returns tokens', async () => {

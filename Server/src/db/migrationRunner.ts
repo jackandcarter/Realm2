@@ -1,49 +1,46 @@
-import type { Database as DatabaseInstance } from 'better-sqlite3';
 import { logger } from '../observability/logger';
-import { measurePersistenceOperation } from '../observability/metrics';
+import { measurePersistenceOperationAsync } from '../observability/metrics';
 import { id as initialId, name as initialName, up as initialUp } from './migrations/001_initialSchema';
+import type { DbExecutor } from './database';
 
 interface DatabaseMigration {
   id: string;
   name: string;
-  up: (db: DatabaseInstance) => void;
+  up: (db: DbExecutor) => Promise<void>;
 }
 
-const migrations: DatabaseMigration[] = [
-  { id: initialId, name: initialName, up: initialUp },
-];
+const migrations: DatabaseMigration[] = [{ id: initialId, name: initialName, up: initialUp }];
 
-function ensureMigrationsTable(db: DatabaseInstance): void {
-  measurePersistenceOperation('migration.ensure_table', () =>
-    db.exec(`
+async function ensureMigrationsTable(db: DbExecutor): Promise<void> {
+  await measurePersistenceOperationAsync('migration.ensure_table', () =>
+    db.execute(`
       CREATE TABLE IF NOT EXISTS schema_migrations (
-        id TEXT PRIMARY KEY,
-        name TEXT NOT NULL,
-        applied_at TEXT NOT NULL
+        id VARCHAR(255) PRIMARY KEY,
+        name VARCHAR(255) NOT NULL,
+        applied_at DATETIME NOT NULL
       );
     `)
   );
 }
 
-export function runMigrations(db: DatabaseInstance): void {
-  ensureMigrationsTable(db);
-  const appliedRows = db
-    .prepare('SELECT id FROM schema_migrations ORDER BY applied_at ASC')
-    .all() as { id: string }[];
-  const applied = new Set(appliedRows.map((row) => row.id));
-
-  const insertStmt = db.prepare(
-    'INSERT INTO schema_migrations (id, name, applied_at) VALUES (?, ?, ?)' 
+export async function runMigrations(db: DbExecutor): Promise<void> {
+  await ensureMigrationsTable(db);
+  const appliedRows = await db.query<{ id: string }[]>(
+    'SELECT id FROM schema_migrations ORDER BY applied_at ASC'
   );
+  const applied = new Set(appliedRows.map((row) => row.id));
 
   for (const migration of migrations) {
     if (applied.has(migration.id)) {
       continue;
     }
     logger.info({ migration: migration.id }, 'Applying database migration');
-    measurePersistenceOperation(`migration.${migration.id}`, () => {
-      migration.up(db);
-      insertStmt.run(migration.id, migration.name, new Date().toISOString());
+    await measurePersistenceOperationAsync(`migration.${migration.id}`, async () => {
+      await migration.up(db);
+      await db.execute(
+        'INSERT INTO schema_migrations (id, name, applied_at) VALUES (?, ?, ?)',
+        [migration.id, migration.name, new Date().toISOString().slice(0, 19).replace('T', ' ')]
+      );
     });
     logger.info({ migration: migration.id }, 'Migration applied');
   }

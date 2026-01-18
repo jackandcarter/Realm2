@@ -1,6 +1,6 @@
 # Realm2 Authentication Service
 
-This directory hosts a lightweight Express + TypeScript backend that provides authentication APIs for Realm2. It exposes REST endpoints for registering accounts, logging in, logging out, and refreshing access tokens. A SQLite database stores users and refresh tokens, and JWTs secure API access.
+This directory hosts a lightweight Express + TypeScript backend that provides authentication APIs for Realm2. It exposes REST endpoints for registering accounts, logging in, logging out, and refreshing access tokens. A MariaDB database stores users, realms, characters, and progression data, and JWTs secure API access.
 
 ## Getting Started
 
@@ -8,6 +8,7 @@ This directory hosts a lightweight Express + TypeScript backend that provides au
 
 - Node.js 18+
 - npm 9+
+- MariaDB 10.6+ (locally on macOS, or on your Ubuntu VPS)
 
 ### Install dependencies
 
@@ -21,8 +22,7 @@ npm install
 npm run setup:local
 ```
 
-This copies `.env.example` to `.env` if needed and creates the local `data/` directories
-used for SQLite and backups.
+This copies `.env.example` to `.env` if needed.
 
 ### Run in development mode
 
@@ -52,7 +52,7 @@ npm run build
 npm run migrate
 ```
 
-### Deploy with automated backup + migration
+### Deploy with migration
 
 ```bash
 npm run deploy
@@ -66,13 +66,15 @@ Create a `.env` file (see `.env.example`) to override defaults.
 | --- | --- | --- |
 | `PORT` | HTTP port | `3000` |
 | `JWT_SECRET` | Secret key for signing JWT access tokens | `dev-secret-change-me` |
-| `DB_PATH` | Path to SQLite database file (takes precedence over `DATABASE_URL`) | `./data/app.db` |
-| `DATABASE_URL` | Alternate way to provide the SQLite database path (useful for CI secrets) | `./data/app.db` |
+| `DB_HOST` | MariaDB host | `127.0.0.1` |
+| `DB_PORT` | MariaDB port | `3306` |
+| `DB_USER` | MariaDB username | `realm2` |
+| `DB_PASSWORD` | MariaDB password | (empty) |
+| `DB_NAME` | MariaDB database name | `realm2` |
+| `DB_SSL` | Whether to enable SSL for MariaDB connections | `false` |
+| `DB_POOL_LIMIT` | Connection pool size | `10` |
 | `ACCESS_TOKEN_TTL` | Access token lifetime in seconds | `900` (15 minutes) |
 | `REFRESH_TOKEN_TTL` | Refresh token lifetime in seconds | `604800` (7 days) |
-| `DB_BACKUP_DIR` | Directory where SQLite backups are written | `./data/backups` |
-| `DB_BACKUP_INTERVAL_MINUTES` | Minutes between automatic snapshots (`0` disables scheduling) | `60` |
-| `DB_BACKUP_RETENTION_DAYS` | Days to keep snapshot files before pruning | `7` |
 
 ## API Documentation
 
@@ -80,36 +82,39 @@ Swagger UI is available at `http://localhost:3000/docs` once the server is runni
 
 ## Database migrations
 
-The service ships with an idempotent migration runner that upgrades the world-state schema automatically on startup. You can also apply migrations manually using the commands shown above. During Docker container startup the migration runner executes before the HTTP server begins accepting requests.
-
-## Backups and restores
-
-Automated snapshots copy the primary SQLite database file plus WAL/SHM journals into `DB_BACKUP_DIR` on an interval configured by `DB_BACKUP_INTERVAL_MINUTES`. Set the interval to `0` to disable scheduling. Old snapshots are pruned after `DB_BACKUP_RETENTION_DAYS`.
-
-- Manual snapshot: `npm run build && npm run backup`
-- Restore snapshot: `npm run build && npm run restore -- <snapshot-path>`
-
-Restore operations should be performed while the service is offline. Restart the service after a restore so a new database connection is established.
+The service ships with an idempotent migration runner that upgrades the world-state schema automatically on startup. If tables, columns, or indexes are missing, startup migrations will recreate them before the HTTP server begins accepting requests. You can also apply migrations manually using the commands shown above.
 
 ## Observability
 
 - Prometheus metrics are exposed at `GET /metrics` and include latency histograms, replication queue gauges, and conflict/error counters for persistence layers.
-- Structured logs are emitted via `pino`, capturing migration progress, backup lifecycle, and unexpected errors.
+- Structured logs are emitted via `pino`, capturing migration progress and unexpected errors.
 
-## Docker support
+## MariaDB setup (local and VPS)
 
-Docker is optional. Use it only if you want container parity with CI or a production image.
-
-Build the production image:
+### Ubuntu VPS (MariaDB)
 
 ```bash
-docker build -t realm2-auth .
+sudo apt update
+sudo apt install mariadb-server
+sudo mysql -e "CREATE DATABASE realm2;"
+sudo mysql -e "CREATE USER 'realm2'@'%' IDENTIFIED BY 'change-me';"
+sudo mysql -e "GRANT ALL PRIVILEGES ON realm2.* TO 'realm2'@'%'; FLUSH PRIVILEGES;"
 ```
 
-Run locally with Docker Compose (hot reload + TypeScript):
+Update `.env` with `DB_HOST`, `DB_USER`, `DB_PASSWORD`, and `DB_NAME`, then start the server.
+
+### macOS (local)
 
 ```bash
-docker compose up --build
+brew install mariadb
+brew services start mariadb
+mysql -e "CREATE DATABASE realm2;"
+mysql -e "CREATE USER 'realm2'@'localhost' IDENTIFIED BY 'change-me';"
+mysql -e "GRANT ALL PRIVILEGES ON realm2.* TO 'realm2'@'localhost'; FLUSH PRIVILEGES;"
 ```
 
-Data is stored in the `./data` directory on the host machine.
+Point `DB_HOST` to `127.0.0.1` in `.env` and run the server with `npm run dev`.
+
+### Allowing external access
+
+Ensure your VPS firewall allows inbound traffic on the server `PORT` (default 3000). If your MariaDB instance lives on a different host, allow inbound MariaDB traffic (port 3306 by default) only from trusted IPs.

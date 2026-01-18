@@ -1,4 +1,4 @@
-process.env.DB_PATH = ':memory:';
+process.env.DB_NAME = process.env.DB_NAME ?? 'realm2_test';
 process.env.JWT_SECRET = 'test-secret';
 
 import request from 'supertest';
@@ -35,8 +35,8 @@ async function registerAndGetToken(email: string) {
 }
 
 describe('Realm and character API', () => {
-  beforeEach(() => {
-    resetDatabase();
+  beforeEach(async () => {
+    await resetDatabase();
   });
 
   it('requires authentication to list realms', async () => {
@@ -158,7 +158,7 @@ describe('Realm and character API', () => {
     expect(playerView.body.characters[0].name).toBe('Elysium Scout');
     expect(Array.isArray(playerView.body.characters[0].classStates)).toBe(true);
 
-    upsertMembership(playerOne.userId, realmId, 'builder');
+    await upsertMembership(playerOne.userId, realmId, 'builder');
 
     const builderView = await request(app)
       .get(`/realms/${realmId}/characters`)

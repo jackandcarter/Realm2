@@ -9,7 +9,11 @@ export interface User {
   createdAt: string;
 }
 
-export function createUser(email: string, username: string, passwordHash: string): User {
+export async function createUser(
+  email: string,
+  username: string,
+  passwordHash: string
+): Promise<User> {
   const user: User = {
     id: randomUUID(),
     email: email.toLowerCase(),
@@ -18,30 +22,33 @@ export function createUser(email: string, username: string, passwordHash: string
     createdAt: new Date().toISOString(),
   };
 
-  const stmt = db.prepare(
-    'INSERT INTO users (id, email, username, password_hash, created_at) VALUES (@id, @email, @username, @passwordHash, @createdAt)'
+  await db.execute(
+    'INSERT INTO users (id, email, username, password_hash, created_at) VALUES (?, ?, ?, ?, ?)',
+    [user.id, user.email, user.username, user.passwordHash, user.createdAt]
   );
-  stmt.run(user);
   return user;
 }
 
-export function findUserByEmail(email: string): User | undefined {
-  const stmt = db.prepare(
-    'SELECT id, email, username, password_hash as passwordHash, created_at as createdAt FROM users WHERE email = ?'
+export async function findUserByEmail(email: string): Promise<User | undefined> {
+  const rows = await db.query<User[]>(
+    'SELECT id, email, username, password_hash as passwordHash, created_at as createdAt FROM users WHERE email = ?',
+    [email.toLowerCase()]
   );
-  return stmt.get(email.toLowerCase()) as User | undefined;
+  return rows[0];
 }
 
-export function findUserById(id: string): User | undefined {
-  const stmt = db.prepare(
-    'SELECT id, email, username, password_hash as passwordHash, created_at as createdAt FROM users WHERE id = ?'
+export async function findUserById(id: string): Promise<User | undefined> {
+  const rows = await db.query<User[]>(
+    'SELECT id, email, username, password_hash as passwordHash, created_at as createdAt FROM users WHERE id = ?',
+    [id]
   );
-  return stmt.get(id) as User | undefined;
+  return rows[0];
 }
 
-export function findUserByUsername(username: string): User | undefined {
-  const stmt = db.prepare(
-    'SELECT id, email, username, password_hash as passwordHash, created_at as createdAt FROM users WHERE username = ?'
+export async function findUserByUsername(username: string): Promise<User | undefined> {
+  const rows = await db.query<User[]>(
+    'SELECT id, email, username, password_hash as passwordHash, created_at as createdAt FROM users WHERE username = ?',
+    [username]
   );
-  return stmt.get(username) as User | undefined;
+  return rows[0];
 }

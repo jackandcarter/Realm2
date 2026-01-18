@@ -47,24 +47,24 @@ function toPublicUser(user: User): Pick<User, 'id' | 'email' | 'username' | 'cre
 }
 
 export async function register(email: string, username: string, password: string): Promise<AuthResult> {
-  const existing = findUserByEmail(email);
+  const existing = await findUserByEmail(email);
   if (existing) {
     throw new Error('Email already registered');
   }
 
-  const existingUsername = findUserByUsername(username);
+  const existingUsername = await findUserByUsername(username);
   if (existingUsername) {
     throw new Error('Username already taken');
   }
 
   const passwordHash = await bcrypt.hash(password, 10);
-  const user = createUser(email, username, passwordHash);
+  const user = await createUser(email, username, passwordHash);
   const tokens = await issueTokens(user);
   return { user: toPublicUser(user), tokens };
 }
 
 export async function login(email: string, password: string): Promise<AuthResult> {
-  const user = findUserByEmail(email);
+  const user = await findUserByEmail(email);
   if (!user) {
     throw new Error('Invalid email or password');
   }
@@ -74,41 +74,41 @@ export async function login(email: string, password: string): Promise<AuthResult
     throw new Error('Invalid email or password');
   }
 
-  removeUserTokens(user.id);
+  await removeUserTokens(user.id);
   const tokens = await issueTokens(user);
   return { user: toPublicUser(user), tokens };
 }
 
 export async function logout(refreshToken: string): Promise<void> {
   const tokenHash = hashRefreshToken(refreshToken);
-  removeRefreshTokenByHash(tokenHash);
+  await removeRefreshTokenByHash(tokenHash);
 }
 
 export async function refresh(refreshToken: string): Promise<AuthTokens> {
   const tokenHash = hashRefreshToken(refreshToken);
-  const stored = findRefreshToken(tokenHash);
+  const stored = await findRefreshToken(tokenHash);
   if (!stored) {
     throw new Error('Invalid refresh token');
   }
 
   if (new Date(stored.expiresAt) < new Date()) {
-    removeRefreshTokenByHash(tokenHash);
+    await removeRefreshTokenByHash(tokenHash);
     throw new Error('Refresh token expired');
   }
 
-  const user = findUserById(stored.userId);
+  const user = await findUserById(stored.userId);
   if (!user) {
-    removeRefreshTokenByHash(tokenHash);
+    await removeRefreshTokenByHash(tokenHash);
     throw new Error('Invalid refresh token');
   }
 
-  removeRefreshTokenByHash(tokenHash);
+  await removeRefreshTokenByHash(tokenHash);
   return issueTokens(user);
 }
 
 async function issueTokens(user: User): Promise<AuthTokens> {
   const accessToken = createAccessToken(user);
   const refreshToken = createRefreshToken();
-  storeRefreshToken(user.id, refreshToken.hashed, refreshToken.expiresAt);
+  await storeRefreshToken(user.id, refreshToken.hashed, refreshToken.expiresAt);
   return { accessToken, refreshToken: refreshToken.raw };
 }

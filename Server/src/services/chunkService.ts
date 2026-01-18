@@ -1,5 +1,5 @@
 import { randomUUID } from 'crypto';
-import { db } from '../db/database';
+import { db, DbExecutor } from '../db/database';
 import {
   ChunkChangeRecord,
   ChunkPlotRecord,
@@ -72,20 +72,20 @@ interface ChunkChangePayload {
   resources?: ResourceDeltaDTO[] | undefined;
 }
 
-function ensureRealmAccess(userId: string, realmId: string) {
-  const realm = findRealmById(realmId);
+async function ensureRealmAccess(userId: string, realmId: string) {
+  const realm = await findRealmById(realmId);
   if (!realm) {
     throw new HttpError(404, 'Realm not found');
   }
-  const membership = findMembership(userId, realmId);
+  const membership = await findMembership(userId, realmId);
   if (!membership) {
     throw new HttpError(403, 'Join the realm before accessing its terrain data');
   }
   return { realm, membership };
 }
 
-export function assertChunkAccess(userId: string, realmId: string): void {
-  ensureRealmAccess(userId, realmId);
+export async function assertChunkAccess(userId: string, realmId: string): Promise<void> {
+  await ensureRealmAccess(userId, realmId);
 }
 
 function toChunkDTO(record: {
@@ -166,16 +166,18 @@ function deserializeChangePayload(payloadJson: string): ChunkChangePayload {
   }
 }
 
-export function getRealmChunkSnapshot(
+export async function getRealmChunkSnapshot(
   userId: string,
   realmId: string,
   updatedAfter?: string
-): ChunkSnapshotEnvelope {
-  ensureRealmAccess(userId, realmId);
-  const chunkRecords = listChunksByRealm(realmId, updatedAfter).filter((chunk) => !chunk.isDeleted);
+): Promise<ChunkSnapshotEnvelope> {
+  await ensureRealmAccess(userId, realmId);
+  const chunkRecords = (await listChunksByRealm(realmId, updatedAfter)).filter(
+    (chunk) => !chunk.isDeleted
+  );
   const chunkIds = chunkRecords.map((chunk) => chunk.id);
-  const structures = listStructuresForChunks(chunkIds);
-  const plots = listPlotsForChunks(chunkIds);
+  const structures = await listStructuresForChunks(chunkIds);
+  const plots = await listPlotsForChunks(chunkIds);
   const structuresByChunk = new Map<string, ChunkStructureDTO[]>();
   for (const structure of structures) {
     const collection = structuresByChunk.get(structure.chunkId) ?? [];
@@ -200,14 +202,14 @@ export function getRealmChunkSnapshot(
   };
 }
 
-export function getChunkChangeFeed(
+export async function getChunkChangeFeed(
   userId: string,
   realmId: string,
   createdAfter?: string,
   limit?: number
-): ChunkChangeEnvelope {
-  ensureRealmAccess(userId, realmId);
-  const changeRecords = listChunkChanges(realmId, createdAfter, limit ?? 500);
+): Promise<ChunkChangeEnvelope> {
+  await ensureRealmAccess(userId, realmId);
+  const changeRecords = await listChunkChanges(realmId, createdAfter, limit ?? 500);
   const changes: ChunkChangeDTO[] = changeRecords.map((record) => {
     const payload = deserializeChangePayload(record.payloadJson);
     return {
@@ -247,13 +249,14 @@ function normalizeResourceDeltas(deltas: ResourceDelta[] | undefined): ResourceD
   return normalized;
 }
 
-function validatePlotOwnership(
+async function validatePlotOwnership(
   userId: string,
   realmId: string,
   chunkId: string,
   role: 'player' | 'builder',
-  plots: PlotUpdateInput[] | undefined
-): void {
+  plots: PlotUpdateInput[] | undefined,
+  executor: DbExecutor = db
+): Promise<void> {
   if (!plots || plots.length === 0) {
     return;
   }
@@ -261,8 +264,8 @@ function validatePlotOwnership(
   for (const plot of plots) {
     const identifier = plot.plotIdentifier?.trim();
     const targetPlot =
-      (plot.plotId && findPlotById(plot.plotId)) ||
-      (identifier ? findPlotByIdentifier(realmId, chunkId, identifier) : undefined);
+      (plot.plotId && (await findPlotById(plot.plotId, executor))) ||
+      (identifier ? await findPlotByIdentifier(realmId, chunkId, identifier, executor) : undefined);
 
     if (!targetPlot && !plot.plotId && !identifier) {
       throw new HttpError(400, 'plotIdentifier or plotId is required for plot updates');
@@ -289,7 +292,7 @@ function validatePlotOwnership(
   }
 }
 
-export function recordChunkChange(
+export async function recordChunkChange(
   userId: string,
   realmId: string,
   chunkId: string,
@@ -298,8 +301,8 @@ export function recordChunkChange(
   structures?: StructureUpdateInput[],
   plots?: PlotUpdateInput[],
   resources?: ResourceDelta[]
-): ChunkChangeDTO {
-  const { membership } = ensureRealmAccess(userId, realmId);
+): Promise<ChunkChangeDTO> {
+  const { membership } = await ensureRealmAccess(userId, realmId);
   if (
     membership.role !== 'builder' &&
     (chunk || (structures && structures.length > 0))
@@ -310,8 +313,8 @@ export function recordChunkChange(
   const normalizedResources = normalizeResourceDeltas(resources);
 
   try {
-    const applyChange = db.transaction(() => {
-      const existingChunk = findChunkById(chunkId);
+    const changeDto = await db.withTransaction(async (tx) => {
+      const existingChunk = await findChunkById(chunkId, tx);
       if (!existingChunk && !chunk) {
         throw new HttpError(400, 'Chunk metadata must be supplied for new chunks');
       }
@@ -326,27 +329,30 @@ export function recordChunkChange(
         if (typeof chunkX !== 'number' || typeof chunkZ !== 'number') {
           throw new HttpError(400, 'Chunk coordinates must be provided');
         }
-        chunkRecord = upsertChunk({
+        chunkRecord = await upsertChunk(
+          {
           id: chunkId,
           realmId,
           chunkX,
           chunkZ,
           payloadJson: serializePayload(chunk.payload),
           isDeleted: Boolean(chunk.isDeleted),
-        });
+          },
+          tx
+        );
       }
 
       if (!chunkRecord) {
         throw new HttpError(500, 'Failed to load chunk after update');
       }
 
-      validatePlotOwnership(userId, realmId, chunkRecord.id, membership.role, plots);
+      await validatePlotOwnership(userId, realmId, chunkRecord.id, membership.role, plots, tx);
 
       if (normalizedResources.length > 0) {
-        applyResourceDeltas(realmId, userId, normalizedResources);
+        await applyResourceDeltas(realmId, userId, normalizedResources, tx);
       }
 
-      const structureRecords = upsertStructures(
+      const structureRecords = await upsertStructures(
         (structures ?? []).map((structure) => {
           if (!structure.structureType) {
             throw new HttpError(400, 'Structure type is required');
@@ -359,16 +365,17 @@ export function recordChunkChange(
             dataJson: serializePayload(structure.data),
             isDeleted: Boolean(structure.isDeleted),
           };
-        })
+        }),
+        tx
       );
 
-      const plotRecords = upsertPlots(
+      const plotRecords = await upsertPlots(
         (plots ?? []).map((plot) => {
           const plotId = plot.plotId ?? randomUUID();
           const identifier = plot.plotIdentifier ?? plotId;
           const existingPlot =
-            (plot.plotId && findPlotById(plot.plotId)) ||
-            findPlotByIdentifier(realmId, chunkRecord!.id, identifier);
+            (plot.plotId && (await findPlotById(plot.plotId, tx))) ||
+            (await findPlotByIdentifier(realmId, chunkRecord!.id, identifier, tx));
           const ownerUserId =
             typeof plot.ownerUserId === 'undefined'
               ? existingPlot?.ownerUserId ?? null
@@ -382,7 +389,8 @@ export function recordChunkChange(
             dataJson: serializePayload(plot.data ?? existingPlot?.dataJson ?? {}),
             isDeleted: Boolean(plot.isDeleted),
           };
-        })
+        }),
+        tx
       );
 
       const payload: ChunkChangePayload = {
@@ -392,11 +400,12 @@ export function recordChunkChange(
         resources: normalizedResources.length > 0 ? normalizedResources : undefined,
       };
 
-      const change: ChunkChangeRecord = logChunkChange(
+      const change: ChunkChangeRecord = await logChunkChange(
         realmId,
         chunkRecord.id,
         changeType ?? 'chunk:update',
-        JSON.stringify(payload)
+        JSON.stringify(payload),
+        tx
       );
 
       const changeDto: ChunkChangeDTO = {
@@ -413,8 +422,6 @@ export function recordChunkChange(
 
       return changeDto;
     });
-
-    const changeDto = applyChange();
     publishChunkChange(changeDto);
     return changeDto;
   } catch (error) {
