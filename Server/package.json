@@ -11,8 +11,6 @@
     "test": "jest --runInBand --detectOpenHandles",
     "lint": "eslint \"src/**/*.ts\" \"tests/**/*.ts\"",
     "migrate": "node dist/scripts/run-migrations.js",
-    "backup": "node dist/scripts/backup.js",
-    "restore": "node dist/scripts/restore.js",
     "deploy": "npm run build && node dist/scripts/deploy.js"
   },
   "keywords": [],
@@ -21,11 +19,11 @@
   "type": "commonjs",
   "dependencies": {
     "bcryptjs": "^3.0.2",
-    "better-sqlite3": "^12.4.1",
     "dotenv": "^16.4.5",
     "express": "^5.1.0",
     "helmet": "^8.1.0",
     "jsonwebtoken": "^9.0.2",
+    "mysql2": "^3.14.1",
     "morgan": "^1.10.1",
     "pino": "^9.4.0",
     "prom-client": "^15.1.2",
@@ -35,7 +33,6 @@
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
-    "@types/better-sqlite3": "^7.6.13",
     "@types/express": "^5.0.4",
     "@types/helmet": "^0.0.48",
     "@types/jest": "^30.0.0",

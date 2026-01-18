@@ -72,11 +72,11 @@ interface GuardedUnlockOutcome {
   error?: string;
 }
 
-export function completeClassUnlockQuest(
+export async function completeClassUnlockQuest(
   characterId: string,
   options: ClassUnlockQuestOptions,
-): QuestCompletionResult {
-  const snapshot = getCharacterProgressionSnapshot(characterId);
+): Promise<QuestCompletionResult> {
+  const snapshot = await getCharacterProgressionSnapshot(characterId);
   const now = new Date().toISOString();
   const targetQuestId = options.questId.trim();
   const targetClassId = options.classId.trim();
@@ -90,7 +90,7 @@ export function completeClassUnlockQuest(
   currentProgress.journalEntries = [...currentProgress.journalEntries];
   currentProgress.attempts += 1;
 
-  const unlockOutcome = attemptGuardedClassUnlock(
+  const unlockOutcome = await attemptGuardedClassUnlock(
     characterId,
     targetClassId,
     snapshot.classUnlocks,
@@ -168,7 +168,7 @@ export function completeClassUnlockQuest(
     progress: currentProgress,
   });
 
-  const questCollection = replaceQuestStates(
+  const questCollection = await replaceQuestStates(
     characterId,
     questInputs,
     snapshot.quests.version,
@@ -186,11 +186,11 @@ export function completeClassUnlockQuest(
   };
 }
 
-function attemptGuardedClassUnlock(
+async function attemptGuardedClassUnlock(
   characterId: string,
   classId: string,
   collection: ClassUnlockCollection,
-): GuardedUnlockOutcome {
+): Promise<GuardedUnlockOutcome> {
   const normalizedId = classId.trim().toLowerCase();
   const existing = collection.unlocks.find(
     (entry) => entry.classId.trim().toLowerCase() === normalizedId,
@@ -212,7 +212,7 @@ function attemptGuardedClassUnlock(
   }
 
   try {
-    const updated = replaceClassUnlocks(characterId, normalizedInputs, collection.version);
+    const updated = await replaceClassUnlocks(characterId, normalizedInputs, collection.version);
     return { success: true, granted: true, collection: updated };
   } catch (error) {
     if (error instanceof ForbiddenClassUnlockError) {

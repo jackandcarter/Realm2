@@ -20,13 +20,13 @@ interface CombatExecutionContext {
   userId: string;
 }
 
-export function executeCombatAbility(
+export async function executeCombatAbility(
   request: CombatAbilityExecutionRequestDto,
   context: CombatExecutionContext,
-): CombatAbilityExecutionResponseDto {
+): Promise<CombatAbilityExecutionResponseDto> {
   const casterId = request.casterId.trim();
   const abilityId = request.abilityId.trim();
-  validateCombatRequest(request, context);
+  await validateCombatRequest(request, context);
   const participants = request.participants.map((participant) => toCombatEntitySnapshot(participant));
   const hasCaster = participants.some((participant) => participant.id === casterId);
   if (!hasCaster) {
@@ -57,12 +57,12 @@ export function executeCombatAbility(
   };
 }
 
-function validateCombatRequest(
+async function validateCombatRequest(
   request: CombatAbilityExecutionRequestDto,
   context: CombatExecutionContext,
-): void {
+): Promise<void> {
   const casterId = request.casterId.trim();
-  const casterCharacter = findCharacterById(casterId);
+  const casterCharacter = await findCharacterById(casterId);
   if (!casterCharacter) {
     throw new HttpError(404, `Caster '${casterId}' does not exist.`);
   }
@@ -72,12 +72,12 @@ function validateCombatRequest(
   }
 
   const realmId = casterCharacter.realmId;
-  request.participants.forEach((participant) => {
-    const participantCharacter = findCharacterById(participant.id);
+  for (const participant of request.participants) {
+    const participantCharacter = await findCharacterById(participant.id);
     if (participantCharacter && participantCharacter.realmId !== realmId) {
       throw new HttpError(400, `Participant '${participant.id}' is not in the same realm.`);
     }
-  });
+  }
 
   const key = `${context.userId}:${casterId}`;
   const lastClientTime = lastClientTimes.get(key);

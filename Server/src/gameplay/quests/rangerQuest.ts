@@ -17,6 +17,8 @@ const RANGER_QUEST_OPTIONS: ClassUnlockQuestOptions = {
   },
 };
 
-export function completeRangerAscensionQuest(characterId: string): QuestCompletionResult {
+export async function completeRangerAscensionQuest(
+  characterId: string
+): Promise<QuestCompletionResult> {
   return completeClassUnlockQuest(characterId, RANGER_QUEST_OPTIONS);
 }

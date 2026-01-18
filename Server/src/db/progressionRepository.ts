@@ -100,51 +100,51 @@ export class ForbiddenClassUnlockError extends Error {
   }
 }
 
-function ensureProgressionRow(characterId: string): void {
+async function ensureProgressionRow(characterId: string): Promise<void> {
   const now = new Date().toISOString();
-  const stmt = db.prepare(
+  await db.execute(
     `INSERT INTO character_progression (character_id, level, xp, version, updated_at)
-     VALUES (@characterId, 1, 0, 0, @now)
-     ON CONFLICT(character_id) DO NOTHING`
+     VALUES (?, 1, 0, 0, ?)
+     ON DUPLICATE KEY UPDATE updated_at = updated_at`,
+    [characterId, now]
   );
-  stmt.run({ characterId, now });
 }
 
-function ensureClassUnlockMeta(characterId: string): void {
+async function ensureClassUnlockMeta(characterId: string): Promise<void> {
   const now = new Date().toISOString();
-  const stmt = db.prepare(
+  await db.execute(
     `INSERT INTO character_class_unlock_state (character_id, version, updated_at)
-     VALUES (@characterId, 0, @now)
-     ON CONFLICT(character_id) DO NOTHING`
+     VALUES (?, 0, ?)
+     ON DUPLICATE KEY UPDATE updated_at = updated_at`,
+    [characterId, now]
   );
-  stmt.run({ characterId, now });
 }
 
-function ensureInventoryMeta(characterId: string): void {
+async function ensureInventoryMeta(characterId: string): Promise<void> {
   const now = new Date().toISOString();
-  const stmt = db.prepare(
+  await db.execute(
     `INSERT INTO character_inventory_state (character_id, version, updated_at)
-     VALUES (@characterId, 0, @now)
-     ON CONFLICT(character_id) DO NOTHING`
+     VALUES (?, 0, ?)
+     ON DUPLICATE KEY UPDATE updated_at = updated_at`,
+    [characterId, now]
   );
-  stmt.run({ characterId, now });
 }
 
-function ensureQuestMeta(characterId: string): void {
+async function ensureQuestMeta(characterId: string): Promise<void> {
   const now = new Date().toISOString();
-  const stmt = db.prepare(
+  await db.execute(
     `INSERT INTO character_quest_state_meta (character_id, version, updated_at)
-     VALUES (@characterId, 0, @now)
-     ON CONFLICT(character_id) DO NOTHING`
+     VALUES (?, 0, ?)
+     ON DUPLICATE KEY UPDATE updated_at = updated_at`,
+    [characterId, now]
   );
-  stmt.run({ characterId, now });
 }
 
-export function initializeCharacterProgressionState(characterId: string): void {
-  ensureProgressionRow(characterId);
-  ensureClassUnlockMeta(characterId);
-  ensureInventoryMeta(characterId);
-  ensureQuestMeta(characterId);
+export async function initializeCharacterProgressionState(characterId: string): Promise<void> {
+  await ensureProgressionRow(characterId);
+  await ensureClassUnlockMeta(characterId);
+  await ensureInventoryMeta(characterId);
+  await ensureQuestMeta(characterId);
 }
 
 function serializeJson(value: JsonValue | undefined): string {
@@ -174,65 +174,66 @@ function normalizeInventoryMetadata(item: InventoryItemInput): JsonValue | undef
   return undefined;
 }
 
-export function getCharacterProgressionSnapshot(characterId: string): CharacterProgressionSnapshot {
-  ensureProgressionRow(characterId);
-  ensureClassUnlockMeta(characterId);
-  ensureInventoryMeta(characterId);
-  ensureQuestMeta(characterId);
+export async function getCharacterProgressionSnapshot(
+  characterId: string
+): Promise<CharacterProgressionSnapshot> {
+  await ensureProgressionRow(characterId);
+  await ensureClassUnlockMeta(characterId);
+  await ensureInventoryMeta(characterId);
+  await ensureQuestMeta(characterId);
 
-  const progressionRow = db.prepare(
+  const progressionRows = await db.query<CharacterProgressionStateRow[]>(
     `SELECT level, xp, version, updated_at as updatedAt
      FROM character_progression
-     WHERE character_id = ?`
-  ).get(characterId) as CharacterProgressionStateRow;
+     WHERE character_id = ?`,
+    [characterId]
+  );
+  const progressionRow = progressionRows[0];
 
-  const classUnlockRows = db
-    .prepare(
-      `SELECT class_id as classId, unlocked, unlocked_at as unlockedAt
-       FROM character_class_unlocks
-       WHERE character_id = ?`
-    )
-    .all(characterId) as ClassUnlockRow[];
+  const classUnlockRows = await db.query<ClassUnlockRow[]>(
+    `SELECT class_id as classId, unlocked, unlocked_at as unlockedAt
+     FROM character_class_unlocks
+     WHERE character_id = ?`,
+    [characterId]
+  );
 
-  const classMeta = db
-    .prepare(
-      `SELECT version, updated_at as updatedAt
-       FROM character_class_unlock_state
-       WHERE character_id = ?`
-    )
-    .get(characterId) as VersionRow;
+  const classMetaRows = await db.query<VersionRow[]>(
+    `SELECT version, updated_at as updatedAt
+     FROM character_class_unlock_state
+     WHERE character_id = ?`,
+    [characterId]
+  );
+  const classMeta = classMetaRows[0];
 
-  const inventoryRows = db
-    .prepare(
-      `SELECT item_id as itemId, quantity, metadata_json as metadataJson
-       FROM character_inventory_items
-       WHERE character_id = ?`
-    )
-    .all(characterId) as InventoryRow[];
+  const inventoryRows = await db.query<InventoryRow[]>(
+    `SELECT item_id as itemId, quantity, metadata_json as metadataJson
+     FROM character_inventory_items
+     WHERE character_id = ?`,
+    [characterId]
+  );
 
-  const inventoryMeta = db
-    .prepare(
-      `SELECT version, updated_at as updatedAt
-       FROM character_inventory_state
-       WHERE character_id = ?`
-    )
-    .get(characterId) as VersionRow;
+  const inventoryMetaRows = await db.query<VersionRow[]>(
+    `SELECT version, updated_at as updatedAt
+     FROM character_inventory_state
+     WHERE character_id = ?`,
+    [characterId]
+  );
+  const inventoryMeta = inventoryMetaRows[0];
 
-  const questRows = db
-    .prepare(
-      `SELECT quest_id as questId, status, progress_json as progressJson, updated_at as updatedAt
-       FROM character_quest_states
-       WHERE character_id = ?`
-    )
-    .all(characterId) as QuestRow[];
+  const questRows = await db.query<QuestRow[]>(
+    `SELECT quest_id as questId, status, progress_json as progressJson, updated_at as updatedAt
+     FROM character_quest_states
+     WHERE character_id = ?`,
+    [characterId]
+  );
 
-  const questMeta = db
-    .prepare(
-      `SELECT version, updated_at as updatedAt
-       FROM character_quest_state_meta
-       WHERE character_id = ?`
-    )
-    .get(characterId) as VersionRow;
+  const questMetaRows = await db.query<VersionRow[]>(
+    `SELECT version, updated_at as updatedAt
+     FROM character_quest_state_meta
+     WHERE character_id = ?`,
+    [characterId]
+  );
+  const questMeta = questMetaRows[0];
 
   return {
     progression: {
@@ -272,20 +273,20 @@ export function getCharacterProgressionSnapshot(characterId: string): CharacterP
   };
 }
 
-export function updateProgressionLevels(
+export async function updateProgressionLevels(
   characterId: string,
   level: number,
   xp: number,
   expectedVersion: number
-): CharacterProgressionState {
-  ensureProgressionRow(characterId);
-  const current = db
-    .prepare(
-      `SELECT level, xp, version, updated_at as updatedAt
-       FROM character_progression
-       WHERE character_id = ?`
-    )
-    .get(characterId) as CharacterProgressionStateRow;
+): Promise<CharacterProgressionState> {
+  await ensureProgressionRow(characterId);
+  const currentRows = await db.query<CharacterProgressionStateRow[]>(
+    `SELECT level, xp, version, updated_at as updatedAt
+     FROM character_progression
+     WHERE character_id = ?`,
+    [characterId]
+  );
+  const current = currentRows[0];
 
   if (typeof current?.version !== 'number') {
     recordVersionConflict('progression');
@@ -298,15 +299,15 @@ export function updateProgressionLevels(
   }
 
   const updatedAt = new Date().toISOString();
-  const updateStmt = db.prepare(
+  await db.execute(
     `UPDATE character_progression
-     SET level = @level,
-         xp = @xp,
+     SET level = ?,
+         xp = ?,
          version = version + 1,
-         updated_at = @updatedAt
-     WHERE character_id = @characterId`
+         updated_at = ?
+     WHERE character_id = ?`,
+    [level, xp, updatedAt, characterId]
   );
-  updateStmt.run({ characterId, level, xp, updatedAt });
 
   return {
     level,
@@ -316,19 +317,19 @@ export function updateProgressionLevels(
   };
 }
 
-export function replaceClassUnlocks(
+export async function replaceClassUnlocks(
   characterId: string,
   unlocks: ClassUnlockInput[],
   expectedVersion: number
-): ClassUnlockCollection {
-  ensureClassUnlockMeta(characterId);
-  const current = db
-    .prepare(
-      `SELECT version, updated_at as updatedAt
-       FROM character_class_unlock_state
-       WHERE character_id = ?`
-    )
-    .get(characterId) as VersionRow;
+): Promise<ClassUnlockCollection> {
+  await ensureClassUnlockMeta(characterId);
+  const currentRows = await db.query<VersionRow[]>(
+    `SELECT version, updated_at as updatedAt
+     FROM character_class_unlock_state
+     WHERE character_id = ?`,
+    [characterId]
+  );
+  const current = currentRows[0];
 
   const actualVersion = current?.version ?? 0;
   if (actualVersion !== expectedVersion) {
@@ -336,13 +337,13 @@ export function replaceClassUnlocks(
     throw new VersionConflictError('classUnlocks', expectedVersion, actualVersion);
   }
 
-  const characterRaceRow = db
-    .prepare(
-      `SELECT race_id as raceId
-       FROM characters
-       WHERE id = ?`
-    )
-    .get(characterId) as CharacterRaceRow | undefined;
+  const characterRaceRows = await db.query<CharacterRaceRow[]>(
+    `SELECT race_id as raceId
+     FROM characters
+     WHERE id = ?`,
+    [characterId]
+  );
+  const characterRaceRow = characterRaceRows[0];
 
   if (!characterRaceRow) {
     throw new Error(`Character ${characterId} not found while updating class unlocks`);
@@ -363,36 +364,32 @@ export function replaceClassUnlocks(
   }
 
   const now = new Date().toISOString();
-  const tx = db.transaction(() => {
-    db.prepare(`DELETE FROM character_class_unlocks WHERE character_id = ?`).run(characterId);
+  await db.withTransaction(async (tx) => {
+    await tx.execute(`DELETE FROM character_class_unlocks WHERE character_id = ?`, [characterId]);
 
-    if (unlocks.length > 0) {
-      const insertStmt = db.prepare(
+    for (const unlock of unlocks) {
+      await tx.execute(
         `INSERT INTO character_class_unlocks (id, character_id, class_id, unlocked, unlocked_at)
-         VALUES (@id, @characterId, @classId, @unlocked, @unlockedAt)
-         ON CONFLICT(character_id, class_id) DO UPDATE SET unlocked = excluded.unlocked, unlocked_at = excluded.unlocked_at`
-      );
-
-      for (const unlock of unlocks) {
-        insertStmt.run({
-          id: randomUUID(),
+         VALUES (?, ?, ?, ?, ?)
+         ON DUPLICATE KEY UPDATE unlocked = VALUES(unlocked), unlocked_at = VALUES(unlocked_at)`,
+        [
+          randomUUID(),
           characterId,
-          classId: unlock.classId,
-          unlocked: unlock.unlocked ? 1 : 0,
-          unlockedAt: unlock.unlocked ? unlock.unlockedAt ?? now : null,
-        });
-      }
+          unlock.classId,
+          unlock.unlocked ? 1 : 0,
+          unlock.unlocked ? unlock.unlockedAt ?? now : null,
+        ]
+      );
     }
 
-    db.prepare(
+    await tx.execute(
       `UPDATE character_class_unlock_state
        SET version = version + 1,
-           updated_at = @updatedAt
-       WHERE character_id = @characterId`
-    ).run({ characterId, updatedAt: now });
+           updated_at = ?
+       WHERE character_id = ?`,
+      [now, characterId]
+    );
   });
-
-  tx();
 
   return {
     version: actualVersion + 1,
@@ -405,19 +402,19 @@ export function replaceClassUnlocks(
   };
 }
 
-export function replaceInventory(
+export async function replaceInventory(
   characterId: string,
   items: InventoryItemInput[],
   expectedVersion: number
-): InventoryCollection {
-  ensureInventoryMeta(characterId);
-  const current = db
-    .prepare(
-      `SELECT version, updated_at as updatedAt
-       FROM character_inventory_state
-       WHERE character_id = ?`
-    )
-    .get(characterId) as VersionRow;
+): Promise<InventoryCollection> {
+  await ensureInventoryMeta(characterId);
+  const currentRows = await db.query<VersionRow[]>(
+    `SELECT version, updated_at as updatedAt
+     FROM character_inventory_state
+     WHERE character_id = ?`,
+    [characterId]
+  );
+  const current = currentRows[0];
 
   const actualVersion = current?.version ?? 0;
   if (actualVersion !== expectedVersion) {
@@ -426,38 +423,29 @@ export function replaceInventory(
   }
 
   const now = new Date().toISOString();
-  const tx = db.transaction(() => {
-    db.prepare(`DELETE FROM character_inventory_items WHERE character_id = ?`).run(characterId);
+  await db.withTransaction(async (tx) => {
+    await tx.execute(`DELETE FROM character_inventory_items WHERE character_id = ?`, [
+      characterId,
+    ]);
 
-    if (items.length > 0) {
-      const insertStmt = db.prepare(
+    for (const item of items) {
+      const metadata = normalizeInventoryMetadata(item);
+      await tx.execute(
         `INSERT INTO character_inventory_items (id, character_id, item_id, quantity, metadata_json)
-         VALUES (@id, @characterId, @itemId, @quantity, @metadataJson)
-         ON CONFLICT(character_id, item_id)
-         DO UPDATE SET quantity = excluded.quantity, metadata_json = excluded.metadata_json`
+         VALUES (?, ?, ?, ?, ?)
+         ON DUPLICATE KEY UPDATE quantity = VALUES(quantity), metadata_json = VALUES(metadata_json)`,
+        [randomUUID(), characterId, item.itemId, item.quantity, serializeJson(metadata)]
       );
-
-      for (const item of items) {
-        const metadata = normalizeInventoryMetadata(item);
-        insertStmt.run({
-          id: randomUUID(),
-          characterId,
-          itemId: item.itemId,
-          quantity: item.quantity,
-          metadataJson: serializeJson(metadata),
-        });
-      }
     }
 
-    db.prepare(
+    await tx.execute(
       `UPDATE character_inventory_state
        SET version = version + 1,
-           updated_at = @updatedAt
-       WHERE character_id = @characterId`
-    ).run({ characterId, updatedAt: now });
+           updated_at = ?
+       WHERE character_id = ?`,
+      [now, characterId]
+    );
   });
-
-  tx();
 
   return {
     version: actualVersion + 1,
@@ -470,19 +458,19 @@ export function replaceInventory(
   };
 }
 
-export function replaceQuestStates(
+export async function replaceQuestStates(
   characterId: string,
   quests: QuestStateInput[],
   expectedVersion: number
-): QuestStateCollection {
-  ensureQuestMeta(characterId);
-  const current = db
-    .prepare(
-      `SELECT version, updated_at as updatedAt
-       FROM character_quest_state_meta
-       WHERE character_id = ?`
-    )
-    .get(characterId) as VersionRow;
+): Promise<QuestStateCollection> {
+  await ensureQuestMeta(characterId);
+  const currentRows = await db.query<VersionRow[]>(
+    `SELECT version, updated_at as updatedAt
+     FROM character_quest_state_meta
+     WHERE character_id = ?`,
+    [characterId]
+  );
+  const current = currentRows[0];
 
   const actualVersion = current?.version ?? 0;
   if (actualVersion !== expectedVersion) {
@@ -491,38 +479,35 @@ export function replaceQuestStates(
   }
 
   const now = new Date().toISOString();
-  const tx = db.transaction(() => {
-    db.prepare(`DELETE FROM character_quest_states WHERE character_id = ?`).run(characterId);
+  await db.withTransaction(async (tx) => {
+    await tx.execute(`DELETE FROM character_quest_states WHERE character_id = ?`, [
+      characterId,
+    ]);
 
-    if (quests.length > 0) {
-      const insertStmt = db.prepare(
+    for (const quest of quests) {
+      await tx.execute(
         `INSERT INTO character_quest_states (id, character_id, quest_id, status, progress_json, updated_at)
-         VALUES (@id, @characterId, @questId, @status, @progressJson, @updatedAt)
-         ON CONFLICT(character_id, quest_id)
-         DO UPDATE SET status = excluded.status, progress_json = excluded.progress_json, updated_at = excluded.updated_at`
-      );
-
-      for (const quest of quests) {
-        insertStmt.run({
-          id: randomUUID(),
+         VALUES (?, ?, ?, ?, ?, ?)
+         ON DUPLICATE KEY UPDATE status = VALUES(status), progress_json = VALUES(progress_json), updated_at = VALUES(updated_at)`,
+        [
+          randomUUID(),
           characterId,
-          questId: quest.questId,
-          status: quest.status,
-          progressJson: serializeJson(quest.progress),
-          updatedAt: now,
-        });
-      }
+          quest.questId,
+          quest.status,
+          serializeJson(quest.progress),
+          now,
+        ]
+      );
     }
 
-    db.prepare(
+    await tx.execute(
       `UPDATE character_quest_state_meta
        SET version = version + 1,
-           updated_at = @updatedAt
-       WHERE character_id = @characterId`
-    ).run({ characterId, updatedAt: now });
+           updated_at = ?
+       WHERE character_id = ?`,
+      [now, characterId]
+    );
   });
-
-  tx();
 
   return {
     version: actualVersion + 1,

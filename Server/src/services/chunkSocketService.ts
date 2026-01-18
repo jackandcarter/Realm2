@@ -90,10 +90,10 @@ type ServerMessage =
   | ErrorServerMessage;
 
 export function registerChunkSocketHandlers(server: WebSocketServer): void {
-  server.on('connection', (socket, request) => {
+  server.on('connection', async (socket, request) => {
     let context: SocketContext | undefined;
     try {
-      const userId = authenticateSocket(request);
+      const userId = await authenticateSocket(request);
       context = { userId, socket, subscriptions: new Map() };
       send(socket, { type: 'ready' });
       socket.on('message', (raw) => handleMessage(context!, raw));
@@ -127,13 +127,13 @@ function handleMessage(context: SocketContext, raw: RawData): void {
 
   switch (message.type) {
     case 'subscribe':
-      handleSubscribe(context, message);
+      void handleSubscribe(context, message);
       break;
     case 'unsubscribe':
       handleUnsubscribe(context, message);
       break;
     case 'mutation':
-      handleMutation(context, message);
+      void handleMutation(context, message);
       break;
     case 'ping':
       send(context.socket, { type: 'pong' });
@@ -143,7 +143,7 @@ function handleMessage(context: SocketContext, raw: RawData): void {
   }
 }
 
-function handleSubscribe(context: SocketContext, message: SubscribeMessage): void {
+async function handleSubscribe(context: SocketContext, message: SubscribeMessage): Promise<void> {
   const realmId = (message.realmId ?? '').trim();
   if (!realmId) {
     sendError(context.socket, 'realmId is required to subscribe');
@@ -151,7 +151,7 @@ function handleSubscribe(context: SocketContext, message: SubscribeMessage): voi
   }
 
   try {
-    assertChunkAccess(context.userId, realmId);
+    await assertChunkAccess(context.userId, realmId);
   } catch (error) {
     const reason = error instanceof HttpError ? error.message : 'Failed to subscribe to realm updates';
     send(context.socket, { type: 'error', realmId, error: reason });
@@ -189,7 +189,7 @@ function handleUnsubscribe(context: SocketContext, message: UnsubscribeMessage):
   send(context.socket, { type: 'unsubscribed', realmId });
 }
 
-function handleMutation(context: SocketContext, message: MutationMessage): void {
+async function handleMutation(context: SocketContext, message: MutationMessage): Promise<void> {
   const realmId = (message.realmId ?? '').trim();
   const chunkId = (message.chunkId ?? '').trim();
   const requestId = message.requestId ?? undefined;
@@ -200,7 +200,7 @@ function handleMutation(context: SocketContext, message: MutationMessage): void 
   }
 
   try {
-    const change = recordChunkChange(
+    const change = await recordChunkChange(
       context.userId,
       realmId,
       chunkId,
@@ -226,7 +226,7 @@ function cleanupContext(context: SocketContext): void {
   context.subscriptions.clear();
 }
 
-function authenticateSocket(request: IncomingMessage): string {
+async function authenticateSocket(request: IncomingMessage): Promise<string> {
   const url = new URL(request.url ?? '/', 'http://localhost');
   const token = url.searchParams.get('token');
   if (!token) {
@@ -240,7 +240,7 @@ function authenticateSocket(request: IncomingMessage): string {
     throw new HttpError(401, 'Invalid token');
   }
 
-  const user = findUserById(payload.sub);
+  const user = await findUserById(payload.sub);
   if (!user) {
     throw new HttpError(401, 'Invalid token');
   }

@@ -39,7 +39,7 @@ export interface NewCharacter {
   lastKnownLocation?: string;
 }
 
-export function createCharacter(input: NewCharacter): Character {
+export async function createCharacter(input: NewCharacter): Promise<Character> {
   const raceId = input.raceId?.trim() || 'human';
   const appearance = input.appearance ?? {};
   const classId = input.classId?.trim() || null;
@@ -59,29 +59,29 @@ export function createCharacter(input: NewCharacter): Character {
     lastKnownLocation,
   };
 
-  const stmt = db.prepare(
+  await db.execute(
     `INSERT INTO characters (id, user_id, realm_id, name, bio, race_id, appearance_json, created_at, class_id, class_states_json, last_location)
-     VALUES (@id, @userId, @realmId, @name, @bio, @raceId, @appearanceJson, @createdAt, @classId, @classStatesJson, @lastKnownLocation)`
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      character.id,
+      character.userId,
+      character.realmId,
+      character.name,
+      character.bio ?? null,
+      character.raceId,
+      serializeAppearance(character.appearance),
+      character.createdAt,
+      character.classId,
+      serializeClassStates(character.classStates),
+      character.lastKnownLocation,
+    ]
   );
-  stmt.run({
-    id: character.id,
-    userId: character.userId,
-    realmId: character.realmId,
-    name: character.name,
-    bio: character.bio ?? null,
-    raceId: character.raceId,
-    appearanceJson: serializeAppearance(character.appearance),
-    createdAt: character.createdAt,
-    classId: character.classId,
-    classStatesJson: serializeClassStates(character.classStates),
-    lastKnownLocation: character.lastKnownLocation,
-  });
-  initializeCharacterProgressionState(character.id);
+  await initializeCharacterProgressionState(character.id);
   return character;
 }
 
-export function findCharacterById(id: string): Character | undefined {
-  const stmt = db.prepare(
+export async function findCharacterById(id: string): Promise<Character | undefined> {
+  const rows = await db.query<CharacterRow[]>(
     `SELECT
        id,
        user_id as userId,
@@ -95,19 +95,20 @@ export function findCharacterById(id: string): Character | undefined {
        class_states_json as classStatesJson,
        last_location as lastKnownLocation
      FROM characters
-     WHERE id = ?`
+     WHERE id = ?`,
+    [id]
   );
 
-  const row = stmt.get(id) as CharacterRow | undefined;
+  const row = rows[0];
   return row ? mapRowToCharacter(row) : undefined;
 }
 
-export function findCharacterByNameForUser(
+export async function findCharacterByNameForUser(
   userId: string,
   realmId: string,
   name: string
-): Character | undefined {
-  const stmt = db.prepare(
+): Promise<Character | undefined> {
+  const rows = await db.query<CharacterRow[]>(
     `SELECT
        id,
        user_id as userId,
@@ -121,14 +122,15 @@ export function findCharacterByNameForUser(
        class_states_json as classStatesJson,
        last_location as lastKnownLocation
      FROM characters
-     WHERE user_id = ? AND realm_id = ? AND name = ?`
+     WHERE user_id = ? AND realm_id = ? AND name = ?`,
+    [userId, realmId, name]
   );
-  const row = stmt.get(userId, realmId, name) as CharacterRow | undefined;
+  const row = rows[0];
   return row ? mapRowToCharacter(row) : undefined;
 }
 
-export function listCharactersForRealm(realmId: string): Character[] {
-  const stmt = db.prepare(
+export async function listCharactersForRealm(realmId: string): Promise<Character[]> {
+  const rows = await db.query<CharacterRow[]>(
     `SELECT
        id,
        user_id as userId,
@@ -143,17 +145,17 @@ export function listCharactersForRealm(realmId: string): Character[] {
        last_location as lastKnownLocation
      FROM characters
      WHERE realm_id = ?
-     ORDER BY created_at ASC`
+     ORDER BY created_at ASC`,
+    [realmId]
   );
-  const rows = stmt.all(realmId) as CharacterRow[];
   return rows.map((row) => mapRowToCharacter(row));
 }
 
-export function listCharactersForUserInRealm(
+export async function listCharactersForUserInRealm(
   userId: string,
   realmId: string
-): Character[] {
-  const stmt = db.prepare(
+): Promise<Character[]> {
+  const rows = await db.query<CharacterRow[]>(
     `SELECT
        id,
        user_id as userId,
@@ -168,9 +170,9 @@ export function listCharactersForUserInRealm(
        last_location as lastKnownLocation
      FROM characters
      WHERE realm_id = ? AND user_id = ?
-     ORDER BY created_at ASC`
+     ORDER BY created_at ASC`,
+    [realmId, userId]
   );
-  const rows = stmt.all(realmId, userId) as CharacterRow[];
   return rows.map((row) => mapRowToCharacter(row));
 }
 
@@ -183,9 +185,9 @@ interface CharacterRow {
   raceId: string;
   appearanceJson: string | null;
   createdAt: string;
-   classId: string | null;
-   classStatesJson: string | null;
-   lastKnownLocation: string | null;
+  classId: string | null;
+  classStatesJson: string | null;
+  lastKnownLocation: string | null;
 }
 
 function mapRowToCharacter(row: CharacterRow): Character {

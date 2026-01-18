@@ -45,10 +45,10 @@ export const characterRouter = Router();
  *       '409':
  *         description: Character name already exists in the realm
  */
-characterRouter.post('/', requireAuth, (req, res, next) => {
+characterRouter.post('/', requireAuth, async (req, res, next) => {
   try {
     const payload = toCreateCharacterInput(req.body);
-    const character = createCharacterForUser(req.user!.id, payload);
+    const character = await createCharacterForUser(req.user!.id, payload);
     res.status(201).json({ character });
   } catch (error) {
     if (isHttpError(error)) {
@@ -61,27 +61,31 @@ characterRouter.post('/', requireAuth, (req, res, next) => {
 
 export { characterRouter as charactersRouter };
 
-characterRouter.get('/:characterId/progression', requireAuth, (req, res, next) => {
+characterRouter.get('/:characterId/progression', requireAuth, async (req, res, next) => {
   try {
     const characterId = String(req.params.characterId ?? '').trim();
     if (!characterId) {
       throw new HttpError(400, 'Character id is required');
     }
-    const snapshot = getCharacterProgressionForUser(req.user!.id, characterId);
+    const snapshot = await getCharacterProgressionForUser(req.user!.id, characterId);
     res.json(snapshot);
   } catch (error) {
     handleProgressionError(error, next);
   }
 });
 
-characterRouter.put('/:characterId/progression', requireAuth, (req, res, next) => {
+characterRouter.put('/:characterId/progression', requireAuth, async (req, res, next) => {
   try {
     const characterId = String(req.params.characterId ?? '').trim();
     if (!characterId) {
       throw new HttpError(400, 'Character id is required');
     }
     const payload = toProgressionUpdateInput(req.body);
-    const snapshot = updateCharacterProgressionForUser(req.user!.id, characterId, payload);
+    const snapshot = await updateCharacterProgressionForUser(
+      req.user!.id,
+      characterId,
+      payload
+    );
     res.json(snapshot);
   } catch (error) {
     handleProgressionError(error, next);

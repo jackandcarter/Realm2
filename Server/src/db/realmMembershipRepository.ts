@@ -11,20 +11,24 @@ export interface RealmMembership {
   createdAt: string;
 }
 
-export function findMembership(userId: string, realmId: string): RealmMembership | undefined {
-  const stmt = db.prepare(
+export async function findMembership(
+  userId: string,
+  realmId: string
+): Promise<RealmMembership | undefined> {
+  const rows = await db.query<RealmMembership[]>(
     `SELECT id, realm_id as realmId, user_id as userId, role, created_at as createdAt
      FROM realm_memberships
-     WHERE user_id = ? AND realm_id = ?`
+     WHERE user_id = ? AND realm_id = ?`,
+    [userId, realmId]
   );
-  return stmt.get(userId, realmId) as RealmMembership | undefined;
+  return rows[0];
 }
 
-export function createMembership(
+export async function createMembership(
   userId: string,
   realmId: string,
   role: RealmRole = 'player'
-): RealmMembership {
+): Promise<RealmMembership> {
   const membership: RealmMembership = {
     id: randomUUID(),
     realmId,
@@ -33,33 +37,33 @@ export function createMembership(
     createdAt: new Date().toISOString(),
   };
 
-  const stmt = db.prepare(
+  await db.execute(
     `INSERT INTO realm_memberships (id, realm_id, user_id, role, created_at)
-     VALUES (@id, @realmId, @userId, @role, @createdAt)`
+     VALUES (?, ?, ?, ?, ?)`,
+    [membership.id, membership.realmId, membership.userId, membership.role, membership.createdAt]
   );
-  stmt.run(membership);
   return membership;
 }
 
-export function upsertMembership(
+export async function upsertMembership(
   userId: string,
   realmId: string,
   role: RealmRole
-): RealmMembership {
-  const existing = findMembership(userId, realmId);
+): Promise<RealmMembership> {
+  const existing = await findMembership(userId, realmId);
   if (existing) {
-    const stmt = db.prepare(
-      `UPDATE realm_memberships SET role = @role WHERE id = @id`
-    );
-    stmt.run({ id: existing.id, role });
+    await db.execute('UPDATE realm_memberships SET role = ? WHERE id = ?', [
+      role,
+      existing.id,
+    ]);
     return { ...existing, role };
   }
   return createMembership(userId, realmId, role);
 }
 
-export function removeMembership(userId: string, realmId: string): void {
-  const stmt = db.prepare(
-    'DELETE FROM realm_memberships WHERE user_id = ? AND realm_id = ?'
-  );
-  stmt.run(userId, realmId);
+export async function removeMembership(userId: string, realmId: string): Promise<void> {
+  await db.execute('DELETE FROM realm_memberships WHERE user_id = ? AND realm_id = ?', [
+    userId,
+    realmId,
+  ]);
 }

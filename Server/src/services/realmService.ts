@@ -22,44 +22,47 @@ export interface RealmCharactersResult {
   characters: Character[];
 }
 
-export function listRealmsForUser(userId: string): RealmSummary[] {
-  const realms = listRealms();
-  return realms.map((realm) => {
-    const membership = findMembership(userId, realm.id);
-    return {
-      ...realm,
-      membershipRole: membership?.role ?? null,
-      isMember: Boolean(membership),
-    };
-  });
+export async function listRealmsForUser(userId: string): Promise<RealmSummary[]> {
+  const realms = await listRealms();
+  const summaries = await Promise.all(
+    realms.map(async (realm) => {
+      const membership = await findMembership(userId, realm.id);
+      return {
+        ...realm,
+        membershipRole: membership?.role ?? null,
+        isMember: Boolean(membership),
+      };
+    })
+  );
+  return summaries;
 }
 
-export function ensureMembership(userId: string, realmId: string): RealmMembership {
-  const existing = findMembership(userId, realmId);
+export async function ensureMembership(userId: string, realmId: string): Promise<RealmMembership> {
+  const existing = await findMembership(userId, realmId);
   if (existing) {
     return existing;
   }
   return createMembership(userId, realmId, 'player');
 }
 
-export function getRealmCharacters(
+export async function getRealmCharacters(
   userId: string,
   realmId: string
-): RealmCharactersResult {
-  const realm = findRealmById(realmId);
+): Promise<RealmCharactersResult> {
+  const realm = await findRealmById(realmId);
   if (!realm) {
     throw new HttpError(404, 'Realm not found');
   }
 
-  const membership = findMembership(userId, realmId);
+  const membership = await findMembership(userId, realmId);
   if (!membership) {
     throw new HttpError(403, 'Join the realm before accessing its characters');
   }
 
   const characters =
     membership.role === 'builder'
-      ? listCharactersForRealm(realmId)
-      : listCharactersForUserInRealm(userId, realmId);
+      ? await listCharactersForRealm(realmId)
+      : await listCharactersForUserInRealm(userId, realmId);
 
   return { realm, membership, characters };
 }

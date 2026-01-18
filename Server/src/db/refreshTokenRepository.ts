@@ -9,7 +9,11 @@ export interface RefreshToken {
   createdAt: string;
 }
 
-export function storeRefreshToken(userId: string, tokenHash: string, expiresAt: Date): RefreshToken {
+export async function storeRefreshToken(
+  userId: string,
+  tokenHash: string,
+  expiresAt: Date
+): Promise<RefreshToken> {
   const token: RefreshToken = {
     id: randomUUID(),
     userId,
@@ -17,26 +21,25 @@ export function storeRefreshToken(userId: string, tokenHash: string, expiresAt: 
     expiresAt: expiresAt.toISOString(),
     createdAt: new Date().toISOString(),
   };
-  const stmt = db.prepare(
-    'INSERT INTO refresh_tokens (id, user_id, token_hash, expires_at, created_at) VALUES (@id, @userId, @tokenHash, @expiresAt, @createdAt)'
+  await db.execute(
+    'INSERT INTO refresh_tokens (id, user_id, token_hash, expires_at, created_at) VALUES (?, ?, ?, ?, ?)',
+    [token.id, token.userId, token.tokenHash, token.expiresAt, token.createdAt]
   );
-  stmt.run(token);
   return token;
 }
 
-export function removeRefreshTokenByHash(tokenHash: string): void {
-  const stmt = db.prepare('DELETE FROM refresh_tokens WHERE token_hash = ?');
-  stmt.run(tokenHash);
+export async function removeRefreshTokenByHash(tokenHash: string): Promise<void> {
+  await db.execute('DELETE FROM refresh_tokens WHERE token_hash = ?', [tokenHash]);
 }
 
-export function findRefreshToken(tokenHash: string): RefreshToken | undefined {
-  const stmt = db.prepare(
-    'SELECT id, user_id as userId, token_hash as tokenHash, expires_at as expiresAt, created_at as createdAt FROM refresh_tokens WHERE token_hash = ?'
+export async function findRefreshToken(tokenHash: string): Promise<RefreshToken | undefined> {
+  const rows = await db.query<RefreshToken[]>(
+    'SELECT id, user_id as userId, token_hash as tokenHash, expires_at as expiresAt, created_at as createdAt FROM refresh_tokens WHERE token_hash = ?',
+    [tokenHash]
   );
-  return stmt.get(tokenHash) as RefreshToken | undefined;
+  return rows[0];
 }
 
-export function removeUserTokens(userId: string): void {
-  const stmt = db.prepare('DELETE FROM refresh_tokens WHERE user_id = ?');
-  stmt.run(userId);
+export async function removeUserTokens(userId: string): Promise<void> {
+  await db.execute('DELETE FROM refresh_tokens WHERE user_id = ?', [userId]);
 }

@@ -12,18 +12,18 @@ import { HttpError, isHttpError } from '../utils/errors';
 
 const chunkRouter = Router({ mergeParams: true });
 
-chunkRouter.get('/', requireAuth, (req, res, next) => {
+chunkRouter.get('/', requireAuth, async (req, res, next) => {
   try {
     const { realmId } = req.params as { realmId: string };
     const since = req.query.since as string | undefined;
-    const envelope = getRealmChunkSnapshot(req.user!.id, realmId, since);
+    const envelope = await getRealmChunkSnapshot(req.user!.id, realmId, since);
     res.json(envelope);
   } catch (error) {
     next(error);
   }
 });
 
-chunkRouter.get('/changes', requireAuth, (req, res, next) => {
+chunkRouter.get('/changes', requireAuth, async (req, res, next) => {
   try {
     const { realmId } = req.params as { realmId: string };
     const since = req.query.since as string | undefined;
@@ -31,18 +31,18 @@ chunkRouter.get('/changes', requireAuth, (req, res, next) => {
     if (limit !== undefined && (Number.isNaN(limit) || limit <= 0)) {
       throw new HttpError(400, 'limit must be a positive integer');
     }
-    const envelope = getChunkChangeFeed(req.user!.id, realmId, since, limit);
+    const envelope = await getChunkChangeFeed(req.user!.id, realmId, since, limit);
     res.json(envelope);
   } catch (error) {
     next(error);
   }
 });
 
-chunkRouter.post('/:chunkId/changes', requireAuth, (req, res, next) => {
+chunkRouter.post('/:chunkId/changes', requireAuth, async (req, res, next) => {
   try {
     const { realmId, chunkId } = req.params as { realmId: string; chunkId: string };
     const { changeType, chunk, structures, plots, resources } = req.body ?? {};
-    const change = recordChunkChange(
+    const change = await recordChunkChange(
       req.user!.id,
       realmId,
       chunkId,
@@ -58,10 +58,10 @@ chunkRouter.post('/:chunkId/changes', requireAuth, (req, res, next) => {
   }
 });
 
-chunkRouter.get('/stream', requireAuth, (req, res, next) => {
+chunkRouter.get('/stream', requireAuth, async (req, res, next) => {
   try {
     const { realmId } = req.params as { realmId: string };
-    assertChunkAccess(req.user!.id, realmId);
+    await assertChunkAccess(req.user!.id, realmId);
 
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');

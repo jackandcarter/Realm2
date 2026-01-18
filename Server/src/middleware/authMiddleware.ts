@@ -36,15 +36,15 @@ function parseToken(authHeader: string | undefined): string {
   return token;
 }
 
-export function requireAuth(
+export async function requireAuth(
   req: Request,
   _res: Response,
   next: NextFunction
-): void {
+): Promise<void> {
   try {
     const token = parseToken(req.header('Authorization'));
     const payload = jwt.verify(token, env.jwtSecret) as AuthPayload;
-    const user = findUserById(payload.sub);
+    const user = await findUserById(payload.sub);
     if (!user) {
       throw new HttpError(401, 'Invalid access token');
     }

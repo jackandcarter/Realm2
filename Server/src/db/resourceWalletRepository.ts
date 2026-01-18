@@ -1,5 +1,5 @@
 import { randomUUID } from 'crypto';
-import { db } from './database';
+import { db, DbExecutor } from './database';
 import { ResourceDelta } from '../types/resources';
 
 export interface ResourceWalletRecord {
@@ -40,24 +40,29 @@ function mapRow(row: any): ResourceWalletRecord {
   };
 }
 
-export function listWalletEntries(realmId: string, userId: string): ResourceWalletRecord[] {
-  const stmt = db.prepare(
+export async function listWalletEntries(
+  realmId: string,
+  userId: string,
+  executor: DbExecutor = db
+): Promise<ResourceWalletRecord[]> {
+  const rows = await executor.query(
     `SELECT id, realm_id, user_id, resource_type, quantity, updated_at
      FROM realm_resource_wallets
-     WHERE realm_id = ? AND user_id = ?`
+     WHERE realm_id = ? AND user_id = ?`,
+    [realmId, userId]
   );
-  const rows = stmt.all(realmId, userId) as any[];
   return rows.map(mapRow);
 }
 
-export function applyResourceAdjustments(
+export async function applyResourceAdjustments(
   realmId: string,
   userId: string,
-  adjustments: ResourceAdjustment[]
-): ResourceWalletRecord[] {
+  adjustments: ResourceAdjustment[],
+  executor: DbExecutor = db
+): Promise<ResourceWalletRecord[]> {
   const filtered = adjustments.filter((adjustment) => adjustment.delta !== 0);
   if (filtered.length === 0) {
-    return listWalletEntries(realmId, userId);
+    return listWalletEntries(realmId, userId, executor);
   }
 
   const now = new Date().toISOString();
@@ -69,14 +74,13 @@ export function applyResourceAdjustments(
       throw new Error('resourceType is required for resource adjustments');
     }
 
-    const selectStmt = db.prepare(
+    const rows = await executor.query<ResourceWalletRecord[]>(
       `SELECT id, realm_id, user_id, resource_type, quantity, updated_at
        FROM realm_resource_wallets
-       WHERE realm_id = ? AND user_id = ? AND resource_type = ?`
+       WHERE realm_id = ? AND user_id = ? AND resource_type = ?`,
+      [realmId, userId, resourceType]
     );
-    const existingRow = selectStmt.get(realmId, userId, resourceType) as
-      | ResourceWalletRecord
-      | undefined;
+    const existingRow = rows[0];
 
     const currentQuantity = existingRow?.quantity ?? 0;
     const nextQuantity = currentQuantity + adjustment.delta;
@@ -86,21 +90,15 @@ export function applyResourceAdjustments(
     }
 
     if (existingRow) {
-      const updateStmt = db.prepare(
+      await executor.execute(
         `UPDATE realm_resource_wallets
-         SET quantity = @quantity,
-             updated_at = @updatedAt
-         WHERE id = @id`
+         SET quantity = ?,
+             updated_at = ?
+         WHERE id = ?`,
+        [nextQuantity, now, existingRow.id]
       );
-      updateStmt.run({ id: existingRow.id, quantity: nextQuantity, updatedAt: now });
       updated.push({ ...existingRow, quantity: nextQuantity, updatedAt: now });
     } else {
-      const insertStmt = db.prepare(
-        `INSERT INTO realm_resource_wallets
-           (id, realm_id, user_id, resource_type, quantity, updated_at)
-         VALUES
-           (@id, @realmId, @userId, @resourceType, @quantity, @updatedAt)`
-      );
       const record: ResourceWalletRecord = {
         id: randomUUID(),
         realmId,
@@ -109,7 +107,20 @@ export function applyResourceAdjustments(
         quantity: nextQuantity,
         updatedAt: now,
       };
-      insertStmt.run(record);
+      await executor.execute(
+        `INSERT INTO realm_resource_wallets
+           (id, realm_id, user_id, resource_type, quantity, updated_at)
+         VALUES
+           (?, ?, ?, ?, ?, ?)`,
+        [
+          record.id,
+          record.realmId,
+          record.userId,
+          record.resourceType,
+          record.quantity,
+          record.updatedAt,
+        ]
+      );
       updated.push(record);
     }
   }
@@ -117,11 +128,12 @@ export function applyResourceAdjustments(
   return updated;
 }
 
-export function applyResourceDeltas(
+export async function applyResourceDeltas(
   realmId: string,
   userId: string,
-  deltas: ResourceDelta[]
-): ResourceWalletRecord[] {
+  deltas: ResourceDelta[],
+  executor: DbExecutor = db
+): Promise<ResourceWalletRecord[]> {
   const adjustments: ResourceAdjustment[] = deltas
     .filter((delta) => Number.isFinite(delta.quantity) && delta.quantity !== 0)
     .map((delta) => ({
@@ -129,5 +141,5 @@ export function applyResourceDeltas(
       delta: delta.quantity > 0 ? -Math.abs(delta.quantity) : Math.abs(delta.quantity),
     }));
 
-  return applyResourceAdjustments(realmId, userId, adjustments);
+  return applyResourceAdjustments(realmId, userId, adjustments, executor);
 }

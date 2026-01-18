@@ -5,19 +5,19 @@ import { HttpError, isHttpError } from '../utils/errors';
 
 export const realmRouter = Router();
 
-realmRouter.get('/', requireAuth, (req, res, next) => {
+realmRouter.get('/', requireAuth, async (req, res, next) => {
   try {
-    const realms = listRealmsForUser(req.user!.id);
+    const realms = await listRealmsForUser(req.user!.id);
     res.json({ realms });
   } catch (error) {
     next(error);
   }
 });
 
-realmRouter.get('/:realmId/characters', requireAuth, (req, res, next) => {
+realmRouter.get('/:realmId/characters', requireAuth, async (req, res, next) => {
   try {
     const { realmId } = req.params as { realmId: string };
-    const result = getRealmCharacters(req.user!.id, realmId);
+    const result = await getRealmCharacters(req.user!.id, realmId);
     res.json({
       realm: {
         id: result.realm.id,
