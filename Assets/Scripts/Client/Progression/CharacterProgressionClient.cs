@@ -99,6 +99,54 @@ namespace Client.Progression
             }
         }
 
+        public IEnumerator UpdateInventory(
+            string characterId,
+            CharacterInventoryItemEntry[] items,
+            int expectedVersion,
+            Action<CharacterProgressionEnvelope> onSuccess,
+            Action<ApiError> onError)
+        {
+            if (string.IsNullOrWhiteSpace(characterId))
+            {
+                onError?.Invoke(new ApiError(400, "Character id is required."));
+                yield break;
+            }
+
+            if (_useMock)
+            {
+                yield return RunMockProgression(characterId, onSuccess);
+                yield break;
+            }
+
+            var requestPayload = new CharacterProgressionUpdateRequest
+            {
+                inventory = new CharacterInventoryUpdatePayload
+                {
+                    expectedVersion = expectedVersion,
+                    items = items ?? Array.Empty<CharacterInventoryItemEntry>()
+                }
+            };
+
+            var json = JsonUtility.ToJson(requestPayload);
+            using var request = new UnityWebRequest($"{_baseUrl}/characters/{characterId}/progression", UnityWebRequest.kHttpVerbPUT);
+            request.uploadHandler = new UploadHandlerRaw(Encoding.UTF8.GetBytes(json));
+            request.downloadHandler = new DownloadHandlerBuffer();
+            request.SetRequestHeader("Content-Type", "application/json");
+            AttachAuthHeader(request);
+
+            yield return request.SendWebRequest();
+
+            if (request.result == UnityWebRequest.Result.Success)
+            {
+                var payload = JsonUtility.FromJson<CharacterProgressionEnvelope>(request.downloadHandler.text);
+                onSuccess?.Invoke(Sanitize(payload));
+            }
+            else
+            {
+                onError?.Invoke(ApiError.FromRequest(request));
+            }
+        }
+
         private static void AttachAuthHeader(UnityWebRequest request)
         {
             if (!string.IsNullOrEmpty(SessionManager.AuthToken))

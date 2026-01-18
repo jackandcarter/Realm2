@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Globalization;
 using Client.CharacterCreation;
+using Client.Inventory;
 using Client.Progression;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -79,6 +80,7 @@ namespace Client
             _characterService = new CharacterService(baseUrl, useMocks);
             _progressionClient = new CharacterProgressionClient(baseUrl, useMocks);
             ClassUnlockRepository.SetProgressionClient(_progressionClient);
+            InventoryRepository.SetProgressionClient(_progressionClient);
 
             if (environmentConfig != null)
             {
