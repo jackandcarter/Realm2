@@ -11,7 +11,6 @@ namespace Realm.UI.Tooltips
 
         public void Bind(CombatTooltipStatModifier modifier)
         {
-            // Task Stub 5: Format stat modifier values (flat/percent) and apply sign coloring.
             if (statLabel != null)
             {
                 statLabel.text = modifier.StatId;
