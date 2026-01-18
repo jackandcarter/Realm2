@@ -89,7 +89,27 @@ namespace Realm.EditorTools
             _effectsList = new ReorderableList(_serializedAbility, _effectsProperty, true, true, true, true)
             {
                 drawHeaderCallback = rect => EditorGUI.LabelField(rect, "Effect Composer"),
-                elementHeightCallback = index => EditorGUIUtility.singleLineHeight * 6.5f + 12f,
+                elementHeightCallback = index =>
+                {
+                    var baseHeight = EditorGUIUtility.singleLineHeight * 6.5f + 12f;
+                    if (_effectsProperty == null || index < 0 || index >= _effectsProperty.arraySize)
+                    {
+                        return baseHeight;
+                    }
+
+                    var element = _effectsProperty.GetArrayElementAtIndex(index);
+                    var effectTypeProp = element.FindPropertyRelative("EffectType");
+                    if (effectTypeProp != null)
+                    {
+                        var effectType = (AbilityEffectType)effectTypeProp.enumValueIndex;
+                        if (effectType == AbilityEffectType.Buff || effectType == AbilityEffectType.Debuff || effectType == AbilityEffectType.StateChange)
+                        {
+                            baseHeight += EditorGUIUtility.singleLineHeight * 2f + 4f;
+                        }
+                    }
+
+                    return baseHeight;
+                },
                 onAddCallback = list =>
                 {
                     var index = _effectsProperty.arraySize;
@@ -139,6 +159,19 @@ namespace Realm.EditorTools
                 EditorGUI.PropertyField(new Rect(line.x, line.y, line.width, line.height), element.FindPropertyRelative("StateName"), new GUIContent("State / Tag"));
 
                 line.y += line.height + 2f;
+                var effectTypeProp = element.FindPropertyRelative("EffectType");
+                if (effectTypeProp != null)
+                {
+                    var effectType = (AbilityEffectType)effectTypeProp.enumValueIndex;
+                    if (effectType == AbilityEffectType.Buff || effectType == AbilityEffectType.Debuff || effectType == AbilityEffectType.StateChange)
+                    {
+                        AbilityDesignerStatusEffectStubs.DrawStatusEffectMetadata(
+                            new Rect(line.x, line.y, line.width, line.height),
+                            element.FindPropertyRelative("StateName"));
+                        line.y += line.height + 2f;
+                    }
+                }
+
                 EditorGUI.PropertyField(new Rect(line.x, line.y, line.width, line.height), element.FindPropertyRelative("CustomSummary"), new GUIContent("Custom Summary"));
 
                 line.y += line.height + 2f;

@@ -1,4 +1,6 @@
 using Client.CharacterCreation;
+using Client.Combat;
+using Realm.UI.Tooltips;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -27,6 +29,7 @@ namespace Client.UI.HUD.Dock
         private bool _cooldownReveal;
         private DockAbilityState _lastState;
         private bool _hasState;
+        private CombatTooltipTrigger _tooltipTrigger;
 
         public string AbilityId => _entry.AbilityId;
         public string LayoutId => _layoutId;
@@ -125,6 +128,7 @@ namespace Client.UI.HUD.Dock
             dockAnimator?.ClearAbilityTiming();
             _hasState = false;
             UpdateCooldownOverlay();
+            ConfigureTooltip(entry.AbilityId);
 
             gameObject.name = $"AbilityDockItem_{entry.AbilityId}";
         }
@@ -155,6 +159,7 @@ namespace Client.UI.HUD.Dock
             dockAnimator?.ClearAbilityTiming();
             _hasState = false;
             UpdateCooldownOverlay();
+            DisableTooltip();
 
             gameObject.name = $"AbilityDockSlot_{placeholderId}";
         }
@@ -344,6 +349,33 @@ namespace Client.UI.HUD.Dock
 
             cooldownOverlay.enabled = true;
             cooldownOverlay.fillAmount = Mathf.Clamp01(_lastState.CooldownRemaining / _lastState.CooldownDuration);
+        }
+
+        private void ConfigureTooltip(string abilityId)
+        {
+            if (string.IsNullOrWhiteSpace(abilityId))
+            {
+                DisableTooltip();
+                return;
+            }
+
+            var ability = AbilityRegistry.GetAbility(abilityId);
+            if (ability == null)
+            {
+                DisableTooltip();
+                return;
+            }
+
+            _tooltipTrigger ??= gameObject.GetComponent<CombatTooltipTrigger>() ?? gameObject.AddComponent<CombatTooltipTrigger>();
+            _tooltipTrigger.Configure(null, CombatTooltipSourceType.Ability, ability);
+        }
+
+        private void DisableTooltip()
+        {
+            if (_tooltipTrigger != null)
+            {
+                _tooltipTrigger.Configure(null, CombatTooltipSourceType.Ability, null);
+            }
         }
     }
 }

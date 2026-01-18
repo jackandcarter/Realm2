@@ -28,6 +28,11 @@ namespace Realm.UI.Tooltips
             BuildPayload();
         }
 
+        private void OnEnable()
+        {
+            BuildPayload();
+        }
+
         private void OnValidate()
         {
             BuildPayload();

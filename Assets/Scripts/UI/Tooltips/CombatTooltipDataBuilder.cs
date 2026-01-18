@@ -47,7 +47,7 @@ namespace Realm.UI.Tooltips
             return new CombatTooltipPayload
             {
                 Title = ResolveTitle(definition.DisplayName, definition.name, definition.StatusId),
-                Description = string.Empty,
+                Description = BuildStatusDescription(definition),
                 Icon = definition.Icon,
                 StatModifiers = modifiers,
                 DurationSeconds = 0f,
@@ -98,7 +98,7 @@ namespace Realm.UI.Tooltips
                 }
             }
 
-            var statusMetadata = ResolveSingleStatusMetadata(statusDefinitions);
+            var statusMetadata = ResolveStatusMetadata(statusDefinitions);
 
             return new CombatTooltipPayload
             {
@@ -156,6 +156,12 @@ namespace Realm.UI.Tooltips
                             PercentDelta = effect.PercentModifier,
                             SourceLabel = string.IsNullOrWhiteSpace(effect.Label) ? "Equipment" : effect.Label.Trim()
                         });
+                        continue;
+                    }
+
+                    if (effect.EffectType == EquipmentEquipEffectType.GrantAbility && effect.GrantedAbility != null)
+                    {
+                        descriptionSegments.Add($"Grants ability: {ResolveTitle(effect.GrantedAbility.AbilityName, effect.GrantedAbility.name, effect.GrantedAbility.Guid)}");
                         continue;
                     }
 
@@ -238,7 +244,7 @@ namespace Realm.UI.Tooltips
             return fallbackId?.Trim() ?? string.Empty;
         }
 
-        private static (int MaxStacks, string RefreshRule, string DispelType) ResolveSingleStatusMetadata(
+        private static (int MaxStacks, string RefreshRule, string DispelType) ResolveStatusMetadata(
             IReadOnlyList<StatusEffectDefinition> definitions)
         {
             if (definitions == null)
@@ -249,11 +255,45 @@ namespace Realm.UI.Tooltips
             var distinct = definitions.Where(definition => definition != null).Distinct().ToList();
             if (distinct.Count != 1)
             {
-                return (0, string.Empty, string.Empty);
+                return distinct.Count > 1
+                    ? (0, "Multiple", "Multiple")
+                    : (0, string.Empty, string.Empty);
             }
 
             var definition = distinct[0];
             return (definition.MaxStacks, definition.RefreshRule.ToString(), definition.DispelType.ToString());
+        }
+
+        private static string BuildStatusDescription(StatusEffectDefinition definition)
+        {
+            if (definition == null)
+            {
+                return string.Empty;
+            }
+
+            var segments = new List<string>();
+            segments.Add(definition.Type.ToString());
+
+            var restrictions = definition.ActionRestrictions;
+            if (restrictions != null)
+            {
+                if (restrictions.BlocksAllActions)
+                {
+                    segments.Add("Blocks all actions");
+                }
+                else if (restrictions.BlocksAbilities)
+                {
+                    segments.Add("Blocks abilities");
+                }
+            }
+
+            var periodic = definition.PeriodicEffects;
+            if (periodic != null && periodic.TickRateSeconds > 0f)
+            {
+                segments.Add($"Ticks every {periodic.TickRateSeconds:0.##}s");
+            }
+
+            return string.Join(" \u2022 ", segments);
         }
 
         private static string ResolveStatLabel(string statId)
