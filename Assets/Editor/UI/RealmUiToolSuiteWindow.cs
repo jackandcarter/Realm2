@@ -23,11 +23,13 @@ namespace Realm.Editor.UI
                 if (GUILayout.Button("Generate Gameplay HUD"))
                 {
                     GameplayHudGenerator.GenerateGameplayHud();
+                    GUIUtility.ExitGUI();
                 }
 
                 if (GUILayout.Button("Generate Arkitect UI Foundation"))
                 {
                     ArkitectUiFoundationGenerator.GenerateFoundation();
+                    GUIUtility.ExitGUI();
                 }
             });
 
@@ -36,6 +38,7 @@ namespace Realm.Editor.UI
                 if (GUILayout.Button("Generate HUD Dock"))
                 {
                     HudDockGenerator.GenerateHudDock();
+                    GUIUtility.ExitGUI();
                 }
             });
 
@@ -44,6 +47,7 @@ namespace Realm.Editor.UI
                 if (GUILayout.Button("Generate Arkitect Terrain Tools UI"))
                 {
                     ArkitectTerrainUiGenerator.GenerateTerrainUi();
+                    GUIUtility.ExitGUI();
                 }
             });
 
