@@ -28,7 +28,7 @@ namespace Client.Tests
                 var labelGo = new GameObject("Label", typeof(RectTransform));
                 labelGo.transform.SetParent(templateGo.transform, false);
                 var label = labelGo.AddComponent<Text>();
-                label.font = Resources.GetBuiltinResource<Font>("Arial.ttf");
+                label.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
 
                 SetPrivateField(panel, "classListRoot", listRoot);
                 SetPrivateField(panel, "classButtonTemplate", button);
