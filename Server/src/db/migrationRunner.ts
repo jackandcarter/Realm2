@@ -1,6 +1,7 @@
 import { logger } from '../observability/logger';
 import { measurePersistenceOperationAsync } from '../observability/metrics';
 import { id as initialId, name as initialName, up as initialUp } from './migrations/001_initialSchema';
+import { id as buildStateId, name as buildStateName, up as buildStateUp } from './migrations/002_buildStates';
 import type { DbExecutor } from './database';
 
 interface DatabaseMigration {
@@ -9,7 +10,10 @@ interface DatabaseMigration {
   up: (db: DbExecutor) => Promise<void>;
 }
 
-const migrations: DatabaseMigration[] = [{ id: initialId, name: initialName, up: initialUp }];
+const migrations: DatabaseMigration[] = [
+  { id: initialId, name: initialName, up: initialUp },
+  { id: buildStateId, name: buildStateName, up: buildStateUp },
+];
 
 async function ensureMigrationsTable(db: DbExecutor): Promise<void> {
   await measurePersistenceOperationAsync('migration.ensure_table', () =>
