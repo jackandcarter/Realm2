@@ -5,7 +5,7 @@ using UnityEngine;
 namespace Realm.EditorTools.Combat
 {
     [CustomEditor(typeof(StatusEffectDefinition))]
-    public class StatusEffectDefinitionEditor : Editor
+    public class StatusEffectDefinitionEditor : UnityEditor.Editor
     {
         public override void OnInspectorGUI()
         {
