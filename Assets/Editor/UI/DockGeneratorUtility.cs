@@ -399,7 +399,7 @@ namespace Realm.Editor.UI
                 return;
             }
 
-            var font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            var font = TMP_Settings.defaultFontAsset;
             var slots = new InventorySlotView[InventorySlotCount];
 
             for (var i = 0; i < InventorySlotCount; i++)
@@ -499,13 +499,13 @@ namespace Realm.Editor.UI
             return iconObject.GetComponent<Image>();
         }
 
-        private static Text EnsureSlotChildLabel(Transform parent, Font font)
+        private static TMP_Text EnsureSlotChildLabel(Transform parent, TMP_FontAsset font)
         {
             var existing = parent.Find("Quantity");
             GameObject labelObject;
             if (existing == null)
             {
-                labelObject = new GameObject("Quantity", typeof(RectTransform), typeof(CanvasRenderer), typeof(Text));
+                labelObject = new GameObject("Quantity", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
                 Undo.RegisterCreatedObjectUndo(labelObject, "Create Inventory Slot Quantity");
                 labelObject.transform.SetParent(parent, false);
                 ApplyUiLayer(labelObject);
@@ -522,10 +522,19 @@ namespace Realm.Editor.UI
             rect.anchoredPosition = new Vector2(-4f, 4f);
             rect.sizeDelta = new Vector2(48f, 20f);
 
-            var text = labelObject.GetComponent<Text>();
-            text.font = font;
+            var text = labelObject.GetComponent<TMP_Text>();
+            if (text == null)
+            {
+                text = Undo.AddComponent<TextMeshProUGUI>(labelObject);
+            }
+
+            if (text.font == null && font != null)
+            {
+                text.font = font;
+            }
+
             text.fontSize = 14;
-            text.alignment = TextAnchor.LowerRight;
+            text.alignment = TextAlignmentOptions.BottomRight;
             text.color = Color.white;
 
             return text;
