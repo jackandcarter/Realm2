@@ -9,6 +9,11 @@ import {
   ProgressionUpdateInput,
   updateCharacterProgressionForUser,
 } from '../services/progressionService';
+import {
+  BuildStateUpdateInput,
+  getBuildStateForUser,
+  replaceBuildStateForUser,
+} from '../services/buildStateService';
 import { VersionConflictError } from '../db/progressionRepository';
 import { CharacterClassState } from '../types/classUnlocks';
 import { HttpError, isHttpError } from '../utils/errors';
@@ -89,6 +94,40 @@ characterRouter.put('/:characterId/progression', requireAuth, async (req, res, n
     res.json(snapshot);
   } catch (error) {
     handleProgressionError(error, next);
+  }
+});
+
+characterRouter.get('/:characterId/build-state', requireAuth, async (req, res, next) => {
+  try {
+    const characterId = String(req.params.characterId ?? '').trim();
+    if (!characterId) {
+      throw new HttpError(400, 'Character id is required');
+    }
+    const realmId = typeof req.query.realmId === 'string' ? req.query.realmId.trim() : undefined;
+    const snapshot = await getBuildStateForUser(req.user!.id, characterId, realmId);
+    res.json(snapshot);
+  } catch (error) {
+    next(error);
+  }
+});
+
+characterRouter.put('/:characterId/build-state', requireAuth, async (req, res, next) => {
+  try {
+    const characterId = String(req.params.characterId ?? '').trim();
+    if (!characterId) {
+      throw new HttpError(400, 'Character id is required');
+    }
+    const realmId = typeof req.query.realmId === 'string' ? req.query.realmId.trim() : undefined;
+    const payload = toBuildStateUpdateInput(req.body);
+    const snapshot = await replaceBuildStateForUser(
+      req.user!.id,
+      characterId,
+      realmId,
+      payload
+    );
+    res.json(snapshot);
+  } catch (error) {
+    next(error);
   }
 });
 
@@ -265,6 +304,35 @@ function toProgressionUpdateInput(body: unknown): ProgressionUpdateInput {
   }
 
   return result;
+}
+
+function toBuildStateUpdateInput(body: unknown): BuildStateUpdateInput {
+  if (!body || typeof body !== 'object') {
+    throw new HttpError(400, 'build state payload is required');
+  }
+
+  const value = body as Record<string, unknown>;
+  const plots = value.plots;
+  const constructions = value.constructions;
+
+  if (!Array.isArray(plots)) {
+    throw new HttpError(400, 'plots must be an array');
+  }
+  if (!isJsonValue(plots)) {
+    throw new HttpError(400, 'plots must be JSON-serializable');
+  }
+
+  if (!Array.isArray(constructions)) {
+    throw new HttpError(400, 'constructions must be an array');
+  }
+  if (!isJsonValue(constructions)) {
+    throw new HttpError(400, 'constructions must be JSON-serializable');
+  }
+
+  return {
+    plots: plots as JsonValue[],
+    constructions: constructions as JsonValue[],
+  };
 }
 
 function ensureInteger(value: unknown, field: string): number {
