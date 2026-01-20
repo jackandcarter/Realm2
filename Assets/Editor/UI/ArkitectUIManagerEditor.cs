@@ -15,6 +15,7 @@ namespace Realm.Editor.UI
             if (GUILayout.Button("Generate UI Foundation"))
             {
                 ArkitectUiFoundationGenerator.GenerateFoundation();
+                GUIUtility.ExitGUI();
             }
         }
     }
