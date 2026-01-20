@@ -399,7 +399,7 @@ namespace Realm.Editor.UI
                 return;
             }
 
-            var font = Resources.GetBuiltinResource<Font>("Arial.ttf");
+            var font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             var slots = new InventorySlotView[InventorySlotCount];
 
             for (var i = 0; i < InventorySlotCount; i++)
