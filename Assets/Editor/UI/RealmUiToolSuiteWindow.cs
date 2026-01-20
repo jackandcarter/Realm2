@@ -58,6 +58,21 @@ namespace Realm.Editor.UI
                     WeaponComboDefinitionEditorWindow.ShowWindow();
                 }
             });
+
+            DrawSection("Maintenance", () =>
+            {
+                if (GUILayout.Button("Validate HUD Prefabs (Report Missing Scripts)"))
+                {
+                    UiPrefabAuditUtility.ValidateHudPrefabs();
+                    GUIUtility.ExitGUI();
+                }
+
+                if (GUILayout.Button("Clean HUD Prefabs (Remove Missing Scripts)"))
+                {
+                    UiPrefabAuditUtility.CleanHudPrefabs();
+                    GUIUtility.ExitGUI();
+                }
+            });
         }
 
         private static void DrawSection(string title, System.Action drawContent)
