@@ -37,7 +37,7 @@ namespace Realm.Editor.UI
             ApplyControllerBindings(controller, root.GetComponent<Canvas>(), classDockAnchor, LoadPrefab(MasterDockPrefabPath));
             EnsureClassModuleBinding(controller, ClassUnlockUtility.BuilderClassId, LoadPrefab(ArkitectPrefabPath));
 
-            RemoveMissingScripts(root);
+            LogRemovedMissingScripts(RemoveMissingScripts(root));
             SavePrefab(root);
             Selection.activeGameObject = root;
         }
@@ -115,16 +115,17 @@ namespace Realm.Editor.UI
 
         private static GameObject EnsurePrefabChild(Transform parent, string prefabPath, string fallbackName)
         {
-            var existing = parent.Find(fallbackName);
-            if (existing != null)
-            {
-                return existing.gameObject;
-            }
-
             var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath);
             if (prefab == null)
             {
                 return null;
+            }
+
+            var existing = FindChildByName(parent, prefab.name, fallbackName);
+            if (existing != null)
+            {
+                EnsurePrefabName(existing.gameObject, prefab.name);
+                return existing.gameObject;
             }
 
             var instance = PrefabUtility.InstantiatePrefab(prefab, parent) as GameObject;
@@ -237,20 +238,67 @@ namespace Realm.Editor.UI
             PrefabUtility.SaveAsPrefabAssetAndConnect(root, PrefabPath, InteractionMode.AutomatedAction);
         }
 
-        private static void RemoveMissingScripts(GameObject root)
+        private static int RemoveMissingScripts(GameObject root)
         {
             if (root == null)
+            {
+                return 0;
+            }
+
+            var removedTotal = 0;
+            foreach (var transform in root.GetComponentsInChildren<Transform>(true))
+            {
+                removedTotal += GameObjectUtility.RemoveMonoBehavioursWithMissingScript(transform.gameObject);
+            }
+
+            return removedTotal;
+        }
+
+        private static void LogRemovedMissingScripts(int removedCount)
+        {
+            if (removedCount <= 0)
             {
                 return;
             }
 
-            foreach (var transform in root.GetComponentsInChildren<Transform>(true))
+            Debug.Log($"Removed {removedCount} missing script component(s) while generating the Gameplay HUD.");
+        }
+
+        private static Transform FindChildByName(Transform parent, params string[] names)
+        {
+            if (parent == null || names == null)
             {
-                var removedCount = GameObjectUtility.RemoveMonoBehavioursWithMissingScript(transform.gameObject);
-                if (removedCount > 0)
+                return null;
+            }
+
+            foreach (var name in names)
+            {
+                if (string.IsNullOrWhiteSpace(name))
                 {
-                    Debug.LogWarning($"Removed {removedCount} missing script component(s) from '{transform.name}' while generating the Gameplay HUD.", transform);
+                    continue;
                 }
+
+                var existing = parent.Find(name);
+                if (existing != null)
+                {
+                    return existing;
+                }
+            }
+
+            return null;
+        }
+
+        private static void EnsurePrefabName(GameObject instance, string targetName)
+        {
+            if (instance == null || string.IsNullOrWhiteSpace(targetName))
+            {
+                return;
+            }
+
+            if (!string.Equals(instance.name, targetName, System.StringComparison.Ordinal))
+            {
+                Undo.RecordObject(instance, "Rename HUD Element");
+                instance.name = targetName;
             }
         }
 
