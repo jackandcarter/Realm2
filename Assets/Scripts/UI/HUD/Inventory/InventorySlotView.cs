@@ -1,5 +1,7 @@
 using Realm.UI.Tooltips;
+using TMPro;
 using UnityEngine;
+using UnityEngine.Serialization;
 using UnityEngine.UI;
 
 namespace Client.UI.HUD.Inventory
@@ -8,7 +10,9 @@ namespace Client.UI.HUD.Inventory
     public class InventorySlotView : MonoBehaviour
     {
         [SerializeField] private Image iconImage;
-        [SerializeField] private Text quantityLabel;
+        [SerializeField] private TMP_Text quantityLabel;
+        [FormerlySerializedAs("quantityLabel")]
+        [SerializeField] private Text legacyQuantityLabel;
 
         private CombatTooltipTrigger _tooltipTrigger;
 
@@ -23,6 +27,10 @@ namespace Client.UI.HUD.Inventory
             if (quantityLabel != null)
             {
                 quantityLabel.text = quantity > 1 ? quantity.ToString() : string.Empty;
+            }
+            else if (legacyQuantityLabel != null)
+            {
+                legacyQuantityLabel.text = quantity > 1 ? quantity.ToString() : string.Empty;
             }
 
             ConfigureTooltip(tooltipDefinition, bindings);
@@ -39,6 +47,10 @@ namespace Client.UI.HUD.Inventory
             if (quantityLabel != null)
             {
                 quantityLabel.text = string.Empty;
+            }
+            else if (legacyQuantityLabel != null)
+            {
+                legacyQuantityLabel.text = string.Empty;
             }
 
             ConfigureTooltip(null, bindings);
@@ -80,7 +92,12 @@ namespace Client.UI.HUD.Inventory
 
             if (quantityLabel == null)
             {
-                quantityLabel = GetComponentInChildren<Text>();
+                quantityLabel = GetComponentInChildren<TMP_Text>();
+            }
+
+            if (legacyQuantityLabel == null)
+            {
+                legacyQuantityLabel = GetComponentInChildren<Text>();
             }
         }
     }
