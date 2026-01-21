@@ -3,6 +3,7 @@ import { db } from './database';
 import { JsonValue } from '../types/characterCustomization';
 import { recordVersionConflict } from '../observability/metrics';
 import { isClassAllowedForRace } from '../config/classRules';
+import { findEquipmentDefinition, getContentCatalog } from '../gameplay/design/contentCatalog';
 
 export interface CharacterProgressionState {
   level: number;
@@ -134,6 +135,13 @@ export class ForbiddenClassEquipmentError extends Error {
         : `Equipment for classes ${classIds.join(', ')} cannot be stored for race ${raceId}`,
     );
     this.name = 'ForbiddenClassEquipmentError';
+  }
+}
+
+export class InvalidEquipmentCatalogError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'InvalidEquipmentCatalogError';
   }
 }
 
@@ -581,6 +589,8 @@ export async function replaceEquipment(
     throw new ForbiddenClassEquipmentError(characterId, raceId, forbiddenClassIds);
   }
 
+  assertEquipmentMatchesCatalog(items);
+
   const now = new Date().toISOString();
   await db.withTransaction(async (tx) => {
     await tx.execute(`DELETE FROM character_equipment_items WHERE character_id = ?`, [
@@ -623,6 +633,45 @@ export async function replaceEquipment(
       metadataJson: serializeJson(normalizeInventoryMetadata(item)),
     })),
   };
+}
+
+function assertEquipmentMatchesCatalog(items: EquipmentItemInput[]): void {
+  const catalog = getContentCatalog();
+  if (!catalog) {
+    return;
+  }
+
+  for (const item of items) {
+    const classId = item.classId?.trim();
+    const slot = item.slot?.trim().toLowerCase();
+    const itemId = item.itemId?.trim();
+    if (!slot || !itemId) {
+      throw new InvalidEquipmentCatalogError('Equipment entries must include slot and itemId.');
+    }
+
+    const definition = findEquipmentDefinition(itemId);
+    if (!definition) {
+      throw new InvalidEquipmentCatalogError(`Equipment item ${itemId} was not found in the content catalog.`);
+    }
+
+    if (definition.slot !== slot) {
+      throw new InvalidEquipmentCatalogError(
+        `Equipment item ${itemId} must be stored in slot ${definition.slot}, received ${slot}.`,
+      );
+    }
+
+    if (classId && definition.requiredClassIds && definition.requiredClassIds.length > 0) {
+      const normalized = classId.toLowerCase();
+      const isAllowed = definition.requiredClassIds.some(
+        (required) => required.trim().toLowerCase() === normalized,
+      );
+      if (!isAllowed) {
+        throw new InvalidEquipmentCatalogError(
+          `Equipment item ${itemId} is not permitted for class ${classId}.`,
+        );
+      }
+    }
+  }
 }
 
 export async function replaceQuestStates(
