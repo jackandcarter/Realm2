@@ -2,6 +2,9 @@ import { Router } from 'express';
 import { requireAuth } from '../middleware/authMiddleware';
 import { listRealmsForUser, getRealmCharacters } from '../services/realmService';
 import { HttpError, isHttpError } from '../utils/errors';
+import { validateBuildZoneForUser } from '../services/buildZoneService';
+import { applyWalletAdjustmentsForUser, listWalletForUser } from '../services/resourceWalletService';
+import { getPlotPermissionsForUser, replacePlotPermissionsForUser } from '../services/plotPermissionService';
 
 export const realmRouter = Router();
 
@@ -38,3 +41,96 @@ realmRouter.get('/:realmId/characters', requireAuth, async (req, res, next) => {
     next(new HttpError(500, 'Failed to load characters'));
   }
 });
+
+realmRouter.post('/:realmId/build-zones/validate', requireAuth, async (req, res, next) => {
+  try {
+    const { realmId } = req.params as { realmId: string };
+    const bounds = toBuildZoneBounds(req.body?.bounds);
+    const result = await validateBuildZoneForUser(req.user!.id, realmId, bounds);
+    res.json(result);
+  } catch (error) {
+    next(error);
+  }
+});
+
+realmRouter.get('/:realmId/resources/wallet', requireAuth, async (req, res, next) => {
+  try {
+    const { realmId } = req.params as { realmId: string };
+    const wallet = await listWalletForUser(req.user!.id, realmId);
+    res.json({ wallet });
+  } catch (error) {
+    next(error);
+  }
+});
+
+realmRouter.post('/:realmId/resources/wallet/adjustments', requireAuth, async (req, res, next) => {
+  try {
+    const { realmId } = req.params as { realmId: string };
+    const adjustments = req.body?.adjustments;
+    if (!Array.isArray(adjustments)) {
+      throw new HttpError(400, 'adjustments must be an array');
+    }
+    const wallet = await applyWalletAdjustmentsForUser(req.user!.id, realmId, adjustments);
+    res.json({ wallet });
+  } catch (error) {
+    next(error);
+  }
+});
+
+realmRouter.get('/:realmId/plots/:plotId/permissions', requireAuth, async (req, res, next) => {
+  try {
+    const { realmId, plotId } = req.params as { realmId: string; plotId: string };
+    const snapshot = await getPlotPermissionsForUser(req.user!.id, realmId, plotId);
+    res.json(snapshot);
+  } catch (error) {
+    next(error);
+  }
+});
+
+realmRouter.put('/:realmId/plots/:plotId/permissions', requireAuth, async (req, res, next) => {
+  try {
+    const { realmId, plotId } = req.params as { realmId: string; plotId: string };
+    const permissions = req.body?.permissions;
+    if (!Array.isArray(permissions)) {
+      throw new HttpError(400, 'permissions must be an array');
+    }
+    const snapshot = await replacePlotPermissionsForUser(
+      req.user!.id,
+      realmId,
+      plotId,
+      permissions
+    );
+    res.json(snapshot);
+  } catch (error) {
+    next(error);
+  }
+});
+
+function toBuildZoneBounds(value: unknown): { center: { x: number; y: number; z: number }; size: { x: number; y: number; z: number } } {
+  if (!value || typeof value !== 'object') {
+    throw new HttpError(400, 'bounds are required for validation');
+  }
+
+  const record = value as Record<string, any>;
+  const center = record.center;
+  const size = record.size;
+  if (!center || !size) {
+    throw new HttpError(400, 'bounds.center and bounds.size are required');
+  }
+
+  const centerX = Number(center.x);
+  const centerY = Number(center.y);
+  const centerZ = Number(center.z);
+  const sizeX = Number(size.x);
+  const sizeY = Number(size.y);
+  const sizeZ = Number(size.z);
+
+  if (![centerX, centerY, centerZ, sizeX, sizeY, sizeZ].every(Number.isFinite)) {
+    throw new HttpError(400, 'bounds must include numeric center and size values');
+  }
+
+  return {
+    center: { x: centerX, y: centerY, z: centerZ },
+    size: { x: sizeX, y: sizeY, z: sizeZ },
+  };
+}

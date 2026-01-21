@@ -48,6 +48,11 @@ namespace Client.Map
         public event Action<MapPinData> HighlightedPinChanged;
 
         /// <summary>
+        /// Raised whenever a pin unlock state changes.
+        /// </summary>
+        public event Action<string, bool> PinUnlockChanged;
+
+        /// <summary>
         /// Pin currently flagged as selected by the user.
         /// </summary>
         public MapPinData SelectedPin => _selectedPin;
@@ -60,6 +65,7 @@ namespace Client.Map
         private void Awake()
         {
             RebuildCaches();
+            MapPinProgressionRepository.RegisterService(this);
         }
 
         private void OnValidate()
@@ -124,6 +130,30 @@ namespace Client.Map
             }
 
             _pinUnlockState[id] = unlocked;
+            RefreshUnlockedCaches();
+            PinUnlockChanged?.Invoke(id, unlocked);
+        }
+
+        /// <summary>
+        /// Applies a server-provided list of pin unlock states without emitting change events.
+        /// </summary>
+        public void ApplyUnlockedPins(IReadOnlyList<MapPinUnlockState> states)
+        {
+            if (states == null)
+            {
+                return;
+            }
+
+            foreach (var state in states)
+            {
+                if (state == null || string.IsNullOrWhiteSpace(state.pinId))
+                {
+                    continue;
+                }
+
+                _pinUnlockState[state.pinId] = state.unlocked;
+            }
+
             RefreshUnlockedCaches();
         }
 

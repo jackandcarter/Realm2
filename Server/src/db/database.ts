@@ -139,9 +139,15 @@ export async function resetDatabase(): Promise<void> {
   await db.execute('DELETE FROM chunk_change_log');
   await db.execute('DELETE FROM chunk_structures');
   await db.execute('DELETE FROM chunk_plots');
+  await db.execute('DELETE FROM plot_permissions');
+  await db.execute('DELETE FROM plot_ownerships');
   await db.execute('DELETE FROM realm_chunks');
+  await db.execute('DELETE FROM realm_build_zones');
   await db.execute('DELETE FROM realm_resource_wallets');
+  await db.execute('DELETE FROM character_dock_layouts');
   await db.execute('DELETE FROM character_build_states');
+  await db.execute('DELETE FROM character_map_pin_states');
+  await db.execute('DELETE FROM character_map_pin_state_meta');
   await db.execute('DELETE FROM character_quest_states');
   await db.execute('DELETE FROM character_quest_state_meta');
   await db.execute('DELETE FROM character_equipment_items');

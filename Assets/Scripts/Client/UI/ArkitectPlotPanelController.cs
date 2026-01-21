@@ -1,6 +1,9 @@
 using System;
 using System.Collections.Generic;
+using Client;
+using Client.Building;
 using Client.Player;
+using Client.Progression;
 using Client.Terrain;
 using UnityEngine;
 using UnityEngine.UI;
@@ -28,10 +31,12 @@ namespace Client.UI
         [SerializeField] private Button modifyElevationButton;
         [SerializeField] private Button paintMaterialButton;
         [SerializeField] private Text feedbackText;
+        [SerializeField] private bool validateBuildZonesOnServer = true;
 
         private readonly List<BuildPlotDefinition> _cachedPlots = new();
         private Color _defaultFeedbackColor = Color.white;
         private bool _feedbackColorInitialized;
+        private BuildZoneValidationClient _zoneValidationClient;
 
         private void Awake()
         {
@@ -44,6 +49,8 @@ namespace Client.UI
             {
                 zoneVisualizer = FindFirstObjectByType<BuildZoneVisualizer>(FindObjectsInactive.Include);
             }
+
+            EnsureValidationClient();
         }
 
         private void OnEnable()
@@ -55,6 +62,7 @@ namespace Client.UI
 
             PlayerClassStateManager.ArkitectAvailabilityChanged += OnArkitectAvailabilityChanged;
             WireButtons(true);
+            EnsureValidationClient();
 
             RefreshPlots();
             ApplyPermissions(PlayerClassStateManager.IsArkitectAvailable);
@@ -205,10 +213,64 @@ namespace Client.UI
             var plotId = string.IsNullOrWhiteSpace(plotIdField?.text) ? Guid.NewGuid().ToString("N") : plotIdField.text.Trim();
 
             var definition = new BuildPlotDefinition(plotId, bounds, elevation, materialIndex);
+            if (validateBuildZonesOnServer && _zoneValidationClient != null && !string.IsNullOrWhiteSpace(SessionManager.SelectedRealmId))
+            {
+                var payload = new BuildZoneValidationRequest
+                {
+                    bounds = new BuildZoneBounds
+                    {
+                        center = bounds.center,
+                        size = bounds.size
+                    }
+                };
+                ProgressionCoroutineRunner.Run(
+                    _zoneValidationClient.ValidateBounds(
+                        SessionManager.SelectedRealmId,
+                        payload,
+                        response =>
+                        {
+                            if (response != null && !response.isValid)
+                            {
+                                SetFeedback(
+                                    string.IsNullOrWhiteSpace(response.failureReason)
+                                        ? "Unable to create plot."
+                                        : response.failureReason,
+                                    true
+                                );
+                                return;
+                            }
+
+                            TryCreatePlot(definition);
+                        },
+                        error =>
+                        {
+                            if (error != null)
+                            {
+                                SetFeedback(error.Message, true);
+                                return;
+                            }
+
+                            TryCreatePlot(definition);
+                        }
+                    )
+                );
+                return;
+            }
+
+            TryCreatePlot(definition);
+        }
+
+        private void TryCreatePlot(BuildPlotDefinition definition)
+        {
+            if (definition == null || plotManager == null)
+            {
+                return;
+            }
+
             if (plotManager.TryCreatePlot(definition, out var failureReason))
             {
                 RefreshPlots();
-                SetFeedback($"Created plot '{plotId}'.", false);
+                SetFeedback($"Created plot '{definition.PlotId}'.", false);
                 zoneVisualizer?.Refresh();
             }
             else
@@ -312,6 +374,19 @@ namespace Client.UI
 
             feedbackText.text = message ?? string.Empty;
             feedbackText.color = isError ? Color.red : _defaultFeedbackColor;
+        }
+
+        private void EnsureValidationClient()
+        {
+            if (_zoneValidationClient != null || !ApiClientRegistry.IsConfigured)
+            {
+                return;
+            }
+
+            _zoneValidationClient = new BuildZoneValidationClient(
+                ApiClientRegistry.BaseUrl,
+                ApiClientRegistry.UseMockServices
+            );
         }
 
         private static float DefaultPlotDepth()
