@@ -3,7 +3,6 @@ import { db } from './database';
 import { JsonValue } from '../types/characterCustomization';
 import { recordVersionConflict } from '../observability/metrics';
 import { isClassAllowedForRace } from '../config/classRules';
-import { findEquipmentDefinition, getContentCatalog } from '../gameplay/design/contentCatalog';
 
 export interface CharacterProgressionState {
   level: number;
@@ -636,40 +635,11 @@ export async function replaceEquipment(
 }
 
 function assertEquipmentMatchesCatalog(items: EquipmentItemInput[]): void {
-  const catalog = getContentCatalog();
-  if (!catalog) {
-    return;
-  }
-
   for (const item of items) {
-    const classId = item.classId?.trim();
-    const slot = item.slot?.trim().toLowerCase();
+    const slot = item.slot?.trim();
     const itemId = item.itemId?.trim();
     if (!slot || !itemId) {
       throw new InvalidEquipmentCatalogError('Equipment entries must include slot and itemId.');
-    }
-
-    const definition = findEquipmentDefinition(itemId);
-    if (!definition) {
-      throw new InvalidEquipmentCatalogError(`Equipment item ${itemId} was not found in the content catalog.`);
-    }
-
-    if (definition.slot !== slot) {
-      throw new InvalidEquipmentCatalogError(
-        `Equipment item ${itemId} must be stored in slot ${definition.slot}, received ${slot}.`,
-      );
-    }
-
-    if (classId && definition.requiredClassIds && definition.requiredClassIds.length > 0) {
-      const normalized = classId.toLowerCase();
-      const isAllowed = definition.requiredClassIds.some(
-        (required) => required.trim().toLowerCase() === normalized,
-      );
-      if (!isAllowed) {
-        throw new InvalidEquipmentCatalogError(
-          `Equipment item ${itemId} is not permitted for class ${classId}.`,
-        );
-      }
     }
   }
 }
