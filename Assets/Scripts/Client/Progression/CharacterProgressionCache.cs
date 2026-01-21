@@ -59,6 +59,16 @@ namespace Client.Progression
             return snapshot.classUnlocks.version;
         }
 
+        public static int GetEquipmentVersion(string characterId)
+        {
+            if (!TryGet(characterId, out var snapshot) || snapshot.equipment == null)
+            {
+                return 0;
+            }
+
+            return snapshot.equipment.version;
+        }
+
         public static CharacterClassUnlockEntry[] GetClassUnlocks(string characterId)
         {
             if (!TryGet(characterId, out var snapshot) || snapshot.classUnlocks?.unlocks == null)
@@ -116,6 +126,14 @@ namespace Client.Progression
                         version = source.inventory.version,
                         updatedAt = source.inventory.updatedAt,
                         items = CloneInventory(source.inventory.items)
+                    },
+                equipment = source.equipment == null
+                    ? null
+                    : new CharacterEquipmentCollection
+                    {
+                        version = source.equipment.version,
+                        updatedAt = source.equipment.updatedAt,
+                        items = CloneEquipment(source.equipment.items)
                     },
                 quests = source.quests == null
                     ? null
@@ -185,6 +203,31 @@ namespace Client.Progression
                     {
                         itemId = item.itemId,
                         quantity = item.quantity,
+                        metadataJson = item.metadataJson
+                    };
+            }
+
+            return clone;
+        }
+
+        private static CharacterEquipmentEntry[] CloneEquipment(CharacterEquipmentEntry[] items)
+        {
+            if (items == null || items.Length == 0)
+            {
+                return Array.Empty<CharacterEquipmentEntry>();
+            }
+
+            var clone = new CharacterEquipmentEntry[items.Length];
+            for (var i = 0; i < items.Length; i++)
+            {
+                var item = items[i];
+                clone[i] = item == null
+                    ? null
+                    : new CharacterEquipmentEntry
+                    {
+                        classId = item.classId,
+                        slot = item.slot,
+                        itemId = item.itemId,
                         metadataJson = item.metadataJson
                     };
             }

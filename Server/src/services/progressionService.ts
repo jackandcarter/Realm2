@@ -8,12 +8,15 @@ import {
   CharacterProgressionSnapshot,
   ClassUnlockInput,
   InventoryItemInput,
+  EquipmentItemInput,
+  ForbiddenClassEquipmentError,
   QuestStateInput,
   ForbiddenClassUnlockError,
   VersionConflictError,
   getCharacterProgressionSnapshot,
   initializeCharacterProgressionState,
   replaceClassUnlocks,
+  replaceEquipment,
   replaceInventory,
   replaceQuestStates,
   updateProgressionLevels,
@@ -35,6 +38,10 @@ export interface ProgressionUpdateInput {
   inventory?: {
     expectedVersion: number;
     items: InventoryItemInput[];
+  };
+  equipment?: {
+    expectedVersion: number;
+    items: EquipmentItemInput[];
   };
   quests?: {
     expectedVersion: number;
@@ -113,6 +120,17 @@ export async function updateCharacterProgressionForUser(
 
   if (input.inventory) {
     await replaceInventory(characterId, input.inventory.items, input.inventory.expectedVersion);
+  }
+
+  if (input.equipment) {
+    try {
+      await replaceEquipment(characterId, input.equipment.items, input.equipment.expectedVersion);
+    } catch (error) {
+      if (error instanceof ForbiddenClassEquipmentError) {
+        throw new HttpError(400, error.message);
+      }
+      throw error;
+    }
   }
 
   if (input.quests) {

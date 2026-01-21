@@ -46,7 +46,7 @@ Each race can unlock multiple classes, with exclusives noted below:
 ## Class Archetypes
 Combat and support roles are designed to encourage party synergy and role swapping:
 - **Warrior, Rogue, Ranger** – Physical damage, frontline control, and tactical positioning.
-- **Wizard, Time Mage, Necromancer** – Arcane DPS, temporal manipulation, and death magic (exclusive to Revenants).
+- **Wizard, Time Mage, Necromancer, Mythologist** – Arcane DPS, temporal manipulation, death magic, and elemental lorecraft.
 - **Technomancer, Sage** – Hybrid magitech support and primary healers.
 - **Builder** – Non-combat specialists who construct settlements via the Arkitect UI.
 

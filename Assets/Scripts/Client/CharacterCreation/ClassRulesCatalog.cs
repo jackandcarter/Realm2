@@ -21,15 +21,41 @@ namespace Client.CharacterCreation
         private static readonly ClassRuleDefinition[] Rules =
         {
             new ClassRuleDefinition { ClassId = "warrior", UnlockMethod = ClassUnlockMethod.Starter },
-            new ClassRuleDefinition { ClassId = "wizard", UnlockMethod = ClassUnlockMethod.Starter },
-            new ClassRuleDefinition { ClassId = "time-mage", UnlockMethod = ClassUnlockMethod.Starter },
-            new ClassRuleDefinition { ClassId = "sage", UnlockMethod = ClassUnlockMethod.Starter },
-            new ClassRuleDefinition { ClassId = "rogue", UnlockMethod = ClassUnlockMethod.Starter },
+            new ClassRuleDefinition
+            {
+                ClassId = "wizard",
+                UnlockMethod = ClassUnlockMethod.Starter,
+                ExclusiveRaceIds = new[] { "human", "felarian", "revenant", "gearling" }
+            },
+            new ClassRuleDefinition
+            {
+                ClassId = "time-mage",
+                UnlockMethod = ClassUnlockMethod.Starter,
+                ExclusiveRaceIds = new[] { "felarian" }
+            },
+            new ClassRuleDefinition
+            {
+                ClassId = "sage",
+                UnlockMethod = ClassUnlockMethod.Starter,
+                ExclusiveRaceIds = new[] { "human", "felarian", "crystallian", "gearling" }
+            },
+            new ClassRuleDefinition
+            {
+                ClassId = "rogue",
+                UnlockMethod = ClassUnlockMethod.Starter,
+                ExclusiveRaceIds = new[] { "human", "crystallian", "revenant" }
+            },
             new ClassRuleDefinition
             {
                 ClassId = "ranger",
                 UnlockMethod = ClassUnlockMethod.Starter,
-                ExclusiveRaceIds = new[] { "felarian" }
+                ExclusiveRaceIds = new[] { "human", "felarian" }
+            },
+            new ClassRuleDefinition
+            {
+                ClassId = "mythologist",
+                UnlockMethod = ClassUnlockMethod.Starter,
+                ExclusiveRaceIds = new[] { "crystallian" }
             },
             new ClassRuleDefinition
             {

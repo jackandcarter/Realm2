@@ -35,6 +35,19 @@ export interface InventoryCollection {
   items: InventoryItemRecord[];
 }
 
+export interface EquipmentItemRecord {
+  classId: string;
+  slot: string;
+  itemId: string;
+  metadataJson?: string;
+}
+
+export interface EquipmentCollection {
+  version: number;
+  updatedAt: string;
+  items: EquipmentItemRecord[];
+}
+
 export interface QuestStateRecord {
   questId: string;
   status: string;
@@ -52,6 +65,7 @@ export interface CharacterProgressionSnapshot {
   progression: CharacterProgressionState;
   classUnlocks: ClassUnlockCollection;
   inventory: InventoryCollection;
+  equipment: EquipmentCollection;
   quests: QuestStateCollection;
 }
 
@@ -68,6 +82,14 @@ export interface InventoryItemInput {
   metadataJson?: string | undefined;
 }
 
+export interface EquipmentItemInput {
+  classId: string;
+  slot: string;
+  itemId: string;
+  metadata?: JsonValue | undefined;
+  metadataJson?: string | undefined;
+}
+
 export interface QuestStateInput {
   questId: string;
   status: string;
@@ -76,7 +98,7 @@ export interface QuestStateInput {
 
 export class VersionConflictError extends Error {
   constructor(
-    public readonly entity: 'progression' | 'classUnlocks' | 'inventory' | 'quests',
+    public readonly entity: 'progression' | 'classUnlocks' | 'inventory' | 'equipment' | 'quests',
     public readonly expected: number,
     public readonly actual: number
   ) {
@@ -97,6 +119,21 @@ export class ForbiddenClassUnlockError extends Error {
         : `Classes ${classIds.join(', ')} cannot be unlocked for race ${raceId}`,
     );
     this.name = 'ForbiddenClassUnlockError';
+  }
+}
+
+export class ForbiddenClassEquipmentError extends Error {
+  constructor(
+    public readonly characterId: string,
+    public readonly raceId: string,
+    public readonly classIds: string[],
+  ) {
+    super(
+      classIds.length === 1
+        ? `Equipment for class ${classIds[0]} cannot be stored for race ${raceId}`
+        : `Equipment for classes ${classIds.join(', ')} cannot be stored for race ${raceId}`,
+    );
+    this.name = 'ForbiddenClassEquipmentError';
   }
 }
 
@@ -130,6 +167,16 @@ async function ensureInventoryMeta(characterId: string): Promise<void> {
   );
 }
 
+async function ensureEquipmentMeta(characterId: string): Promise<void> {
+  const now = new Date().toISOString();
+  await db.execute(
+    `INSERT INTO character_equipment_state (character_id, version, updated_at)
+     VALUES (?, 0, ?)
+     ON DUPLICATE KEY UPDATE updated_at = updated_at`,
+    [characterId, now]
+  );
+}
+
 async function ensureQuestMeta(characterId: string): Promise<void> {
   const now = new Date().toISOString();
   await db.execute(
@@ -144,6 +191,7 @@ export async function initializeCharacterProgressionState(characterId: string): 
   await ensureProgressionRow(characterId);
   await ensureClassUnlockMeta(characterId);
   await ensureInventoryMeta(characterId);
+  await ensureEquipmentMeta(characterId);
   await ensureQuestMeta(characterId);
 }
 
@@ -158,7 +206,12 @@ function serializeJson(value: JsonValue | undefined): string {
   }
 }
 
-function normalizeInventoryMetadata(item: InventoryItemInput): JsonValue | undefined {
+interface MetadataInput {
+  metadata?: JsonValue | undefined;
+  metadataJson?: string | undefined;
+}
+
+function normalizeInventoryMetadata(item: MetadataInput): JsonValue | undefined {
   if (typeof item.metadata !== 'undefined') {
     return item.metadata;
   }
@@ -180,6 +233,7 @@ export async function getCharacterProgressionSnapshot(
   await ensureProgressionRow(characterId);
   await ensureClassUnlockMeta(characterId);
   await ensureInventoryMeta(characterId);
+  await ensureEquipmentMeta(characterId);
   await ensureQuestMeta(characterId);
 
   const progressionRows = await db.query<CharacterProgressionStateRow[]>(
@@ -220,6 +274,21 @@ export async function getCharacterProgressionSnapshot(
   );
   const inventoryMeta = inventoryMetaRows[0];
 
+  const equipmentRows = await db.query<EquipmentRow[]>(
+    `SELECT class_id as classId, slot, item_id as itemId, metadata_json as metadataJson
+     FROM character_equipment_items
+     WHERE character_id = ?`,
+    [characterId]
+  );
+
+  const equipmentMetaRows = await db.query<VersionRow[]>(
+    `SELECT version, updated_at as updatedAt
+     FROM character_equipment_state
+     WHERE character_id = ?`,
+    [characterId]
+  );
+  const equipmentMeta = equipmentMetaRows[0];
+
   const questRows = await db.query<QuestRow[]>(
     `SELECT quest_id as questId, status, progress_json as progressJson, updated_at as updatedAt
      FROM character_quest_states
@@ -257,6 +326,16 @@ export async function getCharacterProgressionSnapshot(
       items: (inventoryRows ?? []).map((row) => ({
         itemId: row.itemId,
         quantity: row.quantity,
+        metadataJson: row.metadataJson ?? '{}',
+      })),
+    },
+    equipment: {
+      version: equipmentMeta?.version ?? 0,
+      updatedAt: equipmentMeta?.updatedAt ?? new Date().toISOString(),
+      items: (equipmentRows ?? []).map((row) => ({
+        classId: row.classId,
+        slot: row.slot,
+        itemId: row.itemId,
         metadataJson: row.metadataJson ?? '{}',
       })),
     },
@@ -458,6 +537,94 @@ export async function replaceInventory(
   };
 }
 
+export async function replaceEquipment(
+  characterId: string,
+  items: EquipmentItemInput[],
+  expectedVersion: number
+): Promise<EquipmentCollection> {
+  await ensureEquipmentMeta(characterId);
+  const currentRows = await db.query<VersionRow[]>(
+    `SELECT version, updated_at as updatedAt
+     FROM character_equipment_state
+     WHERE character_id = ?`,
+    [characterId]
+  );
+  const current = currentRows[0];
+
+  const actualVersion = current?.version ?? 0;
+  if (actualVersion !== expectedVersion) {
+    recordVersionConflict('equipment');
+    throw new VersionConflictError('equipment', expectedVersion, actualVersion);
+  }
+
+  const characterRaceRows = await db.query<CharacterRaceRow[]>(
+    `SELECT race_id as raceId
+     FROM characters
+     WHERE id = ?`,
+    [characterId]
+  );
+  const characterRaceRow = characterRaceRows[0];
+  if (!characterRaceRow) {
+    throw new Error(`Character ${characterId} not found while updating equipment`);
+  }
+
+  const raceId = characterRaceRow.raceId?.trim() || 'human';
+  const forbiddenClassIds = Array.from(
+    new Set(
+      items
+        .map((entry) => entry.classId?.trim() ?? '')
+        .filter((classId) => classId && !isClassAllowedForRace(classId, raceId)),
+    ),
+  );
+
+  if (forbiddenClassIds.length > 0) {
+    throw new ForbiddenClassEquipmentError(characterId, raceId, forbiddenClassIds);
+  }
+
+  const now = new Date().toISOString();
+  await db.withTransaction(async (tx) => {
+    await tx.execute(`DELETE FROM character_equipment_items WHERE character_id = ?`, [
+      characterId,
+    ]);
+
+    for (const item of items) {
+      const metadata = normalizeInventoryMetadata(item);
+      await tx.execute(
+        `INSERT INTO character_equipment_items (id, character_id, class_id, slot, item_id, metadata_json)
+         VALUES (?, ?, ?, ?, ?, ?)
+         ON DUPLICATE KEY UPDATE item_id = VALUES(item_id), metadata_json = VALUES(metadata_json)`,
+        [
+          randomUUID(),
+          characterId,
+          item.classId,
+          item.slot,
+          item.itemId,
+          serializeJson(metadata),
+        ]
+      );
+    }
+
+    await tx.execute(
+      `UPDATE character_equipment_state
+       SET version = version + 1,
+           updated_at = ?
+       WHERE character_id = ?`,
+      [now, characterId]
+    );
+  });
+
+  return {
+    version: actualVersion + 1,
+    updatedAt: now,
+    items: items.map((item) => ({
+      classId: item.classId,
+      slot: item.slot,
+      itemId: item.itemId,
+      metadataJson: serializeJson(normalizeInventoryMetadata(item)),
+    })),
+  };
+}
+
 export async function replaceQuestStates(
   characterId: string,
   quests: QuestStateInput[],
@@ -554,4 +721,11 @@ interface QuestRow {
 interface VersionRow {
   version: number;
   updatedAt: string;
+}
+
+interface EquipmentRow {
+  classId: string;
+  slot: string;
+  itemId: string;
+  metadataJson: string | null;
 }
