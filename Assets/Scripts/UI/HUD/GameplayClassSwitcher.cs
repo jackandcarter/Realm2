@@ -4,18 +4,27 @@ using Client;
 using Client.CharacterCreation;
 using Client.Player;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 namespace Client.UI.HUD
 {
     [DisallowMultipleComponent]
     [RequireComponent(typeof(CanvasGroup))]
-    public class GameplayClassSwitcher : MonoBehaviour
+    public class GameplayClassSwitcher : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
     {
         [Header("Layout")]
         [SerializeField] private CanvasGroup rootCanvasGroup;
         [SerializeField] private RectTransform buttonContainer;
         [SerializeField] private Button buttonTemplate;
+
+        [Header("Device")]
+        [SerializeField] private Button deviceButton;
+        [SerializeField] private RectTransform drawerRoot;
+        [SerializeField] private CanvasGroup drawerCanvasGroup;
+        [SerializeField] private bool openDrawerOnHover = true;
+        [SerializeField] private Vector2 drawerOpenOffset = new Vector2(280f, 0f);
+        [SerializeField] private float drawerTransitionSpeed = 10f;
 
         [Header("Styling")]
         [SerializeField] private Color activeColor = new Color(0.988f, 0.792f, 0.341f, 1f);
@@ -39,6 +48,12 @@ namespace Client.UI.HUD
         private float _selectionCooldownUntil;
 
         private RectTransform _templateParent;
+        private Vector2 _drawerClosedPosition;
+        private Vector2 _drawerOpenPosition;
+        private bool _drawerAvailable;
+        private bool _drawerPinned;
+        private bool _hovering;
+        private bool _drawerInitialized;
 
         private void Awake()
         {
@@ -73,6 +88,33 @@ namespace Client.UI.HUD
                     buttonSize = templateRect.sizeDelta;
                 }
             }
+
+            if (deviceButton == null)
+            {
+                deviceButton = transform.Find("ClassSwitcherDevice")?.GetComponent<Button>();
+            }
+
+            if (drawerRoot == null)
+            {
+                drawerRoot = transform.Find("ClassSwitcherDrawer") as RectTransform;
+            }
+
+            if (drawerCanvasGroup == null && drawerRoot != null)
+            {
+                drawerCanvasGroup = drawerRoot.GetComponent<CanvasGroup>();
+            }
+
+            InitializeDrawerPositions();
+            if (deviceButton != null)
+            {
+                deviceButton.onClick.RemoveAllListeners();
+                deviceButton.onClick.AddListener(ToggleDrawerPinned);
+            }
+        }
+
+        private void Update()
+        {
+            UpdateDrawerAnimation();
         }
 
         private void OnEnable()
@@ -101,6 +143,11 @@ namespace Client.UI.HUD
             SessionManager.SelectedCharacterChanged -= OnSelectedCharacterChanged;
             ClassUnlockRepository.ClassUnlockStatesChanged -= OnClassUnlockStatesChanged;
             PlayerClassStateManager.ActiveClassChanged -= OnActiveClassChanged;
+
+            if (deviceButton != null)
+            {
+                deviceButton.onClick.RemoveAllListeners();
+            }
 
             foreach (var binding in _buttonBindings.Values)
             {
@@ -236,10 +283,7 @@ namespace Client.UI.HUD
 
                 binding.Root.transform.SetSiblingIndex(index);
                 binding.Root.name = $"ClassSwitcherButton_{classId}";
-                if (binding.Label != null)
-                {
-                    binding.Label.text = ResolveDisplayName(classId);
-                }
+                ApplyClassVisuals(binding, classId);
 
                 if (!binding.Root.activeSelf)
                 {
@@ -272,7 +316,13 @@ namespace Client.UI.HUD
             var go = instance.gameObject;
             go.SetActive(true);
 
-            var label = go.GetComponentInChildren<Text>(true);
+            var label = FindTextChild(go.transform, "Label");
+            if (label == null)
+            {
+                label = go.GetComponentInChildren<Text>(true);
+            }
+            var symbol = FindTextChild(go.transform, "Symbol");
+            var crystal = FindImageChild(go.transform, "Crystal");
             var canvasGroup = go.GetComponent<CanvasGroup>();
             if (canvasGroup == null)
             {
@@ -288,6 +338,8 @@ namespace Client.UI.HUD
                 Root = go,
                 Button = instance,
                 Label = label,
+                Symbol = symbol,
+                Crystal = crystal,
                 CanvasGroup = canvasGroup,
                 TargetGraphic = instance.targetGraphic
             };
@@ -406,6 +458,18 @@ namespace Client.UI.HUD
                     binding.TargetGraphic.color = isActive ? activeColor : inactiveColor;
                 }
 
+                if (binding.Crystal != null)
+                {
+                    var crystalColor = binding.CrystalColor;
+                    crystalColor.a = binding.Button.interactable ? 1f : disabledColor.a;
+                    binding.Crystal.color = crystalColor;
+                }
+
+                if (binding.Symbol != null)
+                {
+                    binding.Symbol.color = binding.Button.interactable ? Color.white : disabledColor;
+                }
+
                 if (binding.CanvasGroup != null)
                 {
                     if (isPending)
@@ -426,17 +490,36 @@ namespace Client.UI.HUD
 
         private void ApplyVisibility(bool shouldShow)
         {
+            var hasAnyClasses = _orderedClassIds.Count > 0;
             if (rootCanvasGroup != null)
             {
-                rootCanvasGroup.alpha = shouldShow ? 1f : 0f;
-                rootCanvasGroup.interactable = shouldShow;
-                rootCanvasGroup.blocksRaycasts = shouldShow;
+                rootCanvasGroup.alpha = hasAnyClasses ? 1f : 0f;
+                rootCanvasGroup.interactable = hasAnyClasses;
+                rootCanvasGroup.blocksRaycasts = hasAnyClasses;
             }
 
-            if (buttonContainer != null && !shouldShow)
+            _drawerAvailable = shouldShow;
+            if (!_drawerAvailable)
             {
-                buttonContainer.anchoredPosition3D = buttonContainer.anchoredPosition3D; // noop to keep layout data
+                _drawerPinned = false;
             }
+
+            if (deviceButton != null)
+            {
+                deviceButton.interactable = _drawerAvailable;
+            }
+
+            ApplyDrawerInstant();
+        }
+
+        public void OnPointerEnter(PointerEventData eventData)
+        {
+            _hovering = true;
+        }
+
+        public void OnPointerExit(PointerEventData eventData)
+        {
+            _hovering = false;
         }
 
         private static string NormalizeClassId(string classId)
@@ -454,14 +537,139 @@ namespace Client.UI.HUD
             return string.IsNullOrWhiteSpace(classId) ? "Unknown" : classId;
         }
 
+        private void InitializeDrawerPositions()
+        {
+            if (_drawerInitialized)
+            {
+                return;
+            }
+
+            if (drawerRoot != null)
+            {
+                _drawerClosedPosition = drawerRoot.anchoredPosition;
+                _drawerOpenPosition = _drawerClosedPosition + drawerOpenOffset;
+                _drawerInitialized = true;
+            }
+        }
+
+        private void UpdateDrawerAnimation()
+        {
+            if (drawerRoot == null || drawerCanvasGroup == null)
+            {
+                return;
+            }
+
+            InitializeDrawerPositions();
+            var shouldOpen = _drawerAvailable && (_drawerPinned || (openDrawerOnHover && _hovering));
+            var targetAlpha = shouldOpen ? 1f : 0f;
+            var targetPosition = shouldOpen ? _drawerOpenPosition : _drawerClosedPosition;
+            var t = Mathf.Clamp01(Time.unscaledDeltaTime * drawerTransitionSpeed);
+
+            drawerCanvasGroup.alpha = Mathf.Lerp(drawerCanvasGroup.alpha, targetAlpha, t);
+            drawerCanvasGroup.interactable = drawerCanvasGroup.alpha > 0.01f;
+            drawerCanvasGroup.blocksRaycasts = drawerCanvasGroup.interactable;
+            drawerRoot.anchoredPosition = Vector2.Lerp(drawerRoot.anchoredPosition, targetPosition, t);
+        }
+
+        private void ApplyDrawerInstant()
+        {
+            if (drawerRoot == null || drawerCanvasGroup == null)
+            {
+                return;
+            }
+
+            InitializeDrawerPositions();
+            if (!_drawerAvailable)
+            {
+                drawerCanvasGroup.alpha = 0f;
+                drawerCanvasGroup.interactable = false;
+                drawerCanvasGroup.blocksRaycasts = false;
+                drawerRoot.anchoredPosition = _drawerClosedPosition;
+            }
+        }
+
+        private void ToggleDrawerPinned()
+        {
+            if (!_drawerAvailable)
+            {
+                return;
+            }
+
+            _drawerPinned = !_drawerPinned;
+        }
+
+        private void ApplyClassVisuals(ButtonBinding binding, string classId)
+        {
+            if (binding == null)
+            {
+                return;
+            }
+
+            if (binding.Label != null)
+            {
+                binding.Label.text = ResolveDisplayName(classId);
+            }
+            binding.CrystalColor = ResolveCrystalColor(classId);
+            if (binding.Symbol != null)
+            {
+                binding.Symbol.text = ResolveCrystalSymbol(classId);
+            }
+        }
+
+        private static Color ResolveCrystalColor(string classId)
+        {
+            if (ClassCatalog.TryGetClass(classId, out var definition))
+            {
+                return definition.CrystalColor;
+            }
+
+            return Color.white;
+        }
+
+        private static string ResolveCrystalSymbol(string classId)
+        {
+            if (ClassCatalog.TryGetClass(classId, out var definition) &&
+                !string.IsNullOrWhiteSpace(definition.CrystalSymbol))
+            {
+                return definition.CrystalSymbol;
+            }
+
+            return "◆";
+        }
+
+        private static Text FindTextChild(Transform root, string name)
+        {
+            if (root == null || string.IsNullOrWhiteSpace(name))
+            {
+                return null;
+            }
+
+            var target = root.Find(name);
+            return target != null ? target.GetComponent<Text>() : null;
+        }
+
+        private static Image FindImageChild(Transform root, string name)
+        {
+            if (root == null || string.IsNullOrWhiteSpace(name))
+            {
+                return null;
+            }
+
+            var target = root.Find(name);
+            return target != null ? target.GetComponent<Image>() : null;
+        }
+
         private class ButtonBinding
         {
             public string ClassId;
             public GameObject Root;
             public Button Button;
             public Text Label;
+            public Text Symbol;
+            public Image Crystal;
             public CanvasGroup CanvasGroup;
             public Graphic TargetGraphic;
+            public Color CrystalColor = Color.white;
         }
     }
 

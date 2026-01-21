@@ -144,6 +144,8 @@ export async function resetDatabase(): Promise<void> {
   await db.execute('DELETE FROM character_build_states');
   await db.execute('DELETE FROM character_quest_states');
   await db.execute('DELETE FROM character_quest_state_meta');
+  await db.execute('DELETE FROM character_equipment_items');
+  await db.execute('DELETE FROM character_equipment_state');
   await db.execute('DELETE FROM character_inventory_items');
   await db.execute('DELETE FROM character_inventory_state');
   await db.execute('DELETE FROM character_class_unlocks');

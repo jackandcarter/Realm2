@@ -147,6 +147,54 @@ namespace Client.Progression
             }
         }
 
+        public IEnumerator UpdateEquipment(
+            string characterId,
+            CharacterEquipmentEntry[] items,
+            int expectedVersion,
+            Action<CharacterProgressionEnvelope> onSuccess,
+            Action<ApiError> onError)
+        {
+            if (string.IsNullOrWhiteSpace(characterId))
+            {
+                onError?.Invoke(new ApiError(400, "Character id is required."));
+                yield break;
+            }
+
+            if (_useMock)
+            {
+                yield return RunMockProgression(characterId, onSuccess);
+                yield break;
+            }
+
+            var requestPayload = new CharacterProgressionUpdateRequest
+            {
+                equipment = new CharacterEquipmentUpdatePayload
+                {
+                    expectedVersion = expectedVersion,
+                    items = items ?? Array.Empty<CharacterEquipmentEntry>()
+                }
+            };
+
+            var json = JsonUtility.ToJson(requestPayload);
+            using var request = new UnityWebRequest($"{_baseUrl}/characters/{characterId}/progression", UnityWebRequest.kHttpVerbPUT);
+            request.uploadHandler = new UploadHandlerRaw(Encoding.UTF8.GetBytes(json));
+            request.downloadHandler = new DownloadHandlerBuffer();
+            request.SetRequestHeader("Content-Type", "application/json");
+            AttachAuthHeader(request);
+
+            yield return request.SendWebRequest();
+
+            if (request.result == UnityWebRequest.Result.Success)
+            {
+                var payload = JsonUtility.FromJson<CharacterProgressionEnvelope>(request.downloadHandler.text);
+                onSuccess?.Invoke(Sanitize(payload));
+            }
+            else
+            {
+                onError?.Invoke(ApiError.FromRequest(request));
+            }
+        }
+
         private static void AttachAuthHeader(UnityWebRequest request)
         {
             if (!string.IsNullOrEmpty(SessionManager.AuthToken))
@@ -225,6 +273,20 @@ namespace Client.Progression
                 payload.inventory.items = Array.Empty<CharacterInventoryItemEntry>();
             }
 
+            if (payload.equipment == null)
+            {
+                payload.equipment = new CharacterEquipmentCollection
+                {
+                    version = 0,
+                    updatedAt = DateTime.UtcNow.ToString("O"),
+                    items = Array.Empty<CharacterEquipmentEntry>()
+                };
+            }
+            else if (payload.equipment.items == null)
+            {
+                payload.equipment.items = Array.Empty<CharacterEquipmentEntry>();
+            }
+
             if (payload.quests == null)
             {
                 payload.quests = new CharacterQuestCollection
@@ -274,6 +336,12 @@ namespace Client.Progression
                     {
                         new CharacterInventoryItemEntry { itemId = "timber", quantity = 42, metadataJson = "{}" }
                     }
+                },
+                equipment = new CharacterEquipmentCollection
+                {
+                    version = 1,
+                    updatedAt = now,
+                    items = Array.Empty<CharacterEquipmentEntry>()
                 },
                 quests = new CharacterQuestCollection
                 {

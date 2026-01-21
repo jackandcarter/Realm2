@@ -44,6 +44,23 @@ namespace Client.Progression
     }
 
     [Serializable]
+    public class CharacterEquipmentEntry
+    {
+        public string classId;
+        public string slot;
+        public string itemId;
+        public string metadataJson;
+    }
+
+    [Serializable]
+    public class CharacterEquipmentCollection
+    {
+        public int version;
+        public string updatedAt;
+        public CharacterEquipmentEntry[] items;
+    }
+
+    [Serializable]
     public class CharacterQuestStateEntry
     {
         public string questId;
@@ -66,6 +83,7 @@ namespace Client.Progression
         public CharacterProgressionStats progression;
         public CharacterClassUnlockCollection classUnlocks;
         public CharacterInventoryCollection inventory;
+        public CharacterEquipmentCollection equipment;
         public CharacterQuestCollection quests;
     }
 
@@ -75,6 +93,7 @@ namespace Client.Progression
         public CharacterProgressionUpdateLevels progression;
         public CharacterClassUnlockUpdatePayload classUnlocks;
         public CharacterInventoryUpdatePayload inventory;
+        public CharacterEquipmentUpdatePayload equipment;
         public CharacterQuestUpdatePayload quests;
     }
 
@@ -106,6 +125,13 @@ namespace Client.Progression
     {
         public int expectedVersion;
         public CharacterInventoryItemEntry[] items;
+    }
+
+    [Serializable]
+    internal class CharacterEquipmentUpdatePayload
+    {
+        public int expectedVersion;
+        public CharacterEquipmentEntry[] items;
     }
 
     [Serializable]

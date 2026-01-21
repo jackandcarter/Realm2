@@ -8,11 +8,12 @@ export interface ClassRuleDefinition {
 
 const CLASS_RULES: ClassRuleDefinition[] = [
   { id: 'warrior', unlockMethod: 'starter' },
-  { id: 'wizard', unlockMethod: 'starter' },
-  { id: 'time-mage', unlockMethod: 'starter' },
-  { id: 'sage', unlockMethod: 'starter' },
-  { id: 'rogue', unlockMethod: 'starter' },
-  { id: 'ranger', unlockMethod: 'starter', exclusiveRaceIds: ['felarian'] },
+  { id: 'wizard', unlockMethod: 'starter', exclusiveRaceIds: ['human', 'felarian', 'revenant', 'gearling'] },
+  { id: 'time-mage', unlockMethod: 'starter', exclusiveRaceIds: ['felarian'] },
+  { id: 'sage', unlockMethod: 'starter', exclusiveRaceIds: ['human', 'felarian', 'crystallian', 'gearling'] },
+  { id: 'rogue', unlockMethod: 'starter', exclusiveRaceIds: ['human', 'crystallian', 'revenant'] },
+  { id: 'ranger', unlockMethod: 'starter', exclusiveRaceIds: ['human', 'felarian'] },
+  { id: 'mythologist', unlockMethod: 'starter', exclusiveRaceIds: ['crystallian'] },
   { id: 'necromancer', unlockMethod: 'starter', exclusiveRaceIds: ['revenant'] },
   { id: 'technomancer', unlockMethod: 'starter', exclusiveRaceIds: ['gearling'] },
   { id: 'builder', unlockMethod: 'quest' },

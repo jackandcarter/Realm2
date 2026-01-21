@@ -13,6 +13,7 @@ namespace Realm.Editor.UI
     {
         private const string PrefabPath = "Assets/UI/HUD/GameplayHud.prefab";
         private const string MiniMapPrefabPath = "Assets/UI/HUD/MiniMapPanel.prefab";
+        private const string ClassSwitcherPrefabPath = "Assets/UI/HUD/ClassSwitcher.prefab";
         private const string WorldMapPrefabPath = "Assets/UI/Maps/WorldMapOverlay.prefab";
         private const string MasterDockPrefabPath = "Assets/UI/Shared/Dock/MasterDock.prefab";
         private const string ArkitectPrefabPath = "Assets/UI/Arkitect/ArkitectCanvas.prefab";
@@ -32,6 +33,7 @@ namespace Realm.Editor.UI
 
             var worldMap = EnsurePrefabChild(root.transform, WorldMapPrefabPath, "WorldMapOverlay");
             var miniMap = EnsurePrefabChild(root.transform, MiniMapPrefabPath, "MiniMapPanel");
+            EnsurePrefabChild(root.transform, ClassSwitcherPrefabPath, "ClassSwitcher");
 
             BindMapReferences(miniMap, worldMap);
             ApplyControllerBindings(controller, root.GetComponent<Canvas>(), classDockAnchor, LoadPrefab(MasterDockPrefabPath));

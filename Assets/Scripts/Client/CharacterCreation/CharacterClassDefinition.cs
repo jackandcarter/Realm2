@@ -1,4 +1,5 @@
 using System;
+using UnityEngine;
 
 namespace Client.CharacterCreation
 {
@@ -9,5 +10,7 @@ namespace Client.CharacterCreation
         public string DisplayName;
         public string RoleSummary;
         public string Description;
+        public Color CrystalColor = Color.white;
+        public string CrystalSymbol;
     }
 }

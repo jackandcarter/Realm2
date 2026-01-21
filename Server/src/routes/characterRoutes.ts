@@ -18,6 +18,7 @@ import { VersionConflictError } from '../db/progressionRepository';
 import { CharacterClassState } from '../types/classUnlocks';
 import { HttpError, isHttpError } from '../utils/errors';
 import { JsonValue } from '../types/characterCustomization';
+import { equipmentSlots } from '../gameplay/design/systemFoundations';
 
 export const characterRouter = Router();
 
@@ -261,6 +262,53 @@ function toProgressionUpdateInput(body: unknown): ProgressionUpdateInput {
         return { itemId, quantity, metadata: normalizedMetadata };
       });
       result.inventory = { expectedVersion, items };
+    }
+  }
+
+  if (value.equipment !== undefined) {
+    if (value.equipment === null) {
+      // no update
+    } else if (typeof value.equipment !== 'object') {
+      throw new HttpError(400, 'equipment must be an object');
+    } else {
+      const equipmentValue = value.equipment as Record<string, unknown>;
+      const expectedVersion = ensureInteger(
+        equipmentValue.expectedVersion,
+        'equipment.expectedVersion'
+      );
+      if (expectedVersion < 0) {
+        throw new HttpError(400, 'equipment.expectedVersion must be non-negative');
+      }
+      const itemsRaw = equipmentValue.items;
+      if (!Array.isArray(itemsRaw)) {
+        throw new HttpError(400, 'equipment.items must be an array');
+      }
+      const allowedSlots = new Set(equipmentSlots);
+      const items = itemsRaw.map((entry, index) => {
+        if (!entry || typeof entry !== 'object') {
+          throw new HttpError(400, `equipment.items[${index}] must be an object`);
+        }
+        const record = entry as Record<string, unknown>;
+        const classId = typeof record.classId === 'string' ? record.classId.trim() : '';
+        if (!classId) {
+          throw new HttpError(400, `equipment.items[${index}].classId is required`);
+        }
+        const slot = typeof record.slot === 'string' ? record.slot.trim() : '';
+        if (!slot || !allowedSlots.has(slot)) {
+          throw new HttpError(400, `equipment.items[${index}].slot is invalid`);
+        }
+        const itemId = typeof record.itemId === 'string' ? record.itemId.trim() : '';
+        if (!itemId) {
+          throw new HttpError(400, `equipment.items[${index}].itemId is required`);
+        }
+        const metadata = record.metadata;
+        if (metadata !== undefined && !isJsonValue(metadata)) {
+          throw new HttpError(400, `equipment.items[${index}].metadata must be JSON-serializable`);
+        }
+        const normalizedMetadata = metadata as JsonValue | undefined;
+        return { classId, slot, itemId, metadata: normalizedMetadata };
+      });
+      result.equipment = { expectedVersion, items };
     }
   }
 
