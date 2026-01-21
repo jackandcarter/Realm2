@@ -6,11 +6,9 @@ import { registerProgressionSocketHandlers } from './services/progressionService
 import { registerChunkSocketHandlers } from './services/chunkSocketService';
 import { logger } from './observability/logger';
 import { initializeDatabase } from './db/database';
-import { loadContentCatalogFromDisk } from './gameplay/design/contentLoader';
 
 async function startServer(): Promise<void> {
   await initializeDatabase();
-  await loadContentCatalogFromDisk(env.contentCatalogPath);
   const server = http.createServer(app);
   const wsServer = new WebSocketServer({ server, path: '/ws/progression' });
   registerProgressionSocketHandlers(wsServer);
