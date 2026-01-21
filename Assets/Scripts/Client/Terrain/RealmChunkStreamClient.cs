@@ -103,7 +103,8 @@ namespace Client.Terrain
                 changeType = requestBody?.changeType,
                 chunk = requestBody?.chunk,
                 structures = requestBody?.structures,
-                plots = requestBody?.plots
+                plots = requestBody?.plots,
+                resources = requestBody?.resources
             };
 
             _ = SendAsync(payload);
@@ -420,6 +421,7 @@ namespace Client.Terrain
             public RealmChunkMutation chunk;
             public RealmChunkStructureMutation[] structures;
             public RealmChunkPlotMutation[] plots;
+            public ResourceDelta[] resources;
         }
 
         [Serializable]

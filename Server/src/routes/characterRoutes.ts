@@ -14,6 +14,8 @@ import {
   getBuildStateForUser,
   replaceBuildStateForUser,
 } from '../services/buildStateService';
+import { getDockLayoutForUser, replaceDockLayoutForUser } from '../services/dockLayoutService';
+import { getMapPinsForUser, MapPinUpdateInput, replaceMapPinsForUser } from '../services/mapPinService';
 import { VersionConflictError } from '../db/progressionRepository';
 import { CharacterClassState } from '../types/classUnlocks';
 import { HttpError, isHttpError } from '../utils/errors';
@@ -126,6 +128,70 @@ characterRouter.put('/:characterId/build-state', requireAuth, async (req, res, n
       realmId,
       payload
     );
+    res.json(snapshot);
+  } catch (error) {
+    next(error);
+  }
+});
+
+characterRouter.get('/:characterId/dock-layouts/:layoutKey', requireAuth, async (req, res, next) => {
+  try {
+    const characterId = String(req.params.characterId ?? '').trim();
+    const layoutKey = decodeURIComponent(String(req.params.layoutKey ?? '').trim());
+    if (!characterId || !layoutKey) {
+      throw new HttpError(400, 'Character id and layout key are required');
+    }
+    const snapshot = await getDockLayoutForUser(req.user!.id, characterId, layoutKey);
+    res.json(snapshot);
+  } catch (error) {
+    next(error);
+  }
+});
+
+characterRouter.put('/:characterId/dock-layouts/:layoutKey', requireAuth, async (req, res, next) => {
+  try {
+    const characterId = String(req.params.characterId ?? '').trim();
+    const layoutKey = decodeURIComponent(String(req.params.layoutKey ?? '').trim());
+    if (!characterId || !layoutKey) {
+      throw new HttpError(400, 'Character id and layout key are required');
+    }
+    const order = req.body?.order;
+    if (order !== undefined && !Array.isArray(order)) {
+      throw new HttpError(400, 'order must be an array');
+    }
+    const snapshot = await replaceDockLayoutForUser(
+      req.user!.id,
+      characterId,
+      layoutKey,
+      order ?? []
+    );
+    res.json(snapshot);
+  } catch (error) {
+    next(error);
+  }
+});
+
+characterRouter.get('/:characterId/map-pins', requireAuth, async (req, res, next) => {
+  try {
+    const characterId = String(req.params.characterId ?? '').trim();
+    if (!characterId) {
+      throw new HttpError(400, 'Character id is required');
+    }
+    const snapshot = await getMapPinsForUser(req.user!.id, characterId);
+    res.json(snapshot);
+  } catch (error) {
+    next(error);
+  }
+});
+
+characterRouter.put('/:characterId/map-pins', requireAuth, async (req, res, next) => {
+  try {
+    const characterId = String(req.params.characterId ?? '').trim();
+    if (!characterId) {
+      throw new HttpError(400, 'Character id is required');
+    }
+    const payload = toMapPinUpdateInput(req.body);
+    const snapshot = await replaceMapPinsForUser(req.user!.id, characterId, payload);
     res.json(snapshot);
   } catch (error) {
     next(error);
@@ -352,6 +418,36 @@ function toProgressionUpdateInput(body: unknown): ProgressionUpdateInput {
   }
 
   return result;
+}
+
+function toMapPinUpdateInput(body: unknown): MapPinUpdateInput {
+  if (!body || typeof body !== 'object') {
+    return { expectedVersion: 0, pins: [] };
+  }
+
+  const value = body as Record<string, unknown>;
+  const pins = Array.isArray(value.pins) ? value.pins : [];
+  const expectedVersion = ensureInteger(value.expectedVersion, 'expectedVersion');
+  if (expectedVersion < 0) {
+    throw new HttpError(400, 'expectedVersion must be non-negative');
+  }
+
+  const mappedPins = pins
+    .map((entry) => {
+      if (!entry || typeof entry !== 'object') {
+        return null;
+      }
+      const item = entry as Record<string, unknown>;
+      const pinId = typeof item.pinId === 'string' ? item.pinId.trim() : '';
+      const unlocked = Boolean(item.unlocked);
+      if (!pinId) {
+        return null;
+      }
+      return { pinId, unlocked };
+    })
+    .filter((entry) => entry != null) as MapPinUpdateInput['pins'];
+
+  return { expectedVersion, pins: mappedPins };
 }
 
 function toBuildStateUpdateInput(body: unknown): BuildStateUpdateInput {

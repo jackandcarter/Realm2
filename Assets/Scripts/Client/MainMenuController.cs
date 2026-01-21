@@ -2,10 +2,13 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Globalization;
+using Client.BuildState;
 using Client.CharacterCreation;
 using Client.Equipment;
 using Client.Inventory;
+using Client.Map;
 using Client.Progression;
+using Client.UI.Dock;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
@@ -56,6 +59,9 @@ namespace Client
         private RealmService _realmService;
         private CharacterService _characterService;
         private CharacterProgressionClient _progressionClient;
+        private BuildStateClient _buildStateClient;
+        private DockLayoutClient _dockLayoutClient;
+        private MapPinProgressionClient _mapPinClient;
 
         private readonly List<GameObject> _spawnedRealmEntries = new();
         private readonly List<GameObject> _spawnedCharacterEntries = new();
@@ -83,6 +89,16 @@ namespace Client
             ClassUnlockRepository.SetProgressionClient(_progressionClient);
             InventoryRepository.SetProgressionClient(_progressionClient);
             EquipmentRepository.SetProgressionClient(_progressionClient);
+            ApiClientRegistry.Configure(baseUrl, useMocks);
+
+            _buildStateClient = new BuildStateClient(baseUrl, useMocks);
+            BuildStateRepository.SetClient(_buildStateClient);
+
+            _dockLayoutClient = new DockLayoutClient(baseUrl, useMocks);
+            DockLayoutRepository.SetClient(_dockLayoutClient);
+
+            _mapPinClient = new MapPinProgressionClient(baseUrl, useMocks);
+            MapPinProgressionRepository.SetClient(_mapPinClient);
 
             if (environmentConfig != null)
             {

@@ -79,6 +79,14 @@ namespace Client.Terrain
         public RealmChunkMutation chunk;
         public RealmChunkStructureMutation[] structures;
         public RealmChunkPlotMutation[] plots;
+        public ResourceDelta[] resources;
+    }
+
+    [Serializable]
+    public class ResourceDelta
+    {
+        public string resourceType;
+        public int quantity;
     }
 
     [Serializable]
@@ -92,6 +100,7 @@ namespace Client.Terrain
         public RealmChunkSnapshot chunk;
         public RealmChunkStructure[] structures;
         public RealmChunkPlot[] plots;
+        public ResourceDelta[] resources;
     }
 
     [Serializable]
