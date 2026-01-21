@@ -35,6 +35,14 @@ REALM celebrates diverse cultures with bespoke abilities, aesthetics, and lore h
 - **Revenants** – Ethereal undead with necromantic affinities and stealthy prowess.
 - **Gearlings** – Mechanical magi who blend runes and machinery, perfect for Technomancers, Wizards, and Builders.
 
+### Race Class Access
+Each race can unlock multiple classes, with exclusives noted below:
+- **Human** – Warrior, Wizard, Sage, Rogue, Ranger.
+- **Felarian** – Warrior, Wizard, Ranger, Time Mage (exclusive), Sage.
+- **Crystallian** – Mythologist (exclusive), Warrior, Rogue, Sage.
+- **Revenant** – Necromancer (exclusive), Warrior, Rogue, Wizard.
+- **Gearling** – Technomancer (exclusive), Warrior, Sage, Wizard.
+
 ## Class Archetypes
 Combat and support roles are designed to encourage party synergy and role swapping:
 - **Warrior, Rogue, Ranger** – Physical damage, frontline control, and tactical positioning.
