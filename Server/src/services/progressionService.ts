@@ -10,6 +10,7 @@ import {
   InventoryItemInput,
   EquipmentItemInput,
   ForbiddenClassEquipmentError,
+  InvalidEquipmentCatalogError,
   QuestStateInput,
   ForbiddenClassUnlockError,
   VersionConflictError,
@@ -126,7 +127,7 @@ export async function updateCharacterProgressionForUser(
     try {
       await replaceEquipment(characterId, input.equipment.items, input.equipment.expectedVersion);
     } catch (error) {
-      if (error instanceof ForbiddenClassEquipmentError) {
+      if (error instanceof ForbiddenClassEquipmentError || error instanceof InvalidEquipmentCatalogError) {
         throw new HttpError(400, error.message);
       }
       throw error;
