@@ -2,6 +2,7 @@ import { EquipmentSlot, equipmentSlots } from './systemFoundations';
 
 export interface ContentCatalogMeta {
   generatedAt: string;
+  schemaVersion?: string;
   unityVersion?: string;
   version?: string;
 }

@@ -11,6 +11,7 @@ namespace Realm.Editor.ContentSync
 {
     public class ServerContentCatalogExporter : EditorWindow
     {
+        private const string SchemaVersion = "1";
         private const string DefaultOutputFileName = "realm-content.json";
         private StatRegistry registry;
         private string outputPath;
@@ -105,6 +106,7 @@ namespace Realm.Editor.ContentSync
                 meta = new ContentCatalogMeta
                 {
                     generatedAt = DateTime.UtcNow.ToString("O"),
+                    schemaVersion = SchemaVersion,
                     unityVersion = Application.unityVersion,
                 },
                 stats = statRegistry.StatDefinitions.Select(ExportStat).ToList(),
@@ -312,6 +314,7 @@ namespace Realm.Editor.ContentSync
     public class ContentCatalogMeta
     {
         public string generatedAt;
+        public string schemaVersion;
         public string unityVersion;
     }
 

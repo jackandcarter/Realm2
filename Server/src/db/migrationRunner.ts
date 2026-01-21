@@ -3,6 +3,11 @@ import { measurePersistenceOperationAsync } from '../observability/metrics';
 import { id as initialId, name as initialName, up as initialUp } from './migrations/001_initialSchema';
 import { id as buildStateId, name as buildStateName, up as buildStateUp } from './migrations/002_buildStates';
 import { id as equipmentId, name as equipmentName, up as equipmentUp } from './migrations/003_equipmentState';
+import {
+  id as contentCatalogId,
+  name as contentCatalogName,
+  up as contentCatalogUp,
+} from './migrations/004_contentCatalog';
 import type { DbExecutor } from './database';
 
 interface DatabaseMigration {
@@ -15,6 +20,7 @@ const migrations: DatabaseMigration[] = [
   { id: initialId, name: initialName, up: initialUp },
   { id: buildStateId, name: buildStateName, up: buildStateUp },
   { id: equipmentId, name: equipmentName, up: equipmentUp },
+  { id: contentCatalogId, name: contentCatalogName, up: contentCatalogUp },
 ];
 
 async function ensureMigrationsTable(db: DbExecutor): Promise<void> {

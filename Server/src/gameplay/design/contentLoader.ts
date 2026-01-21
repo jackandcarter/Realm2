@@ -2,6 +2,7 @@ import { createHash } from 'crypto';
 import { promises as fs } from 'fs';
 import path from 'path';
 import { logger } from '../../observability/logger';
+import { upsertContentCatalog } from '../../db/contentCatalogRepository';
 import {
   ContentCatalog,
   applyContentCatalog,
@@ -33,6 +34,9 @@ export async function loadContentCatalogFromDisk(
   if (!parsed.meta) {
     parsed.meta = { generatedAt: new Date().toISOString() };
   }
+  if (!parsed.meta.schemaVersion) {
+    logger.warn({ path: resolvedPath }, 'Content catalog is missing a schemaVersion.');
+  }
   parsed.meta.version = hash;
 
   const issues = validateContentCatalog(parsed);
@@ -42,6 +46,7 @@ export async function loadContentCatalogFromDisk(
   }
 
   applyContentCatalog(parsed, hash);
+  await upsertContentCatalog(hash, raw);
   logger.info({ path: resolvedPath, version: hash }, 'Content catalog loaded.');
   return parsed;
 }
