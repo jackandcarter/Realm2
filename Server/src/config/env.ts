@@ -17,4 +17,5 @@ export const env = {
   databaseName: process.env.DB_NAME ?? 'realm2',
   databaseSsl: process.env.DB_SSL === 'true',
   databaseConnectionLimit: parseInt(process.env.DB_POOL_LIMIT ?? '10', 10),
+  contentCatalogPath: process.env.CONTENT_CATALOG_PATH ?? 'content/realm-content.json',
 };
