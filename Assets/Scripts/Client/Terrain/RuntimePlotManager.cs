@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Building.Runtime;
+using Client.BuildState;
 using Client.Player;
 using Client.Save;
 using UnityEngine;
@@ -59,12 +60,14 @@ namespace Client.Terrain
         {
             SessionManager.SelectedCharacterChanged += OnCharacterChanged;
             SessionManager.SessionCleared += OnSessionCleared;
+            BuildStateRepository.BuildStateUpdated += OnBuildStateUpdated;
         }
 
         private void OnDisable()
         {
             SessionManager.SelectedCharacterChanged -= OnCharacterChanged;
             SessionManager.SessionCleared -= OnSessionCleared;
+            BuildStateRepository.BuildStateUpdated -= OnBuildStateUpdated;
         }
 
         public IReadOnlyCollection<BuildPlotDefinition> GetPlots()
@@ -405,6 +408,17 @@ namespace Client.Terrain
 
         private void OnSessionCleared()
         {
+            ReloadFromSave();
+        }
+
+        private void OnBuildStateUpdated(string realmId, string characterId)
+        {
+            if (!string.Equals(_activeRealmId, realmId, StringComparison.OrdinalIgnoreCase) ||
+                !string.Equals(_activeCharacterId, characterId, StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+
             ReloadFromSave();
         }
 

@@ -30,6 +30,7 @@ import {
 import { publishChunkChange } from './chunkStreamService';
 import { applyResourceDeltas, InsufficientResourceError } from '../db/resourceWalletRepository';
 import { ResourceDelta } from '../types/resources';
+import { getPlotOwner, getPlotPermissionForUser, upsertPlotOwner } from '../db/plotAccessRepository';
 
 export interface ChunkSnapshotEnvelope {
   realmId: string;
@@ -282,10 +283,18 @@ async function validatePlotOwnership(
       if (!targetPlot || targetPlot.isDeleted) {
         throw new HttpError(403, 'Only builders can create new plots');
       }
-      if (targetPlot.ownerUserId !== userId) {
+      const ownerRecord = await getPlotOwner(targetPlot.id, executor);
+      const ownerUserId = ownerRecord?.ownerUserId ?? targetPlot.ownerUserId;
+      const permission = await getPlotPermissionForUser(targetPlot.id, userId, executor);
+      const hasAccess = ownerUserId === userId || Boolean(permission);
+      if (!hasAccess) {
         throw new HttpError(403, 'You do not own this plot');
       }
-      if (typeof plot.ownerUserId !== 'undefined' && plot.ownerUserId !== userId && plot.ownerUserId !== null) {
+      if (
+        typeof plot.ownerUserId !== 'undefined' &&
+        plot.ownerUserId !== userId &&
+        plot.ownerUserId !== null
+      ) {
         throw new HttpError(403, 'You cannot transfer plot ownership to another player');
       }
     }
@@ -392,6 +401,15 @@ export async function recordChunkChange(
         }),
         tx
       );
+
+      for (const plot of plotRecords) {
+        await upsertPlotOwner(
+          plot.id,
+          realmId,
+          plot.isDeleted ? null : plot.ownerUserId ?? null,
+          tx
+        );
+      }
 
       const payload: ChunkChangePayload = {
         chunk: chunkRecord ? toChunkDTO(chunkRecord) : undefined,

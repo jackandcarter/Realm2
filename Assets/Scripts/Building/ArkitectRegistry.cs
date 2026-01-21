@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Client;
+using Client.BuildState;
 using Client.Save;
 using UnityEngine;
 
@@ -362,6 +363,7 @@ namespace Building
 
             SessionManager.SelectedCharacterChanged += OnSelectedCharacterChanged;
             SessionManager.SessionCleared += OnSessionCleared;
+            BuildStateRepository.BuildStateUpdated += OnBuildStateUpdated;
 
             _initialized = true;
 
@@ -380,6 +382,11 @@ namespace Building
         }
 
         private static void OnSelectedCharacterChanged(string _)
+        {
+            ReconcileSavedConstructions();
+        }
+
+        private static void OnBuildStateUpdated(string _realmId, string _characterId)
         {
             ReconcileSavedConstructions();
         }
@@ -409,6 +416,7 @@ namespace Building
 
             SessionManager.SelectedCharacterChanged -= OnSelectedCharacterChanged;
             SessionManager.SessionCleared -= OnSessionCleared;
+            BuildStateRepository.BuildStateUpdated -= OnBuildStateUpdated;
         }
 #endif
     }
