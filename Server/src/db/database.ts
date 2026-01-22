@@ -1,6 +1,7 @@
 import mysql, { Pool, PoolConnection, ResultSetHeader, RowDataPacket } from 'mysql2/promise';
 import { env } from '../config/env';
 import { runMigrations } from './migrationRunner';
+import { seedCatalogData } from './catalogSeeder';
 import { measurePersistenceOperationAsync } from '../observability/metrics';
 import { logger } from '../observability/logger';
 
@@ -128,6 +129,7 @@ export async function initializeDatabase(): Promise<void> {
 
   await runMigrations(db);
   await seedRealms();
+  await seedCatalogData(db);
   logger.info('Database connection established');
 }
 
@@ -157,6 +159,15 @@ export async function resetDatabase(): Promise<void> {
   await db.execute('DELETE FROM character_class_unlocks');
   await db.execute('DELETE FROM character_class_unlock_state');
   await db.execute('DELETE FROM character_progression');
+  await db.execute('DELETE FROM level_progression');
+  await db.execute('DELETE FROM abilities');
+  await db.execute('DELETE FROM enemy_base_stats');
+  await db.execute('DELETE FROM enemies');
+  await db.execute('DELETE FROM class_base_stats');
+  await db.execute('DELETE FROM classes');
+  await db.execute('DELETE FROM armor');
+  await db.execute('DELETE FROM weapons');
+  await db.execute('DELETE FROM items');
   await db.execute('DELETE FROM characters');
   await db.execute('DELETE FROM realm_memberships');
   await db.execute('DELETE FROM realms');
