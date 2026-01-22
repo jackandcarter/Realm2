@@ -7,6 +7,7 @@ import { realmRouter } from './routes/realmRoutes';
 import { characterRouter } from './routes/characterRoutes';
 import { realmChunkRouter } from './routes/chunkRoutes';
 import { combatRouter } from './routes/combatRoutes';
+import { catalogRouter } from './routes/catalogRoutes';
 import { swaggerSpec } from './docs/swagger';
 import { HttpError, isHttpError } from './utils/errors';
 import { metricsRegistry } from './observability/metrics';
@@ -25,6 +26,7 @@ app.use('/realms', realmRouter);
 app.use('/realms', realmChunkRouter);
 app.use('/characters', characterRouter);
 app.use('/combat', combatRouter);
+app.use('/catalog', catalogRouter);
 app.use('/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 app.get('/health', (_req, res) => {

@@ -1,6 +1,7 @@
 import mysql, { Pool, PoolConnection, ResultSetHeader, RowDataPacket } from 'mysql2/promise';
 import { env } from '../config/env';
 import { runMigrations } from './migrationRunner';
+import { seedCatalogData } from './catalogSeeder';
 import { measurePersistenceOperationAsync } from '../observability/metrics';
 import { logger } from '../observability/logger';
 
@@ -128,6 +129,7 @@ export async function initializeDatabase(): Promise<void> {
 
   await runMigrations(db);
   await seedRealms();
+  await seedCatalogData(db);
   logger.info('Database connection established');
 }
 
