@@ -74,6 +74,10 @@ We welcome collaborators across disciplines—designers, engineers, artists, wri
 
 REALM is built by fans of immersive MMOs who want to push the boundaries of player-driven storytelling and construction. If that resonates with you, we’d love your help forging the future of Elysium.
 
+## Authoritative Architecture
+
+REALM follows a classic MMO boundary: the **client handles view/prediction**, and the **server owns truth, validation, and persistence**. Before adding new systems or data flows, review the authority rules so client repositories and UI models never leak into server logic. See `Docs/AuthoritativeArchitecture.md` for the detailed guidelines and do/don’t list.
+
 ## Development Setup (Current)
 
 ### Backend API (Server/)
