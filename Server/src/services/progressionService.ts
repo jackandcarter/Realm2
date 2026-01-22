@@ -4,6 +4,7 @@ import { WebSocket, WebSocketServer } from 'ws';
 import type { RawData } from 'ws';
 import { env } from '../config/env';
 import { findCharacterById } from '../db/characterRepository';
+import { ActionRequestStatus, createActionRequest } from '../db/actionRequestRepository';
 import {
   CharacterProgressionSnapshot,
   ClassUnlockInput,
@@ -50,6 +51,12 @@ export interface ProgressionUpdateInput {
   };
 }
 
+export interface ProgressionIntentResponse {
+  requestId: string;
+  status: ActionRequestStatus;
+  createdAt: string;
+}
+
 interface ProgressionSocketUpdate {
   type: 'update';
   payload: ProgressionUpdateInput & { characterId?: string };
@@ -83,11 +90,11 @@ export async function getCharacterProgressionForUser(
   return getCharacterProgressionSnapshot(characterId);
 }
 
-export async function updateCharacterProgressionForUser(
+export async function submitProgressionIntentForUser(
   userId: string,
   characterId: string,
   input: ProgressionUpdateInput
-): Promise<CharacterProgressionSnapshot> {
+): Promise<ProgressionIntentResponse> {
   const character = await findCharacterById(characterId);
   if (!character) {
     throw new HttpError(404, 'Character not found');
@@ -95,6 +102,34 @@ export async function updateCharacterProgressionForUser(
 
   if (character.userId !== userId) {
     throw new HttpError(403, 'You do not have access to this character');
+  }
+
+  if (!hasProgressionIntent(input)) {
+    throw new HttpError(400, 'Progression update payload is empty');
+  }
+
+  const actionRequest = await createActionRequest({
+    characterId,
+    realmId: character.realmId,
+    requestedBy: userId,
+    requestType: 'progression.update',
+    payload: input,
+  });
+
+  return {
+    requestId: actionRequest.id,
+    status: actionRequest.status,
+    createdAt: actionRequest.createdAt,
+  };
+}
+
+export async function applyProgressionUpdate(
+  characterId: string,
+  input: ProgressionUpdateInput
+): Promise<CharacterProgressionSnapshot> {
+  const character = await findCharacterById(characterId);
+  if (!character) {
+    throw new HttpError(404, 'Character not found');
   }
 
   await initializeCharacterProgressionState(characterId);
@@ -127,7 +162,10 @@ export async function updateCharacterProgressionForUser(
     try {
       await replaceEquipment(characterId, input.equipment.items, input.equipment.expectedVersion);
     } catch (error) {
-      if (error instanceof ForbiddenClassEquipmentError || error instanceof InvalidEquipmentCatalogError) {
+      if (
+        error instanceof ForbiddenClassEquipmentError ||
+        error instanceof InvalidEquipmentCatalogError
+      ) {
         throw new HttpError(400, error.message);
       }
       throw error;
@@ -206,12 +244,12 @@ async function handleSocketMessage(
         return;
       }
       try {
-        const snapshot = await updateCharacterProgressionForUser(
+        const intent = await submitProgressionIntentForUser(
           userId,
           characterId,
           message.payload ?? {}
         );
-        sendSnapshot(socket, snapshot);
+        sendIntentAck(socket, intent);
       } catch (error) {
         handleSocketError(socket, error);
       }
@@ -308,6 +346,12 @@ function sendSnapshot(socket: WebSocket, snapshot: CharacterProgressionSnapshot)
   }
 }
 
+function sendIntentAck(socket: WebSocket, intent: ProgressionIntentResponse): void {
+  if (socket.readyState === WebSocket.OPEN) {
+    socket.send(JSON.stringify({ type: 'progression-intent', payload: intent }));
+  }
+}
+
 function sendError(socket: WebSocket, message: string): void {
   if (socket.readyState === WebSocket.OPEN) {
     socket.send(JSON.stringify({ type: 'error', message }));
@@ -329,4 +373,14 @@ function broadcastProgression(
       socket.send(payload);
     }
   }
+}
+
+function hasProgressionIntent(input: ProgressionUpdateInput): boolean {
+  return Boolean(
+    input.progression ||
+      input.classUnlocks ||
+      input.inventory ||
+      input.equipment ||
+      input.quests
+  );
 }

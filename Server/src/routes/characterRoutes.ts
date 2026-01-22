@@ -7,7 +7,7 @@ import {
 import {
   getCharacterProgressionForUser,
   ProgressionUpdateInput,
-  updateCharacterProgressionForUser,
+  submitProgressionIntentForUser,
 } from '../services/progressionService';
 import {
   BuildStateUpdateInput,
@@ -89,12 +89,12 @@ characterRouter.put('/:characterId/progression', requireAuth, async (req, res, n
       throw new HttpError(400, 'Character id is required');
     }
     const payload = toProgressionUpdateInput(req.body);
-    const snapshot = await updateCharacterProgressionForUser(
+    const intent = await submitProgressionIntentForUser(
       req.user!.id,
       characterId,
       payload
     );
-    res.json(snapshot);
+    res.status(202).json(intent);
   } catch (error) {
     handleProgressionError(error, next);
   }

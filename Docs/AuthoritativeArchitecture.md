@@ -152,6 +152,10 @@ Validation logic can be **shared** only if it is **pure** and does not depend on
    - Non-negative currency
    - Transactional trades (all-or-nothing)
 
+## Client intents + server action queue
+
+Client requests that would change progression, inventory, or world state should be captured as **intents** and stored server-side for validation. The server writes intent payloads into a queue table (for example `character_action_requests`), validates them against authoritative state, and only then mutates gameplay tables. Clients never write progression tables directly; they submit intents and wait for server-confirmed snapshots.
+
 ## Rules of thumb for this repo
 
 - **Server owns truth:** server repositories + runtime state are authoritative.
