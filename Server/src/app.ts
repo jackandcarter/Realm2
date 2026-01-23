@@ -48,7 +48,11 @@ app.get('/metrics', async (_req, res, next) => {
 
 app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
   if (isHttpError(err)) {
-    res.status((err as HttpError).status).json({ message: (err as HttpError).message });
+    const httpError = err as HttpError;
+    res.status(httpError.status).json({
+      message: httpError.message,
+      ...(httpError.details ? { details: httpError.details } : {}),
+    });
     return;
   }
   if (process.env.NODE_ENV !== 'test') {

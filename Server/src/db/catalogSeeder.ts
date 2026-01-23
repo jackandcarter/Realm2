@@ -102,7 +102,7 @@ function buildItemSeeds(): { items: ItemSeed[]; weapons: WeaponSeed[]; armor: Ar
         requiredLevel: 1,
         requiredClassId:
           entry.requiredClassIds && entry.requiredClassIds.length === 1
-            ? entry.requiredClassIds[0]
+            ? entry.requiredClassIds[0] ?? null
             : null,
         metadata: {
           baseStats: entry.baseStats,
@@ -122,7 +122,7 @@ function buildItemSeeds(): { items: ItemSeed[]; weapons: WeaponSeed[]; armor: Ar
         requiredLevel: 1,
         requiredClassId:
           entry.requiredClassIds && entry.requiredClassIds.length === 1
-            ? entry.requiredClassIds[0]
+            ? entry.requiredClassIds[0] ?? null
             : null,
         metadata: {
           baseStats: entry.baseStats,
@@ -160,7 +160,7 @@ function buildAbilitySeeds(): { abilities: AbilitySeed[] } {
       description: entry.summary ?? null,
       abilityType: 'combat',
       rangeMeters: entry.delivery?.rangeMeters ?? 0,
-      metadata: entry,
+      metadata: { ...entry } as Record<string, unknown>,
     })),
   };
 }

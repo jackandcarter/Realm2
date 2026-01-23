@@ -20,7 +20,7 @@ import { VersionConflictError } from '../db/progressionRepository';
 import { CharacterClassState } from '../types/classUnlocks';
 import { HttpError, isHttpError } from '../utils/errors';
 import { JsonValue } from '../types/characterCustomization';
-import { equipmentSlots } from '../gameplay/design/systemFoundations';
+import { EquipmentSlot, equipmentSlots } from '../gameplay/design/systemFoundations';
 
 export const characterRouter = Router();
 
@@ -349,7 +349,7 @@ function toProgressionUpdateInput(body: unknown): ProgressionUpdateInput {
       if (!Array.isArray(itemsRaw)) {
         throw new HttpError(400, 'equipment.items must be an array');
       }
-      const allowedSlots = new Set(equipmentSlots);
+      const allowedSlots = new Set<EquipmentSlot>(equipmentSlots);
       const items = itemsRaw.map((entry, index) => {
         if (!entry || typeof entry !== 'object') {
           throw new HttpError(400, `equipment.items[${index}] must be an object`);
@@ -360,7 +360,7 @@ function toProgressionUpdateInput(body: unknown): ProgressionUpdateInput {
           throw new HttpError(400, `equipment.items[${index}].classId is required`);
         }
         const slot = typeof record.slot === 'string' ? record.slot.trim() : '';
-        if (!slot || !allowedSlots.has(slot)) {
+        if (!slot || !allowedSlots.has(slot as EquipmentSlot)) {
           throw new HttpError(400, `equipment.items[${index}].slot is invalid`);
         }
         const itemId = typeof record.itemId === 'string' ? record.itemId.trim() : '';

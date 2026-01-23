@@ -378,8 +378,8 @@ export async function recordChunkChange(
         tx
       );
 
-      const plotRecords = await upsertPlots(
-        (plots ?? []).map((plot) => {
+      const plotInputs = await Promise.all(
+        (plots ?? []).map(async (plot) => {
           const plotId = plot.plotId ?? randomUUID();
           const identifier = plot.plotIdentifier ?? plotId;
           const existingPlot =
@@ -399,8 +399,8 @@ export async function recordChunkChange(
             isDeleted: Boolean(plot.isDeleted),
           };
         }),
-        tx
       );
+      const plotRecords = await upsertPlots(plotInputs, tx);
 
       for (const plot of plotRecords) {
         await upsertPlotOwner(
