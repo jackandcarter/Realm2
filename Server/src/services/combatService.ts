@@ -3,18 +3,26 @@ import {
   CombatAbilityExecutionRequestDto,
   CombatAbilityExecutionResponseDto,
   CombatAbilityEventDto,
-  CombatParticipantSnapshotDto,
 } from '../types/combatApi';
 import { generatedAbilityDefinitions } from '../gameplay/combat/generated/abilityRegistry';
 import { generatedStatDefinitions } from '../gameplay/combat/generated/statRegistry';
-import { CombatEntitySnapshot, CombatStateInstance } from '../gameplay/combat/types';
+import { CombatEntitySnapshot } from '../gameplay/combat/types';
 import { HttpError } from '../utils/errors';
 import { findCharacterById } from '../db/characterRepository';
+import { getCharacterProgressionSnapshot } from '../db/progressionRepository';
+import {
+  AbilityRecord,
+  getAbilityById,
+  getClassBaseStatsById,
+  getItemsByIds,
+  listLevelProgression,
+} from '../db/catalogRepository';
 
 const statRegistry = new CombatStatRegistry(generatedStatDefinitions);
 const abilityRegistry = new AbilityRegistry(generatedAbilityDefinitions);
 const executor = new AbilityExecutor({ stats: statRegistry, abilities: abilityRegistry });
 const lastClientTimes = new Map<string, number>();
+const abilityCooldowns = new Map<string, number>();
 
 interface CombatExecutionContext {
   userId: string;
@@ -26,12 +34,8 @@ export async function executeCombatAbility(
 ): Promise<CombatAbilityExecutionResponseDto> {
   const casterId = request.casterId.trim();
   const abilityId = request.abilityId.trim();
-  await validateCombatRequest(request, context);
-  const participants = request.participants.map((participant) => toCombatEntitySnapshot(participant));
-  const hasCaster = participants.some((participant) => participant.id === casterId);
-  if (!hasCaster) {
-    throw new HttpError(400, `Caster '${casterId}' was not included in participants.`);
-  }
+  const casterCharacter = await validateCombatRequest(request, context);
+  const participants = await buildCombatParticipants(request, casterCharacter);
 
   const abilityDefinition = abilityRegistry.get(abilityId);
   const result = abilityDefinition
@@ -60,7 +64,7 @@ export async function executeCombatAbility(
 async function validateCombatRequest(
   request: CombatAbilityExecutionRequestDto,
   context: CombatExecutionContext,
-): Promise<void> {
+): Promise<Awaited<ReturnType<typeof findCharacterById>>> {
   const casterId = request.casterId.trim();
   const casterCharacter = await findCharacterById(casterId);
   if (!casterCharacter) {
@@ -71,53 +75,194 @@ async function validateCombatRequest(
     throw new HttpError(403, 'You do not have access to this caster.');
   }
 
-  const realmId = casterCharacter.realmId;
-  for (const participant of request.participants) {
-    const participantCharacter = await findCharacterById(participant.id);
-    if (participantCharacter && participantCharacter.realmId !== realmId) {
-      throw new HttpError(400, `Participant '${participant.id}' is not in the same realm.`);
-    }
-  }
-
   const key = `${context.userId}:${casterId}`;
   const lastClientTime = lastClientTimes.get(key);
   if (lastClientTime !== undefined && request.clientTime <= lastClientTime) {
     throw new HttpError(409, 'Out-of-order combat request detected.');
   }
   lastClientTimes.set(key, request.clientTime);
+
+  const abilityRecord = await getAbilityById(request.abilityId);
+  if (abilityRecord) {
+    validateAbilityCooldown(casterId, abilityRecord);
+    const progression = await getCharacterProgressionSnapshot(casterId);
+    await validateAbilityResourceCost(abilityRecord, casterCharacter, progression.progression.level);
+    validateAbilityRange(request, abilityRecord);
+  }
+
+  const abilityDefinition = abilityRegistry.get(request.abilityId);
+  if (abilityDefinition) {
+    const needsPrimaryTarget = abilityDefinition.graph.nodes.some(
+      (node) =>
+        node.kind === 'selectTargets' &&
+        (node.selector === 'primaryEnemy' || node.selector === 'primaryAlly')
+    );
+    if (needsPrimaryTarget && !request.primaryTargetId?.trim()) {
+      throw new HttpError(400, 'primaryTargetId is required for this ability.');
+    }
+  }
+
+  return casterCharacter;
 }
 
-function toCombatEntitySnapshot(participant: CombatParticipantSnapshotDto): CombatEntitySnapshot {
-  const statsEntries = participant.stats ?? [];
-  const stats = statsEntries.reduce<Record<string, number>>((acc, entry) => {
-    if (entry?.id && Number.isFinite(entry.value)) {
-      acc[entry.id] = entry.value;
-    }
-    return acc;
-  }, {});
+async function buildCombatParticipants(
+  request: CombatAbilityExecutionRequestDto,
+  casterCharacter: { id: string; realmId: string; userId: string; classId: string | null },
+): Promise<CombatEntitySnapshot[]> {
+  const participantIds = new Set<string>([request.casterId]);
+  if (request.primaryTargetId) {
+    participantIds.add(request.primaryTargetId);
+  }
+  (request.targetIds ?? []).forEach((id) => participantIds.add(id));
 
-  const states = (participant.states ?? [])
-    .filter((state) => Boolean(state?.id))
-    .map((state) => ({
-      id: state.id,
-      durationSeconds: Number.isFinite(state.durationSeconds) ? state.durationSeconds : undefined,
-    }));
+  const participants: CombatEntitySnapshot[] = [];
+  for (const participantId of participantIds) {
+    const participantCharacter = await findCharacterById(participantId);
+    if (!participantCharacter) {
+      throw new HttpError(404, `Participant '${participantId}' does not exist.`);
+    }
+    if (participantCharacter.realmId !== casterCharacter.realmId) {
+      throw new HttpError(400, `Participant '${participantId}' is not in the same realm.`);
+    }
+    participants.push(
+      await buildCombatEntitySnapshot(participantCharacter, casterCharacter.userId),
+    );
+  }
+
+  return participants;
+}
+
+async function buildCombatEntitySnapshot(
+  character: { id: string; userId: string; classId: string | null },
+  casterUserId: string,
+): Promise<CombatEntitySnapshot> {
+  const progression = await getCharacterProgressionSnapshot(character.id);
+  const equipment = progression.equipment.items.filter((item) =>
+    character.classId ? item.classId === character.classId : true,
+  );
+  const equipmentItems = await getItemsByIds(equipment.map((item) => item.itemId));
+  const stats = await buildCombatStats(character.classId, equipmentItems);
+  const maxHealth = await resolveMaxHealth(character.classId, progression.progression.level, stats);
 
   return {
-    id: participant.id,
-    team: participant.team,
-    health: participant.health,
-    maxHealth: participant.maxHealth,
+    id: character.id,
+    team: character.userId === casterUserId ? 'ally' : 'enemy',
+    health: maxHealth,
+    maxHealth,
     stats,
-    states: states.length > 0 ? (states as CombatStateInstance[]) : undefined,
   };
+}
+
+async function buildCombatStats(
+  classId: string | null,
+  equipmentItems: { metadataJson: string }[],
+): Promise<Record<string, number>> {
+  const stats: Record<string, number> = {};
+  const classBaseStats = classId ? await getClassBaseStatsById(classId) : undefined;
+  if (classBaseStats) {
+    stats['stat.strength'] = classBaseStats.strength;
+    stats['stat.agility'] = classBaseStats.agility;
+    stats['stat.vitality'] = classBaseStats.vitality;
+    stats['stat.defense'] = classBaseStats.defense;
+    stats['stat.magic'] = classBaseStats.intelligence;
+  }
+
+  for (const item of equipmentItems) {
+    const metadata = safeParseMetadata(item.metadataJson);
+    const baseStatsFromItem = metadata?.baseStats;
+    if (baseStatsFromItem && typeof baseStatsFromItem === 'object') {
+      for (const [statId, value] of Object.entries(baseStatsFromItem)) {
+        const numeric = typeof value === 'number' ? value : Number(value);
+        if (Number.isFinite(numeric)) {
+          stats[statId] = (stats[statId] ?? 0) + numeric;
+        }
+      }
+    }
+  }
+
+  return stats;
+}
+
+async function resolveMaxHealth(
+  classId: string | null,
+  level: number,
+  stats: Record<string, number>,
+): Promise<number> {
+  const classBaseStats = classId ? await getClassBaseStatsById(classId) : undefined;
+  const baseHealth = classBaseStats?.baseHealth ?? 0;
+  const vitality = stats['stat.vitality'] ?? 0;
+  const levelProgression = await listLevelProgression();
+  const levelBonus = levelProgression
+    .filter((entry) => entry.level > 1 && entry.level <= level)
+    .reduce((sum, entry) => sum + (entry.hpGain ?? 0), 0);
+  const derived = baseHealth + vitality * 10 + levelBonus;
+  return Math.max(1, derived > 0 ? derived : 100);
+}
+
+function validateAbilityCooldown(casterId: string, ability: AbilityRecord): void {
+  if (!ability.cooldownSeconds || ability.cooldownSeconds <= 0) {
+    return;
+  }
+  const key = `${casterId}:${ability.id}`;
+  const lastUsed = abilityCooldowns.get(key) ?? 0;
+  const now = Date.now() / 1000;
+  if (now - lastUsed < ability.cooldownSeconds) {
+    throw new HttpError(409, 'Ability is still on cooldown.');
+  }
+  abilityCooldowns.set(key, now);
+}
+
+async function validateAbilityResourceCost(
+  ability: AbilityRecord,
+  caster: { classId: string | null },
+  level: number,
+): Promise<void> {
+  if (!ability.resourceCost || ability.resourceCost <= 0) {
+    return;
+  }
+  const classBaseStats = caster.classId ? await getClassBaseStatsById(caster.classId) : undefined;
+  const levelProgression = await listLevelProgression();
+  const manaBonus = levelProgression
+    .filter((entry) => entry.level > 1 && entry.level <= level)
+    .reduce((sum, entry) => sum + (entry.manaGain ?? 0), 0);
+  const maxResource = (classBaseStats?.baseMana ?? 0) + manaBonus || 100;
+  if (ability.resourceCost > maxResource) {
+    throw new HttpError(400, 'Insufficient resources to use this ability.');
+  }
+}
+
+function validateAbilityRange(
+  request: CombatAbilityExecutionRequestDto,
+  ability: AbilityRecord,
+): void {
+  if (!ability.rangeMeters || ability.rangeMeters <= 0) {
+    return;
+  }
+  if (!request.targetPoint) {
+    return;
+  }
+  const { x, y, z } = request.targetPoint;
+  const distance = Math.sqrt(x * x + y * y + z * z);
+  if (distance > ability.rangeMeters) {
+    throw new HttpError(400, 'Target is out of range.');
+  }
+}
+
+function safeParseMetadata(metadataJson: string | undefined): Record<string, any> | undefined {
+  if (!metadataJson) {
+    return undefined;
+  }
+  try {
+    return JSON.parse(metadataJson) as Record<string, any>;
+  } catch (_error) {
+    return undefined;
+  }
 }
 
 function executeFallbackAbility(
   participants: CombatEntitySnapshot[],
   request: CombatAbilityExecutionRequestDto,
 ): { abilityId: string; events: CombatAbilityEventDto[]; participants: CombatEntitySnapshot[] } {
-  const baseDamage = Number.isFinite(request.baseDamage) ? Math.max(0, request.baseDamage ?? 0) : 0;
   const targetIds = (request.targetIds ?? []).filter(Boolean);
 
   const events: CombatAbilityEventDto[] = [];
@@ -128,10 +273,10 @@ function executeFallbackAbility(
       return;
     }
 
-    if (baseDamage > 0) {
-      target.health = Math.max(0, target.health - baseDamage);
-      events.push({ kind: 'damage', targetId: target.id, amount: baseDamage });
-    }
+    const caster = participants.find((participant) => participant.id === request.casterId);
+    const baseDamage = Math.max(1, Math.round(caster?.stats?.['stat.attackPower'] ?? 1));
+    target.health = Math.max(0, target.health - baseDamage);
+    events.push({ kind: 'damage', targetId: target.id, amount: baseDamage });
   });
 
   return {

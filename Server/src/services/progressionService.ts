@@ -12,6 +12,7 @@ import {
   EquipmentItemInput,
   ForbiddenClassEquipmentError,
   InvalidEquipmentCatalogError,
+  InvalidInventoryCatalogError,
   QuestStateInput,
   ForbiddenClassUnlockError,
   VersionConflictError,
@@ -155,7 +156,14 @@ export async function applyProgressionUpdate(
   }
 
   if (input.inventory) {
-    await replaceInventory(characterId, input.inventory.items, input.inventory.expectedVersion);
+    try {
+      await replaceInventory(characterId, input.inventory.items, input.inventory.expectedVersion);
+    } catch (error) {
+      if (error instanceof InvalidInventoryCatalogError) {
+        throw new HttpError(400, error.message);
+      }
+      throw error;
+    }
   }
 
   if (input.equipment) {

@@ -6,6 +6,7 @@ import { registerProgressionSocketHandlers } from './services/progressionService
 import { registerChunkSocketHandlers } from './services/chunkSocketService';
 import { logger } from './observability/logger';
 import { initializeDatabase } from './db/database';
+import { startActionRequestProcessor } from './services/actionRequestProcessor';
 
 async function startServer(): Promise<void> {
   await initializeDatabase();
@@ -14,6 +15,7 @@ async function startServer(): Promise<void> {
   registerProgressionSocketHandlers(wsServer);
   const chunkWsServer = new WebSocketServer({ server, path: '/ws/chunks' });
   registerChunkSocketHandlers(chunkWsServer);
+  startActionRequestProcessor();
 
   server.listen(env.port, () => {
     logger.info({ port: env.port }, 'Server listening');

@@ -2,10 +2,7 @@ import { Router } from 'express';
 import { requireAuth } from '../middleware/authMiddleware';
 import { HttpError } from '../utils/errors';
 import { executeCombatAbility } from '../services/combatService';
-import {
-  CombatAbilityExecutionRequestDto,
-  CombatParticipantSnapshotDto,
-} from '../types/combatApi';
+import { CombatAbilityExecutionRequestDto } from '../types/combatApi';
 
 export const combatRouter = Router();
 
@@ -41,13 +38,6 @@ function toCombatAbilityExecutionRequest(body: unknown): CombatAbilityExecutionR
     throw new HttpError(400, 'casterId is required');
   }
 
-  const participantsRaw = value.participants;
-  if (!Array.isArray(participantsRaw)) {
-    throw new HttpError(400, 'participants must be an array');
-  }
-
-  const participants = participantsRaw.map((entry, index) => toParticipantSnapshot(entry, index));
-
   return {
     requestId,
     abilityId,
@@ -59,59 +49,6 @@ function toCombatAbilityExecutionRequest(body: unknown): CombatAbilityExecutionR
       : undefined,
     targetPoint: parseVector3(value.targetPoint),
     clientTime: ensureRequiredNumber(value.clientTime, 'clientTime'),
-    baseDamage: ensureNumber(value.baseDamage),
-    participants,
-  };
-}
-
-function toParticipantSnapshot(
-  entry: unknown,
-  index: number,
-): CombatParticipantSnapshotDto {
-  if (!entry || typeof entry !== 'object') {
-    throw new HttpError(400, `participants[${index}] must be an object`);
-  }
-
-  const record = entry as Record<string, unknown>;
-  const id = typeof record.id === 'string' ? record.id.trim() : '';
-  if (!id) {
-    throw new HttpError(400, `participants[${index}].id is required`);
-  }
-
-  const team = typeof record.team === 'string' && record.team.trim() !== ''
-    ? record.team.trim()
-    : 'neutral';
-
-  const health = ensureRequiredNumber(record.health, `participants[${index}].health`);
-  const maxHealth = ensureRequiredNumber(record.maxHealth, `participants[${index}].maxHealth`);
-
-  const stats = Array.isArray(record.stats)
-    ? record.stats
-        .filter((stat): stat is Record<string, unknown> => Boolean(stat) && typeof stat === 'object')
-        .map((stat) => ({
-          id: typeof stat.id === 'string' ? stat.id.trim() : '',
-          value: ensureNumber(stat.value),
-        }))
-        .filter((stat) => stat.id && Number.isFinite(stat.value))
-    : undefined;
-
-  const states = Array.isArray(record.states)
-    ? record.states
-        .filter((state): state is Record<string, unknown> => Boolean(state) && typeof state === 'object')
-        .map((state) => ({
-          id: typeof state.id === 'string' ? state.id.trim() : '',
-          durationSeconds: ensureNumber(state.durationSeconds),
-        }))
-        .filter((state) => state.id)
-    : undefined;
-
-  return {
-    id,
-    team,
-    health,
-    maxHealth,
-    stats,
-    states,
   };
 }
 

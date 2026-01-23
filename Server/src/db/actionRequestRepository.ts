@@ -83,3 +83,54 @@ export async function createActionRequest(
 
   return record;
 }
+
+export async function listPendingActionRequests(limit = 25): Promise<ActionRequestRecord[]> {
+  return db.query<ActionRequestRecord[]>(
+    `SELECT
+       id,
+       character_id as characterId,
+       realm_id as realmId,
+       requested_by as requestedBy,
+       request_type as requestType,
+       payload_json as payloadJson,
+       status,
+       error_message as errorMessage,
+       created_at as createdAt,
+       updated_at as updatedAt,
+       resolved_at as resolvedAt
+     FROM character_action_requests
+     WHERE status = 'pending'
+     ORDER BY created_at ASC
+     LIMIT ?`,
+    [limit]
+  );
+}
+
+export async function markActionRequestProcessing(id: string): Promise<boolean> {
+  const now = new Date().toISOString();
+  const result = await db.execute(
+    `UPDATE character_action_requests
+     SET status = 'processing',
+         updated_at = ?
+     WHERE id = ? AND status = 'pending'`,
+    [now, id]
+  );
+  return (result.affectedRows ?? 0) > 0;
+}
+
+export async function resolveActionRequest(
+  id: string,
+  status: Exclude<ActionRequestStatus, 'processing' | 'pending'>,
+  errorMessage?: string | null
+): Promise<void> {
+  const now = new Date().toISOString();
+  await db.execute(
+    `UPDATE character_action_requests
+     SET status = ?,
+         error_message = ?,
+         updated_at = ?,
+         resolved_at = ?
+     WHERE id = ?`,
+    [status, errorMessage ?? null, now, now, id]
+  );
+}

@@ -20,6 +20,7 @@ import { requireCharacter, requireOwnedCharacter } from './characterAccessServic
 import { HttpError } from '../utils/errors';
 import {
   getCharacterProgressionSnapshot,
+  getInventorySnapshotForUpdate,
   replaceInventory,
   InventoryItemInput,
 } from '../db/progressionRepository';
@@ -176,35 +177,45 @@ async function findTradeOrThrow(tradeId: string): Promise<Trade> {
 }
 
 async function completeTrade(trade: Trade): Promise<void> {
-  const items = await listTradeItems(trade.id);
-  const initiatorSnapshot = await getCharacterProgressionSnapshot(trade.initiatorCharacterId);
-  const targetSnapshot = await getCharacterProgressionSnapshot(trade.targetCharacterId);
+  await db.withTransaction(async (tx) => {
+    const items = await listTradeItems(trade.id, tx);
+    const initiatorSnapshot = await getInventorySnapshotForUpdate(
+      trade.initiatorCharacterId,
+      tx
+    );
+    const targetSnapshot = await getInventorySnapshotForUpdate(
+      trade.targetCharacterId,
+      tx
+    );
 
-  const initiatorInventory = buildInventoryAfterTrade(
-    initiatorSnapshot.inventory.items,
-    items,
-    trade.initiatorCharacterId,
-    trade.targetCharacterId
-  );
-  const targetInventory = buildInventoryAfterTrade(
-    targetSnapshot.inventory.items,
-    items,
-    trade.targetCharacterId,
-    trade.initiatorCharacterId
-  );
+    const initiatorInventory = buildInventoryAfterTrade(
+      initiatorSnapshot.items.map((item) => ({ itemId: item.itemId, quantity: item.quantity })),
+      items,
+      trade.initiatorCharacterId,
+      trade.targetCharacterId
+    );
+    const targetInventory = buildInventoryAfterTrade(
+      targetSnapshot.items.map((item) => ({ itemId: item.itemId, quantity: item.quantity })),
+      items,
+      trade.targetCharacterId,
+      trade.initiatorCharacterId
+    );
 
-  await replaceInventory(
-    trade.initiatorCharacterId,
-    initiatorInventory,
-    initiatorSnapshot.inventory.version
-  );
-  await replaceInventory(
-    trade.targetCharacterId,
-    targetInventory,
-    targetSnapshot.inventory.version
-  );
+    await replaceInventory(
+      trade.initiatorCharacterId,
+      initiatorInventory,
+      initiatorSnapshot.version,
+      tx
+    );
+    await replaceInventory(
+      trade.targetCharacterId,
+      targetInventory,
+      targetSnapshot.version,
+      tx
+    );
 
-  await updateTradeStatus(trade.id, 'completed', true, true);
+    await updateTradeStatus(trade.id, 'completed', true, true, tx);
+  });
 }
 
 function buildInventoryAfterTrade(
