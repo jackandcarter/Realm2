@@ -11,12 +11,10 @@ namespace Client.Combat
     public class CombatApiClient
     {
         private readonly string _baseUrl;
-        private readonly bool _useMock;
 
-        public CombatApiClient(string baseUrl, bool useMock)
+        public CombatApiClient(string baseUrl)
         {
             _baseUrl = baseUrl.TrimEnd('/');
-            _useMock = useMock;
         }
 
         public IEnumerator ExecuteAbility(
@@ -24,12 +22,6 @@ namespace Client.Combat
             Action<CombatAbilityConfirmation> onSuccess,
             Action<ApiError> onError)
         {
-            if (_useMock)
-            {
-                yield return RunMockExecution(request, onSuccess);
-                yield break;
-            }
-
             var payload = JsonUtility.ToJson(request);
 
             using var webRequest = new UnityWebRequest($"{_baseUrl}/combat/execute", UnityWebRequest.kHttpVerbPOST);
@@ -58,22 +50,6 @@ namespace Client.Combat
             {
                 request.SetRequestHeader("Authorization", $"Bearer {SessionManager.AuthToken}");
             }
-        }
-
-        private static IEnumerator RunMockExecution(
-            CombatAbilityRequest request,
-            Action<CombatAbilityConfirmation> onSuccess)
-        {
-            yield return null;
-
-            onSuccess?.Invoke(new CombatAbilityConfirmation
-            {
-                requestId = request.requestId,
-                abilityId = request.abilityId,
-                casterId = request.casterId,
-                targetIds = request.targetIds,
-                serverTime = Time.time
-            });
         }
     }
 }

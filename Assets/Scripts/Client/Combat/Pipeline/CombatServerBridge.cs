@@ -45,10 +45,6 @@ namespace Client.Combat.Pipeline
     {
         [SerializeField] private ApiEnvironmentConfig environmentConfig;
         [SerializeField] private string fallbackBaseApiUrl = "http://localhost:3000";
-        [SerializeField] private bool useMockServer;
-        [SerializeField] private bool autoConfirm;
-        [SerializeField] private bool fallbackToLocalOnError;
-
         private CombatApiClient _apiClient;
 
         public event Action<CombatAbilityRequest> AbilityRequested;
@@ -70,23 +66,7 @@ namespace Client.Combat.Pipeline
         public void RequestAbilityExecution(CombatAbilityRequest request)
         {
             AbilityRequested?.Invoke(request);
-
-            if (!autoConfirm || !useMockServer)
-            {
-                StartCoroutine(SendAbilityRequest(request));
-                return;
-            }
-
-            var confirmation = new CombatAbilityConfirmation
-            {
-                requestId = request.requestId,
-                abilityId = request.abilityId,
-                casterId = request.casterId,
-                targetIds = request.targetIds,
-                serverTime = Time.time
-            };
-
-            ReceiveServerConfirmation(confirmation);
+            StartCoroutine(SendAbilityRequest(request));
         }
 
         public void ReceiveServerConfirmation(CombatAbilityConfirmation confirmation)
@@ -112,18 +92,6 @@ namespace Client.Combat.Pipeline
             if (requestError != null)
             {
                 Debug.LogWarning($"CombatServerBridge failed to send ability request: {requestError.Message}", this);
-                if (fallbackToLocalOnError && useMockServer)
-                {
-                    ReceiveServerConfirmation(new CombatAbilityConfirmation
-                    {
-                        requestId = request.requestId,
-                        abilityId = request.abilityId,
-                        casterId = request.casterId,
-                        targetIds = request.targetIds,
-                        serverTime = Time.time
-                    });
-                }
-
                 yield break;
             }
 
@@ -135,7 +103,7 @@ namespace Client.Combat.Pipeline
             var baseUrl = environmentConfig != null && !string.IsNullOrWhiteSpace(environmentConfig.BaseApiUrl)
                 ? environmentConfig.BaseApiUrl
                 : fallbackBaseApiUrl;
-            _apiClient = new CombatApiClient(baseUrl, useMockServer);
+            _apiClient = new CombatApiClient(baseUrl);
         }
     }
 }
