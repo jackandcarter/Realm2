@@ -201,6 +201,24 @@ export async function listClasses(): Promise<ClassRecord[]> {
   );
 }
 
+export async function getClassById(classId: string): Promise<ClassRecord | undefined> {
+  const rows = await db.query<ClassRecord[]>(
+    `SELECT id,
+            name,
+            description,
+            role,
+            resource_type as resourceType,
+            starting_level as startingLevel,
+            metadata_json as metadataJson,
+            created_at as createdAt,
+            updated_at as updatedAt
+     FROM classes
+     WHERE id = ?`,
+    [classId],
+  );
+  return rows[0];
+}
+
 export async function listClassBaseStats(): Promise<ClassBaseStatRecord[]> {
   return db.query<ClassBaseStatRecord[]>(
     `SELECT class_id as classId,
