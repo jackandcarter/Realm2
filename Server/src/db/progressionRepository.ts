@@ -1,5 +1,6 @@
 import { randomUUID } from 'crypto';
-import { db } from './database';
+import { db, DbExecutor } from './database';
+import { getItemsByIds } from './catalogRepository';
 import { JsonValue } from '../types/characterCustomization';
 import { recordVersionConflict } from '../observability/metrics';
 import { isClassAllowedForRace } from '../config/classRules';
@@ -144,9 +145,19 @@ export class InvalidEquipmentCatalogError extends Error {
   }
 }
 
-async function ensureProgressionRow(characterId: string): Promise<void> {
+export class InvalidInventoryCatalogError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'InvalidInventoryCatalogError';
+  }
+}
+
+async function ensureProgressionRow(
+  characterId: string,
+  executor: DbExecutor = db,
+): Promise<void> {
   const now = new Date().toISOString();
-  await db.execute(
+  await executor.execute(
     `INSERT INTO character_progression (character_id, level, xp, version, updated_at)
      VALUES (?, 1, 0, 0, ?)
      ON DUPLICATE KEY UPDATE updated_at = updated_at`,
@@ -154,9 +165,12 @@ async function ensureProgressionRow(characterId: string): Promise<void> {
   );
 }
 
-async function ensureClassUnlockMeta(characterId: string): Promise<void> {
+async function ensureClassUnlockMeta(
+  characterId: string,
+  executor: DbExecutor = db,
+): Promise<void> {
   const now = new Date().toISOString();
-  await db.execute(
+  await executor.execute(
     `INSERT INTO character_class_unlock_state (character_id, version, updated_at)
      VALUES (?, 0, ?)
      ON DUPLICATE KEY UPDATE updated_at = updated_at`,
@@ -164,9 +178,12 @@ async function ensureClassUnlockMeta(characterId: string): Promise<void> {
   );
 }
 
-async function ensureInventoryMeta(characterId: string): Promise<void> {
+async function ensureInventoryMeta(
+  characterId: string,
+  executor: DbExecutor = db,
+): Promise<void> {
   const now = new Date().toISOString();
-  await db.execute(
+  await executor.execute(
     `INSERT INTO character_inventory_state (character_id, version, updated_at)
      VALUES (?, 0, ?)
      ON DUPLICATE KEY UPDATE updated_at = updated_at`,
@@ -174,9 +191,12 @@ async function ensureInventoryMeta(characterId: string): Promise<void> {
   );
 }
 
-async function ensureEquipmentMeta(characterId: string): Promise<void> {
+async function ensureEquipmentMeta(
+  characterId: string,
+  executor: DbExecutor = db,
+): Promise<void> {
   const now = new Date().toISOString();
-  await db.execute(
+  await executor.execute(
     `INSERT INTO character_equipment_state (character_id, version, updated_at)
      VALUES (?, 0, ?)
      ON DUPLICATE KEY UPDATE updated_at = updated_at`,
@@ -184,9 +204,12 @@ async function ensureEquipmentMeta(characterId: string): Promise<void> {
   );
 }
 
-async function ensureQuestMeta(characterId: string): Promise<void> {
+async function ensureQuestMeta(
+  characterId: string,
+  executor: DbExecutor = db,
+): Promise<void> {
   const now = new Date().toISOString();
-  await db.execute(
+  await executor.execute(
     `INSERT INTO character_quest_state_meta (character_id, version, updated_at)
      VALUES (?, 0, ?)
      ON DUPLICATE KEY UPDATE updated_at = updated_at`,
@@ -491,10 +514,18 @@ export async function replaceClassUnlocks(
 export async function replaceInventory(
   characterId: string,
   items: InventoryItemInput[],
-  expectedVersion: number
+  expectedVersion: number,
+  executor: DbExecutor = db
 ): Promise<InventoryCollection> {
-  await ensureInventoryMeta(characterId);
-  const currentRows = await db.query<VersionRow[]>(
+  if (executor === db) {
+    return db.withTransaction(async (tx) =>
+      replaceInventory(characterId, items, expectedVersion, tx)
+    );
+  }
+
+  await ensureInventoryMeta(characterId, executor);
+  await assertInventoryMatchesCatalog(items);
+  const currentRows = await executor.query<VersionRow[]>(
     `SELECT version, updated_at as updatedAt
      FROM character_inventory_state
      WHERE character_id = ?`,
@@ -509,29 +540,27 @@ export async function replaceInventory(
   }
 
   const now = new Date().toISOString();
-  await db.withTransaction(async (tx) => {
-    await tx.execute(`DELETE FROM character_inventory_items WHERE character_id = ?`, [
-      characterId,
-    ]);
+  await executor.execute(`DELETE FROM character_inventory_items WHERE character_id = ?`, [
+    characterId,
+  ]);
 
-    for (const item of items) {
-      const metadata = normalizeInventoryMetadata(item);
-      await tx.execute(
-        `INSERT INTO character_inventory_items (id, character_id, item_id, quantity, metadata_json)
-         VALUES (?, ?, ?, ?, ?)
-         ON DUPLICATE KEY UPDATE quantity = VALUES(quantity), metadata_json = VALUES(metadata_json)`,
-        [randomUUID(), characterId, item.itemId, item.quantity, serializeJson(metadata)]
-      );
-    }
-
-    await tx.execute(
-      `UPDATE character_inventory_state
-       SET version = version + 1,
-           updated_at = ?
-       WHERE character_id = ?`,
-      [now, characterId]
+  for (const item of items) {
+    const metadata = normalizeInventoryMetadata(item);
+    await executor.execute(
+      `INSERT INTO character_inventory_items (id, character_id, item_id, quantity, metadata_json)
+       VALUES (?, ?, ?, ?, ?)
+       ON DUPLICATE KEY UPDATE quantity = VALUES(quantity), metadata_json = VALUES(metadata_json)`,
+      [randomUUID(), characterId, item.itemId, item.quantity, serializeJson(metadata)]
     );
-  });
+  }
+
+  await executor.execute(
+    `UPDATE character_inventory_state
+     SET version = version + 1,
+         updated_at = ?
+     WHERE character_id = ?`,
+    [now, characterId]
+  );
 
   return {
     version: actualVersion + 1,
@@ -540,6 +569,38 @@ export async function replaceInventory(
       itemId: item.itemId,
       quantity: item.quantity,
       metadataJson: serializeJson(normalizeInventoryMetadata(item)),
+    })),
+  };
+}
+
+export async function getInventorySnapshotForUpdate(
+  characterId: string,
+  executor: DbExecutor = db
+): Promise<InventoryCollection> {
+  await ensureInventoryMeta(characterId, executor);
+  const metaRows = await executor.query<VersionRow[]>(
+    `SELECT version, updated_at as updatedAt
+     FROM character_inventory_state
+     WHERE character_id = ?
+     FOR UPDATE`,
+    [characterId]
+  );
+  const meta = metaRows[0];
+  const items = await executor.query<InventoryRow[]>(
+    `SELECT item_id as itemId, quantity, metadata_json as metadataJson
+     FROM character_inventory_items
+     WHERE character_id = ?
+     FOR UPDATE`,
+    [characterId]
+  );
+
+  return {
+    version: meta?.version ?? 0,
+    updatedAt: meta?.updatedAt ?? new Date().toISOString(),
+    items: items.map((row) => ({
+      itemId: row.itemId,
+      quantity: row.quantity,
+      metadataJson: row.metadataJson ?? '{}',
     })),
   };
 }
@@ -588,7 +649,7 @@ export async function replaceEquipment(
     throw new ForbiddenClassEquipmentError(characterId, raceId, forbiddenClassIds);
   }
 
-  assertEquipmentMatchesCatalog(items);
+  await assertEquipmentMatchesCatalog(items);
 
   const now = new Date().toISOString();
   await db.withTransaction(async (tx) => {
@@ -634,13 +695,83 @@ export async function replaceEquipment(
   };
 }
 
-function assertEquipmentMatchesCatalog(items: EquipmentItemInput[]): void {
+async function assertEquipmentMatchesCatalog(items: EquipmentItemInput[]): Promise<void> {
+  if (items.length === 0) {
+    return;
+  }
+  const itemIds = Array.from(new Set(items.map((item) => item.itemId?.trim()).filter(Boolean)));
+  const catalogItems = await getItemsByIds(itemIds as string[]);
+  const catalogMap = new Map(catalogItems.map((item) => [item.id, item]));
+
   for (const item of items) {
     const slot = item.slot?.trim();
     const itemId = item.itemId?.trim();
     if (!slot || !itemId) {
       throw new InvalidEquipmentCatalogError('Equipment entries must include slot and itemId.');
     }
+    const catalogItem = catalogMap.get(itemId);
+    if (!catalogItem) {
+      throw new InvalidEquipmentCatalogError(`Equipment item '${itemId}' does not exist.`);
+    }
+    const metadata = safeParseMetadata(catalogItem.metadataJson);
+    const catalogSlot = typeof metadata?.slot === 'string' ? metadata.slot : undefined;
+    if (catalogSlot && catalogSlot !== slot) {
+      throw new InvalidEquipmentCatalogError(`Equipment item '${itemId}' is not valid for ${slot}.`);
+    }
+    const requiredClassIds = Array.isArray(metadata?.requiredClassIds)
+      ? metadata?.requiredClassIds
+      : [];
+    if (requiredClassIds.length > 0 && !requiredClassIds.includes(item.classId)) {
+      throw new InvalidEquipmentCatalogError(`Equipment item '${itemId}' cannot be equipped by ${item.classId}.`);
+    }
+  }
+}
+
+async function assertInventoryMatchesCatalog(items: InventoryItemInput[]): Promise<void> {
+  if (items.length === 0) {
+    return;
+  }
+  const normalized = items.map((item) => ({
+    itemId: item.itemId?.trim(),
+    quantity: Math.floor(item.quantity ?? 0),
+  }));
+  for (const item of normalized) {
+    if (!item.itemId) {
+      throw new InvalidInventoryCatalogError('Inventory items must include itemId.');
+    }
+    if (!Number.isFinite(item.quantity) || item.quantity <= 0) {
+      throw new InvalidInventoryCatalogError('Inventory item quantity must be positive.');
+    }
+  }
+
+  const totals = new Map<string, number>();
+  for (const item of normalized) {
+    totals.set(item.itemId!, (totals.get(item.itemId!) ?? 0) + item.quantity);
+  }
+
+  const catalogItems = await getItemsByIds(Array.from(totals.keys()));
+  const catalogMap = new Map(catalogItems.map((item) => [item.id, item]));
+  for (const [itemId, quantity] of totals.entries()) {
+    const catalogItem = catalogMap.get(itemId);
+    if (!catalogItem) {
+      throw new InvalidInventoryCatalogError(`Inventory item '${itemId}' does not exist.`);
+    }
+    if (quantity > catalogItem.stackLimit) {
+      throw new InvalidInventoryCatalogError(
+        `Inventory item '${itemId}' exceeds stack limit of ${catalogItem.stackLimit}.`
+      );
+    }
+  }
+}
+
+function safeParseMetadata(metadataJson: string | null): Record<string, any> | undefined {
+  if (!metadataJson) {
+    return undefined;
+  }
+  try {
+    return JSON.parse(metadataJson) as Record<string, any>;
+  } catch (_error) {
+    return undefined;
   }
 }
 

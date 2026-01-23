@@ -131,6 +131,28 @@ export async function listItems(): Promise<ItemRecord[]> {
   );
 }
 
+export async function getItemsByIds(itemIds: string[]): Promise<ItemRecord[]> {
+  if (!itemIds.length) {
+    return [];
+  }
+  const placeholders = itemIds.map(() => '?').join(',');
+  return db.query<ItemRecord[]>(
+    `SELECT id,
+            name,
+            description,
+            category,
+            rarity,
+            stack_limit as stackLimit,
+            icon_url as iconUrl,
+            metadata_json as metadataJson,
+            created_at as createdAt,
+            updated_at as updatedAt
+     FROM items
+     WHERE id IN (${placeholders})`,
+    itemIds
+  );
+}
+
 export async function listWeapons(): Promise<WeaponRecord[]> {
   return db.query<WeaponRecord[]>(
     `SELECT item_id as itemId,
@@ -197,6 +219,28 @@ export async function listClassBaseStats(): Promise<ClassBaseStatRecord[]> {
   );
 }
 
+export async function getClassBaseStatsById(
+  classId: string
+): Promise<ClassBaseStatRecord | undefined> {
+  const rows = await db.query<ClassBaseStatRecord[]>(
+    `SELECT class_id as classId,
+            base_health as baseHealth,
+            base_mana as baseMana,
+            strength,
+            agility,
+            intelligence,
+            vitality,
+            defense,
+            crit_chance as critChance,
+            speed,
+            updated_at as updatedAt
+     FROM class_base_stats
+     WHERE class_id = ?`,
+    [classId]
+  );
+  return rows[0];
+}
+
 export async function listEnemies(): Promise<EnemyRecord[]> {
   return db.query<EnemyRecord[]>(
     `SELECT id,
@@ -247,6 +291,26 @@ export async function listAbilities(): Promise<AbilityRecord[]> {
      FROM abilities
      ORDER BY name ASC`
   );
+}
+
+export async function getAbilityById(abilityId: string): Promise<AbilityRecord | undefined> {
+  const rows = await db.query<AbilityRecord[]>(
+    `SELECT id,
+            name,
+            description,
+            ability_type as abilityType,
+            cooldown_seconds as cooldownSeconds,
+            resource_cost as resourceCost,
+            range_meters as rangeMeters,
+            cast_time_seconds as castTimeSeconds,
+            metadata_json as metadataJson,
+            created_at as createdAt,
+            updated_at as updatedAt
+     FROM abilities
+     WHERE id = ?`,
+    [abilityId]
+  );
+  return rows[0];
 }
 
 export async function listLevelProgression(): Promise<LevelProgressionRecord[]> {

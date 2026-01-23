@@ -4,25 +4,6 @@ export interface CombatVector3Dto {
   z: number;
 }
 
-export interface CombatParticipantStatDto {
-  id: string;
-  value: number;
-}
-
-export interface CombatParticipantStateDto {
-  id: string;
-  durationSeconds?: number;
-}
-
-export interface CombatParticipantSnapshotDto {
-  id: string;
-  team: string;
-  health: number;
-  maxHealth: number;
-  stats?: CombatParticipantStatDto[];
-  states?: CombatParticipantStateDto[];
-}
-
 export interface CombatAbilityExecutionRequestDto {
   requestId: string;
   abilityId: string;
@@ -31,8 +12,6 @@ export interface CombatAbilityExecutionRequestDto {
   targetIds?: string[];
   targetPoint?: CombatVector3Dto;
   clientTime: number;
-  baseDamage?: number;
-  participants: CombatParticipantSnapshotDto[];
 }
 
 export interface CombatAbilityEventDto {
