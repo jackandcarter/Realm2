@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using Client.Progression;
+using UnityEngine;
 
 namespace Client.Inventory
 {
@@ -77,8 +78,9 @@ namespace Client.Inventory
 
             if (_progressionClient == null)
             {
-                UpdateLocalInventory(characterId, sanitized);
-                onSuccess?.Invoke(true);
+                UnityEngine.Debug.LogWarning(
+                    "Inventory updates are server-authoritative. Configure a progression client before requesting updates.");
+                onSuccess?.Invoke(false);
                 yield break;
             }
 

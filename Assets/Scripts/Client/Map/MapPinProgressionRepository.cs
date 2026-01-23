@@ -104,53 +104,8 @@ namespace Client.Map
                 return;
             }
 
-            var characterId = SessionManager.SelectedCharacterId;
-            if (string.IsNullOrWhiteSpace(characterId))
-            {
-                return;
-            }
-
-            if (_snapshot == null)
-            {
-                _snapshot = new MapPinProgressionSnapshot
-                {
-                    version = 0,
-                    updatedAt = DateTime.UtcNow.ToString("O"),
-                    pins = Array.Empty<MapPinUnlockState>()
-                };
-            }
-
-            var pins = new List<MapPinUnlockState>(_snapshot.pins ?? Array.Empty<MapPinUnlockState>());
-            var normalized = pinId?.Trim();
-            if (string.IsNullOrWhiteSpace(normalized))
-            {
-                return;
-            }
-
-            var updated = false;
-            for (var i = 0; i < pins.Count; i++)
-            {
-                if (string.Equals(pins[i].pinId, normalized, StringComparison.OrdinalIgnoreCase))
-                {
-                    pins[i].unlocked = unlocked;
-                    pins[i].updatedAt = DateTime.UtcNow.ToString("O");
-                    updated = true;
-                    break;
-                }
-            }
-
-            if (!updated)
-            {
-                pins.Add(new MapPinUnlockState
-                {
-                    pinId = normalized,
-                    unlocked = unlocked,
-                    updatedAt = DateTime.UtcNow.ToString("O")
-                });
-            }
-
-            _snapshot.pins = pins.ToArray();
-            PersistSnapshot(characterId);
+            Debug.LogWarning(
+                "Map pin unlocks are server-authoritative. Client-side changes are ignored.");
         }
 
         private static void PersistSnapshot(string characterId)

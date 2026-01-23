@@ -44,17 +44,9 @@ namespace Client.BuildState
             string characterId,
             IEnumerable<BuildPlotDefinition> plots)
         {
-            if (string.IsNullOrWhiteSpace(realmId) || string.IsNullOrWhiteSpace(characterId))
-            {
-                return;
-            }
-
-            var snapshot = GetOrCreateSnapshot(realmId, characterId);
-            snapshot.plots = plots != null
-                ? CopyPlots(plots)
-                : Array.Empty<BuildPlotDefinition>();
-
-            PersistSnapshot(snapshot);
+            Debug.LogWarning(
+                "Client-side plot persistence is disabled. Build plots must be authored and stored on the server.",
+                _client as UnityEngine.Object);
         }
 
         public static void SaveConstructions(
@@ -62,17 +54,9 @@ namespace Client.BuildState
             string characterId,
             IEnumerable<ConstructionInstance.SerializableConstructionState> constructions)
         {
-            if (string.IsNullOrWhiteSpace(realmId) || string.IsNullOrWhiteSpace(characterId))
-            {
-                return;
-            }
-
-            var snapshot = GetOrCreateSnapshot(realmId, characterId);
-            snapshot.constructions = constructions != null
-                ? new List<ConstructionInstance.SerializableConstructionState>(constructions).ToArray()
-                : Array.Empty<ConstructionInstance.SerializableConstructionState>();
-
-            PersistSnapshot(snapshot);
+            Debug.LogWarning(
+                "Client-side construction persistence is disabled. Construction state must be authored and stored on the server.",
+                _client as UnityEngine.Object);
         }
 
         public static void RequestLatest(string realmId, string characterId)

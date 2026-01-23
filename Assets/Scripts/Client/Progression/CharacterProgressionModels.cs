@@ -61,6 +61,22 @@ namespace Client.Progression
     }
 
     [Serializable]
+    public class CharacterAbilityUnlockEntry
+    {
+        public string abilityId;
+        public bool unlocked;
+        public string unlockedAt;
+    }
+
+    [Serializable]
+    public class CharacterAbilityUnlockCollection
+    {
+        public int version;
+        public string updatedAt;
+        public CharacterAbilityUnlockEntry[] unlocks;
+    }
+
+    [Serializable]
     public class CharacterQuestStateEntry
     {
         public string questId;
@@ -82,6 +98,7 @@ namespace Client.Progression
     {
         public CharacterProgressionStats progression;
         public CharacterClassUnlockCollection classUnlocks;
+        public CharacterAbilityUnlockCollection abilityUnlocks;
         public CharacterInventoryCollection inventory;
         public CharacterEquipmentCollection equipment;
         public CharacterQuestCollection quests;

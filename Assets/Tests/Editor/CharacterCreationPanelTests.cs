@@ -11,7 +11,7 @@ namespace Client.Tests
     public class CharacterCreationPanelTests
     {
         [Test]
-        public void PopulateClassButtons_UsesStarterRulesAndMarksLockedClasses()
+        public void PopulateClassButtons_UsesServerUnlockStatesAndMarksLockedClasses()
         {
             var root = new GameObject("CharacterCreationPanel_TestRoot");
             try
@@ -39,6 +39,11 @@ namespace Client.Tests
                     {
                         new Client.CharacterCreation.ClassUnlockState
                         {
+                            ClassId = "wizard",
+                            Unlocked = true
+                        },
+                        new Client.CharacterCreation.ClassUnlockState
+                        {
                             ClassId = "time-mage",
                             Unlocked = false
                         }
@@ -53,10 +58,7 @@ namespace Client.Tests
 
                 InvokePrivateMethod(panel, "PopulateClassButtons", new object[] { race });
 
-                var expectedStarterIds = Client.CharacterCreation.ClassRulesCatalog
-                    .GetStarterClassIdsForRace(race.Id)
-                    .Select(id => id.Trim())
-                    .ToArray();
+                var expectedClassIds = new[] { "wizard", "time-mage" };
 
                 var buttons = new List<Button>();
                 foreach (Transform child in listRoot)
@@ -68,12 +70,12 @@ namespace Client.Tests
                     }
                 }
 
-                Assert.AreEqual(expectedStarterIds.Length, buttons.Count, "Starter class count mismatch.");
+                Assert.AreEqual(expectedClassIds.Length, buttons.Count, "Server class count mismatch.");
 
-                foreach (var starterId in expectedStarterIds)
+                foreach (var classId in expectedClassIds)
                 {
-                    Assert.IsTrue(buttons.Any(b => string.Equals(b.name, $"Class_{starterId}", StringComparison.Ordinal)),
-                        $"Missing button for starter class '{starterId}'.");
+                    Assert.IsTrue(buttons.Any(b => string.Equals(b.name, $"Class_{classId}", StringComparison.Ordinal)),
+                        $"Missing button for class '{classId}'.");
                 }
 
                 var timeMageButton = buttons.FirstOrDefault(b => b.name == "Class_time-mage");

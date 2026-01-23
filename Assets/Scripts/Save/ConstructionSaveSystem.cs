@@ -15,16 +15,9 @@ namespace Client.Save
                 return;
             }
 
-            var state = instance.CaptureState();
-            var (realmId, characterId) = ResolveSession();
-            if (string.IsNullOrWhiteSpace(realmId) || string.IsNullOrWhiteSpace(characterId))
-            {
-                return;
-            }
-
-            var payload = BuildStateRepository.GetConstructions(realmId, characterId);
-            var updated = Upsert(payload, state);
-            BuildStateRepository.SaveConstructions(realmId, characterId, updated);
+            UnityEngine.Debug.LogWarning(
+                "Client-side construction persistence is disabled. Construction state must be stored on the server.",
+                instance);
         }
 
         public static IReadOnlyList<ConstructionInstance.SerializableConstructionState> LoadInstances()

@@ -64,39 +64,20 @@ namespace Client
 
             info.ClassDisplay = classDefinition.DisplayName;
 
-            if (string.IsNullOrWhiteSpace(character.raceId))
-            {
-                info.Status = CharacterClassStatus.Unavailable;
-                info.StatusLabel = "Unknown race";
-                info.Message = $"{characterName}'s race data is missing; class eligibility cannot be verified.";
-                return info;
-            }
-
-            if (!ClassRulesCatalog.IsClassAllowedForRace(normalizedClassId, character.raceId))
-            {
-                var raceName = ResolveRaceName(character.raceId);
-                info.Status = CharacterClassStatus.Forbidden;
-                info.StatusLabel = $"Forbidden for {raceName}";
-                info.Message = $"{info.ClassDisplay} is forbidden for {raceName}.";
-                return info;
-            }
-
-            if (!ClassRulesCatalog.TryGetRule(normalizedClassId, out var rule) || rule == null)
-            {
-                info.Status = CharacterClassStatus.Unavailable;
-                info.StatusLabel = "Unavailable";
-                info.Message = $"{info.ClassDisplay} is missing class rule data.";
-                return info;
-            }
-
             if (!ClassUnlockUtility.TryGetState(character.classStates, normalizedClassId, out var state) || state == null)
             {
-                return BuildLockedStatusInfo(info, rule, characterName, missingUnlock: true);
+                info.Status = CharacterClassStatus.Locked;
+                info.StatusLabel = "Locked";
+                info.Message = $"{characterName}'s class unlock status is not yet available from the server.";
+                return info;
             }
 
             if (!state.Unlocked)
             {
-                return BuildLockedStatusInfo(info, rule, characterName, missingUnlock: false);
+                info.Status = CharacterClassStatus.Locked;
+                info.StatusLabel = "Locked";
+                info.Message = $"{info.ClassDisplay} is locked. Unlock status is controlled by the server.";
+                return info;
             }
 
             info.Status = CharacterClassStatus.Valid;
@@ -105,36 +86,5 @@ namespace Client
             return info;
         }
 
-        private static CharacterClassStatusInfo BuildLockedStatusInfo(
-            CharacterClassStatusInfo baseInfo,
-            ClassRuleDefinition rule,
-            string characterName,
-            bool missingUnlock)
-        {
-            if (rule.UnlockMethod == ClassUnlockMethod.Starter)
-            {
-                baseInfo.Status = CharacterClassStatus.Stale;
-                baseInfo.StatusLabel = missingUnlock ? "Stale starter data" : "Starter locked";
-                baseInfo.Message = $"{characterName}'s starter class {baseInfo.ClassDisplay} should already be unlocked.";
-                return baseInfo;
-            }
-
-            baseInfo.Status = CharacterClassStatus.Locked;
-            baseInfo.StatusLabel = "Locked";
-            baseInfo.Message = missingUnlock
-                ? $"{characterName} must complete the unlock quest for {baseInfo.ClassDisplay}."
-                : $"{baseInfo.ClassDisplay} is locked. Complete its quest to unlock.";
-            return baseInfo;
-        }
-
-        private static string ResolveRaceName(string raceId)
-        {
-            if (!string.IsNullOrWhiteSpace(raceId) && RaceCatalog.TryGetRace(raceId, out var race) && race != null)
-            {
-                return race.DisplayName;
-            }
-
-            return string.IsNullOrWhiteSpace(raceId) ? "Unknown" : raceId.Trim();
-        }
     }
 }

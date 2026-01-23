@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using Client.Progression;
+using UnityEngine;
 
 namespace Client.CharacterCreation
 {
@@ -83,8 +84,9 @@ namespace Client.CharacterCreation
 
             if (_progressionClient == null)
             {
-                var changed = ApplyLocalUnlock(characterId, classId);
-                onSuccess?.Invoke(changed);
+                UnityEngine.Debug.LogWarning(
+                    "Class unlocks are server-authoritative. Configure a progression client before requesting unlocks.");
+                onSuccess?.Invoke(false);
                 yield break;
             }
 
@@ -205,29 +207,6 @@ namespace Client.CharacterCreation
             }
 
             ClassUnlockStatesChanged?.Invoke(characterId, ClassUnlockUtility.CloneStates(states));
-        }
-
-        private static bool ApplyLocalUnlock(string characterId, string classId)
-        {
-            if (!StatesByCharacter.TryGetValue(characterId, out var states))
-            {
-                states = ClassUnlockUtility.SanitizeStates(null);
-            }
-
-            states = EnsureUnlocked(states, classId, out var changed);
-            if (!changed)
-            {
-                return false;
-            }
-
-            if (Characters.TryGetValue(characterId, out var character))
-            {
-                character.classStates = ClassUnlockUtility.CloneStates(states);
-            }
-
-            StatesByCharacter[characterId] = states;
-            RaiseChanged(characterId);
-            return true;
         }
 
         private static ClassUnlockState[] EnsureUnlocked(ClassUnlockState[] states, string classId, out bool changed)

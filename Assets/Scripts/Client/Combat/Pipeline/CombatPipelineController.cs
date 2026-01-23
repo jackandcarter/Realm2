@@ -16,19 +16,6 @@ namespace Client.Combat.Pipeline
         [SerializeField] private CombatTargetSelection targetSelection;
         [SerializeField] private CombatServerBridge serverBridge;
 
-        [Header("Defaults")]
-        [SerializeField] private AbilityTargetingConfig defaultTargeting = new AbilityTargetingConfig();
-        [SerializeField] private List<AbilityEffectScalingRule> scalingRules = new();
-
-        [Header("Hit Detection")]
-        [SerializeField] private bool usePhysicsHitDetection = true;
-        [SerializeField] private LayerMask hitboxMask = ~0;
-        [SerializeField] private QueryTriggerInteraction hitboxTriggerInteraction = QueryTriggerInteraction.Collide;
-
-        [Header("Server Authority")]
-        [SerializeField] private bool deferImpactUntilConfirmed = true;
-        [SerializeField] private bool applyPredictedEffects;
-
         private readonly Dictionary<string, PendingCombatAbility> _pendingAbilities = new();
 
         public event Action<CombatAbilityRequest, IReadOnlyList<CombatEffectResult>> AbilityPredicted;
@@ -37,7 +24,6 @@ namespace Client.Combat.Pipeline
         private void Awake()
         {
             ResolveReferences();
-            EnsureDefaultScalingRules();
         }
 
         private void OnEnable()
@@ -55,7 +41,6 @@ namespace Client.Combat.Pipeline
 
         private void OnValidate()
         {
-            EnsureDefaultScalingRules();
         }
 
         private void ResolveReferences()
@@ -147,66 +132,34 @@ namespace Client.Combat.Pipeline
             }
 
             var ability = resolution.SpecialAbility;
-            var targeting = ability != null ? ability.Targeting : defaultTargeting;
             var primaryTarget = targetSelection != null ? targetSelection.PrimaryTarget : null;
             var groundPoint = targetSelection != null && targetSelection.HasGroundTarget
                 ? targetSelection.GroundTargetPoint
                 : (Vector3?)null;
 
-            var targets = CombatTargetResolver.ResolveTargets(
-                targeting,
-                caster,
-                primaryTarget,
-                groundPoint,
-                CombatEntityRegistry.All);
-
-            var hitbox = ability != null ? ability.Hitbox : resolution.Hitbox;
-            var usePhysicsQuery = usePhysicsHitDetection || (hitbox != null && hitbox.RequiresContact);
-            var resolvedTargets = CombatHitboxResolver.ResolveHitTargets(
-                hitbox,
-                caster,
-                targets,
-                usePhysicsQuery,
-                hitboxMask,
-                hitboxTriggerInteraction);
-
-            var predictedResults = BuildEffectResults(ability, resolution.TotalDamage, resolvedTargets);
             var requestId = Guid.NewGuid().ToString("N");
-            var request = SendAbilityRequest(requestId, ability, resolvedTargets, groundPoint);
-
-            if (applyPredictedEffects)
-            {
-                CombatEffectResolver.ApplyResolvedEffects(predictedResults);
-            }
+            var request = SendAbilityRequest(requestId, ability, primaryTarget, groundPoint);
 
             _pendingAbilities[requestId] = new PendingCombatAbility
             {
-                Request = request,
-                Ability = ability,
-                PredictedTargets = resolvedTargets,
-                PredictedResults = predictedResults,
-                PredictedApplied = applyPredictedEffects,
-                BaseDamage = resolution.TotalDamage
+                Request = request
             };
 
-            AbilityPredicted?.Invoke(request, predictedResults);
+            AbilityPredicted?.Invoke(request, Array.Empty<CombatEffectResult>());
         }
 
         private CombatAbilityRequest SendAbilityRequest(
             string requestId,
             AbilityDefinition ability,
-            IEnumerable<CombatEntity> targets,
+            CombatEntity primaryTarget,
             Vector3? groundPoint)
         {
-            var targetIds = targets?.Where(target => target != null)
-                .Select(target => target.EntityId)
-                .Where(id => !string.IsNullOrWhiteSpace(id))
-                .Distinct()
-                .ToList() ?? new List<string>();
-
-            var primaryTargetId = targetSelection != null && targetSelection.PrimaryTarget != null
-                ? targetSelection.PrimaryTarget.EntityId
-                : targetIds.FirstOrDefault();
+            var targetIds = new List<string>();
+            var primaryTargetId = primaryTarget != null ? primaryTarget.EntityId : null;
+            if (!string.IsNullOrWhiteSpace(primaryTargetId))
+            {
+                targetIds.Add(primaryTargetId);
+            }
 
             var request = new CombatAbilityRequest
             {
@@ -227,33 +180,6 @@ namespace Client.Combat.Pipeline
             return request;
         }
 
-        private void EnsureDefaultScalingRules()
-        {
-            if (scalingRules == null)
-            {
-                scalingRules = new List<AbilityEffectScalingRule>();
-            }
-
-            if (scalingRules.Count > 0)
-            {
-                return;
-            }
-
-            scalingRules.Add(new AbilityEffectScalingRule
-            {
-                EffectType = AbilityEffectType.Damage,
-                StatId = "stat.attackPower",
-                Ratio = 0.5f
-            });
-
-            scalingRules.Add(new AbilityEffectScalingRule
-            {
-                EffectType = AbilityEffectType.Heal,
-                StatId = "stat.magic",
-                Ratio = 0.6f
-            });
-        }
-
         private void HandleAbilityConfirmed(CombatAbilityConfirmation confirmation)
         {
             if (caster == null)
@@ -268,84 +194,14 @@ namespace Client.Combat.Pipeline
 
             _pendingAbilities.Remove(confirmation.requestId ?? string.Empty);
 
-            var confirmedTargets = ResolveConfirmedTargets(confirmation, pending);
-            var confirmedResults = BuildConfirmedResults(confirmation, pending, confirmedTargets);
+            var confirmedResults = BuildResultsFromEvents(confirmation.events);
 
-            if (!deferImpactUntilConfirmed && pending.PredictedApplied)
+            if (confirmedResults.Count > 0)
             {
-                AbilityConfirmed?.Invoke(confirmation, confirmedResults);
-                return;
+                CombatEffectResolver.ApplyResolvedEffects(confirmedResults);
             }
 
-            if (pending.PredictedApplied)
-            {
-                var reconciledResults = ReconcilePredictedResults(pending, confirmedResults);
-                CombatEffectResolver.ApplyResolvedEffects(reconciledResults);
-                AbilityConfirmed?.Invoke(confirmation, reconciledResults);
-                return;
-            }
-
-            CombatEffectResolver.ApplyResolvedEffects(confirmedResults);
             AbilityConfirmed?.Invoke(confirmation, confirmedResults);
-        }
-
-        private List<CombatEntity> ResolveConfirmedTargets(
-            CombatAbilityConfirmation confirmation,
-            PendingCombatAbility pending)
-        {
-            if (confirmation.events != null && confirmation.events.Count > 0)
-            {
-                return ResolveTargetsFromEvents(confirmation.events);
-            }
-
-            if (confirmation.targetIds != null && confirmation.targetIds.Count > 0)
-            {
-                var targets = new List<CombatEntity>();
-                foreach (var targetId in confirmation.targetIds)
-                {
-                    if (string.IsNullOrWhiteSpace(targetId))
-                    {
-                        continue;
-                    }
-
-                    var entity = CombatEntityRegistry.All.FirstOrDefault(candidate =>
-                        candidate != null && string.Equals(candidate.EntityId, targetId, StringComparison.OrdinalIgnoreCase));
-                    if (entity != null)
-                    {
-                        targets.Add(entity);
-                    }
-                }
-
-                return targets;
-            }
-
-            return pending.PredictedTargets ?? new List<CombatEntity>();
-        }
-
-        private List<CombatEffectResult> BuildConfirmedResults(
-            CombatAbilityConfirmation confirmation,
-            PendingCombatAbility pending,
-            IReadOnlyList<CombatEntity> confirmedTargets)
-        {
-            if (confirmation.events != null && confirmation.events.Count > 0)
-            {
-                return BuildResultsFromEvents(confirmation.events);
-            }
-
-            return BuildEffectResults(pending.Ability, pending.BaseDamage, confirmedTargets);
-        }
-
-        private List<CombatEffectResult> BuildEffectResults(
-            AbilityDefinition ability,
-            float baseDamage,
-            IReadOnlyList<CombatEntity> targets)
-        {
-            if (ability != null && ability.Effects != null && ability.Effects.Count > 0)
-            {
-                return CombatEffectResolver.ResolveEffects(caster, targets, ability.Effects, scalingRules);
-            }
-
-            return BuildBasicDamageResults(baseDamage, targets);
         }
 
         private List<CombatEffectResult> BuildResultsFromEvents(IReadOnlyList<CombatAbilityEvent> events)
@@ -406,134 +262,9 @@ namespace Client.Combat.Pipeline
             }
         }
 
-        private List<CombatEffectResult> ReconcilePredictedResults(
-            PendingCombatAbility pending,
-            IReadOnlyList<CombatEffectResult> confirmedResults)
-        {
-            var reconciled = new List<CombatEffectResult>();
-            if (confirmedResults == null)
-            {
-                return reconciled;
-            }
-
-            var predictedLookup = new Dictionary<(string, AbilityEffectType, string), CombatEffectResult>();
-            if (pending.PredictedResults != null)
-            {
-                foreach (var result in pending.PredictedResults)
-                {
-                    if (result.Target == null)
-                    {
-                        continue;
-                    }
-
-                    var key = (result.Target.EntityId, result.EffectType, result.StateName ?? string.Empty);
-                    predictedLookup[key] = result;
-                }
-            }
-
-            foreach (var confirmed in confirmedResults)
-            {
-                if (confirmed.Target == null)
-                {
-                    continue;
-                }
-
-                var key = (confirmed.Target.EntityId, confirmed.EffectType, confirmed.StateName ?? string.Empty);
-                if (!predictedLookup.TryGetValue(key, out var predicted))
-                {
-                    reconciled.Add(confirmed);
-                    continue;
-                }
-
-                if (confirmed.EffectType == AbilityEffectType.Damage || confirmed.EffectType == AbilityEffectType.Heal)
-                {
-                    var delta = confirmed.Amount - predicted.Amount;
-                    if (Mathf.Abs(delta) > 0.01f)
-                    {
-                        reconciled.Add(new CombatEffectResult
-                        {
-                            EffectType = delta >= 0f
-                                ? confirmed.EffectType
-                                : confirmed.EffectType == AbilityEffectType.Damage
-                                    ? AbilityEffectType.Heal
-                                    : AbilityEffectType.Damage,
-                            Target = confirmed.Target,
-                            Amount = Mathf.Abs(delta),
-                            StateName = confirmed.StateName,
-                            DurationSeconds = confirmed.DurationSeconds,
-                            CustomSummary = confirmed.CustomSummary
-                        });
-                    }
-
-                    continue;
-                }
-            }
-
-            return reconciled;
-        }
-
-        private static List<CombatEntity> ResolveTargetsFromEvents(IEnumerable<CombatAbilityEvent> events)
-        {
-            var targets = new List<CombatEntity>();
-            if (events == null)
-            {
-                return targets;
-            }
-
-            foreach (var serverEvent in events)
-            {
-                if (string.IsNullOrWhiteSpace(serverEvent.targetId))
-                {
-                    continue;
-                }
-
-                var entity = CombatEntityRegistry.All.FirstOrDefault(candidate =>
-                    candidate != null && string.Equals(candidate.EntityId, serverEvent.targetId, StringComparison.OrdinalIgnoreCase));
-                if (entity != null)
-                {
-                    targets.Add(entity);
-                }
-            }
-
-            return targets;
-        }
-
-        private static List<CombatEffectResult> BuildBasicDamageResults(
-            float damage,
-            IReadOnlyList<CombatEntity> targets)
-        {
-            var results = new List<CombatEffectResult>();
-            if (targets == null)
-            {
-                return results;
-            }
-
-            foreach (var target in targets)
-            {
-                if (target == null)
-                {
-                    continue;
-                }
-
-                results.Add(new CombatEffectResult
-                {
-                    EffectType = AbilityEffectType.Damage,
-                    Target = target,
-                    Amount = damage
-                });
-            }
-
-            return results;
-        }
-
         private sealed class PendingCombatAbility
         {
             public CombatAbilityRequest Request;
-            public AbilityDefinition Ability;
-            public List<CombatEntity> PredictedTargets;
-            public List<CombatEffectResult> PredictedResults;
-            public bool PredictedApplied;
-            public float BaseDamage;
         }
     }
 }
