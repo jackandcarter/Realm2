@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Client.Combat;
-using Client.Combat.Stats;
 using Realm.Abilities;
 using UnityEngine;
 
@@ -173,7 +172,7 @@ namespace Client.Combat.Pipeline
 
             var predictedResults = BuildEffectResults(ability, resolution.TotalDamage, resolvedTargets);
             var requestId = Guid.NewGuid().ToString("N");
-            var request = SendAbilityRequest(requestId, ability, resolvedTargets, groundPoint, resolution.TotalDamage);
+            var request = SendAbilityRequest(requestId, ability, resolvedTargets, groundPoint);
 
             if (applyPredictedEffects)
             {
@@ -197,8 +196,7 @@ namespace Client.Combat.Pipeline
             string requestId,
             AbilityDefinition ability,
             IEnumerable<CombatEntity> targets,
-            Vector3? groundPoint,
-            float baseDamage)
+            Vector3? groundPoint)
         {
             var targetIds = targets?.Where(target => target != null)
                 .Select(target => target.EntityId)
@@ -218,9 +216,7 @@ namespace Client.Combat.Pipeline
                 primaryTargetId = primaryTargetId,
                 targetIds = targetIds,
                 targetPoint = groundPoint ?? caster.Position,
-                clientTime = Time.time,
-                baseDamage = baseDamage,
-                participants = BuildParticipantSnapshots()
+                clientTime = Time.time
             };
 
             if (serverBridge != null)
@@ -500,62 +496,6 @@ namespace Client.Combat.Pipeline
             }
 
             return targets;
-        }
-
-        private List<CombatParticipantSnapshot> BuildParticipantSnapshots()
-        {
-            var participants = new List<CombatParticipantSnapshot>();
-            foreach (var entity in CombatEntityRegistry.All)
-            {
-                if (entity == null)
-                {
-                    continue;
-                }
-
-                var stats = BuildParticipantStats(entity);
-                participants.Add(new CombatParticipantSnapshot
-                {
-                    id = entity.EntityId,
-                    team = entity.Team.ToString().ToLowerInvariant(),
-                    health = entity.CurrentHealth,
-                    maxHealth = entity.MaxHealth,
-                    stats = stats
-                });
-            }
-
-            return participants;
-        }
-
-        private static List<CombatParticipantStat> BuildParticipantStats(CombatEntity entity)
-        {
-            var provider = entity.GetComponent<ICombatStatSnapshotProvider>();
-            if (provider == null)
-            {
-                return new List<CombatParticipantStat>();
-            }
-
-            var snapshot = provider.GetStatsSnapshot();
-            var stats = new List<CombatParticipantStat>();
-            if (snapshot == null)
-            {
-                return stats;
-            }
-
-            foreach (var entry in snapshot)
-            {
-                if (string.IsNullOrWhiteSpace(entry.Key))
-                {
-                    continue;
-                }
-
-                stats.Add(new CombatParticipantStat
-                {
-                    id = entry.Key,
-                    value = entry.Value
-                });
-            }
-
-            return stats;
         }
 
         private static List<CombatEffectResult> BuildBasicDamageResults(
