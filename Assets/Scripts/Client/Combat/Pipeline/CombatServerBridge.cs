@@ -17,8 +17,6 @@ namespace Client.Combat.Pipeline
         public List<string> targetIds;
         public Vector3 targetPoint;
         public float clientTime;
-        public float baseDamage;
-        public List<CombatParticipantSnapshot> participants;
     }
 
     [Serializable]
@@ -39,31 +37,6 @@ namespace Client.Combat.Pipeline
         public string targetId;
         public float amount;
         public string stateId;
-        public float durationSeconds;
-    }
-
-    [Serializable]
-    public struct CombatParticipantSnapshot
-    {
-        public string id;
-        public string team;
-        public float health;
-        public float maxHealth;
-        public List<CombatParticipantStat> stats;
-        public List<CombatParticipantState> states;
-    }
-
-    [Serializable]
-    public struct CombatParticipantStat
-    {
-        public string id;
-        public float value;
-    }
-
-    [Serializable]
-    public struct CombatParticipantState
-    {
-        public string id;
         public float durationSeconds;
     }
 
@@ -98,7 +71,7 @@ namespace Client.Combat.Pipeline
         {
             AbilityRequested?.Invoke(request);
 
-            if (!autoConfirm)
+            if (!autoConfirm || !useMockServer)
             {
                 StartCoroutine(SendAbilityRequest(request));
                 return;
@@ -139,7 +112,7 @@ namespace Client.Combat.Pipeline
             if (requestError != null)
             {
                 Debug.LogWarning($"CombatServerBridge failed to send ability request: {requestError.Message}", this);
-                if (fallbackToLocalOnError)
+                if (fallbackToLocalOnError && useMockServer)
                 {
                     ReceiveServerConfirmation(new CombatAbilityConfirmation
                     {
