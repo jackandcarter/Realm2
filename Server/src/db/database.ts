@@ -2,6 +2,7 @@ import mysql, { Pool, PoolConnection, ResultSetHeader, RowDataPacket } from 'mys
 import { env } from '../config/env';
 import { runMigrations } from './migrationRunner';
 import { seedCatalogData } from './catalogSeeder';
+import { seedDefaultCurrencies } from './currencySeeder';
 import { measurePersistenceOperationAsync } from '../observability/metrics';
 import { logger } from '../observability/logger';
 
@@ -130,6 +131,7 @@ export async function initializeDatabase(): Promise<void> {
   await runMigrations(db);
   await seedRealms();
   await seedCatalogData(db);
+  await seedDefaultCurrencies(db);
   logger.info('Database connection established');
 }
 
@@ -157,6 +159,21 @@ export async function resetDatabase(): Promise<void> {
   await db.execute('DELETE FROM character_equipment_state');
   await db.execute('DELETE FROM character_inventory_items');
   await db.execute('DELETE FROM character_inventory_state');
+  await db.execute('DELETE FROM trade_items');
+  await db.execute('DELETE FROM trades');
+  await db.execute('DELETE FROM vendor_items');
+  await db.execute('DELETE FROM vendors');
+  await db.execute('DELETE FROM character_currencies');
+  await db.execute('DELETE FROM currencies');
+  await db.execute('DELETE FROM chat_messages');
+  await db.execute('DELETE FROM chat_channels');
+  await db.execute('DELETE FROM mail_items');
+  await db.execute('DELETE FROM mail');
+  await db.execute('DELETE FROM party_members');
+  await db.execute('DELETE FROM parties');
+  await db.execute('DELETE FROM friends');
+  await db.execute('DELETE FROM guild_members');
+  await db.execute('DELETE FROM guilds');
   await db.execute('DELETE FROM character_class_unlocks');
   await db.execute('DELETE FROM character_class_unlock_state');
   await db.execute('DELETE FROM character_progression');
@@ -174,4 +191,5 @@ export async function resetDatabase(): Promise<void> {
   await db.execute('DELETE FROM realms');
   await db.execute('DELETE FROM users');
   await seedRealms();
+  await seedDefaultCurrencies(db);
 }

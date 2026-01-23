@@ -6,6 +6,7 @@ import { id as equipmentId, name as equipmentName, up as equipmentUp } from './m
 import { id as worldBuildId, name as worldBuildName, up as worldBuildUp } from './migrations/005_worldBuilding';
 import { id as catalogId, name as catalogName, up as catalogUp } from './migrations/006_mmoCatalog';
 import { id as actionRequestsId, name as actionRequestsName, up as actionRequestsUp } from './migrations/007_actionRequests';
+import { id as socialEconomyId, name as socialEconomyName, up as socialEconomyUp } from './migrations/008_socialEconomy';
 import type { DbExecutor } from './database';
 
 interface DatabaseMigration {
@@ -21,6 +22,7 @@ const migrations: DatabaseMigration[] = [
   { id: worldBuildId, name: worldBuildName, up: worldBuildUp },
   { id: catalogId, name: catalogName, up: catalogUp },
   { id: actionRequestsId, name: actionRequestsName, up: actionRequestsUp },
+  { id: socialEconomyId, name: socialEconomyName, up: socialEconomyUp },
 ];
 
 async function ensureMigrationsTable(db: DbExecutor): Promise<void> {
