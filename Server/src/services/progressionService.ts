@@ -18,6 +18,10 @@ import {
   VersionConflictError,
   getCharacterProgressionSnapshot,
   initializeCharacterProgressionState,
+  grantProgressionExperience,
+  grantInventoryItems,
+  consumeInventoryItems,
+  upsertQuestState,
   replaceClassUnlocks,
   replaceEquipment,
   replaceInventory,
@@ -26,6 +30,7 @@ import {
 } from '../db/progressionRepository';
 import { findUserById } from '../db/userRepository';
 import { AuthPayload } from '../middleware/authMiddleware';
+import { JsonValue } from '../types/characterCustomization';
 import { HttpError } from '../utils/errors';
 
 export interface ProgressionUpdateInput {
@@ -56,6 +61,22 @@ export interface ProgressionIntentResponse {
   requestId: string;
   status: ActionRequestStatus;
   createdAt: string;
+}
+
+export interface InventoryItemGrant {
+  itemId: string;
+  quantity: number;
+  metadata?: JsonValue | undefined;
+}
+
+export interface InventoryItemConsumption {
+  itemId: string;
+  quantity: number;
+}
+
+export interface QuestCompletionInput {
+  questId: string;
+  progress?: JsonValue | undefined;
 }
 
 interface ProgressionSocketUpdate {
@@ -183,6 +204,82 @@ export async function applyProgressionUpdate(
   if (input.quests) {
     await replaceQuestStates(characterId, input.quests.quests, input.quests.expectedVersion);
   }
+
+  const snapshot = await getCharacterProgressionSnapshot(characterId);
+  broadcastProgression(characterId, snapshot);
+  return snapshot;
+}
+
+export async function applyProgressionXpGrant(
+  characterId: string,
+  amount: number
+): Promise<CharacterProgressionSnapshot> {
+  if (!Number.isFinite(amount) || amount <= 0) {
+    throw new HttpError(400, 'XP grant amount must be positive');
+  }
+
+  await initializeCharacterProgressionState(characterId);
+  await grantProgressionExperience(characterId, amount);
+
+  const snapshot = await getCharacterProgressionSnapshot(characterId);
+  broadcastProgression(characterId, snapshot);
+  return snapshot;
+}
+
+export async function applyInventoryGrant(
+  characterId: string,
+  item: InventoryItemGrant
+): Promise<CharacterProgressionSnapshot> {
+  if (!item.itemId?.trim()) {
+    throw new HttpError(400, 'itemId is required');
+  }
+  if (!Number.isFinite(item.quantity) || item.quantity <= 0) {
+    throw new HttpError(400, 'quantity must be positive');
+  }
+
+  await initializeCharacterProgressionState(characterId);
+  await grantInventoryItems(characterId, [
+    { itemId: item.itemId.trim(), quantity: item.quantity, metadata: item.metadata },
+  ]);
+
+  const snapshot = await getCharacterProgressionSnapshot(characterId);
+  broadcastProgression(characterId, snapshot);
+  return snapshot;
+}
+
+export async function applyInventoryConsumption(
+  characterId: string,
+  item: InventoryItemConsumption
+): Promise<CharacterProgressionSnapshot> {
+  if (!item.itemId?.trim()) {
+    throw new HttpError(400, 'itemId is required');
+  }
+  if (!Number.isFinite(item.quantity) || item.quantity <= 0) {
+    throw new HttpError(400, 'quantity must be positive');
+  }
+
+  await initializeCharacterProgressionState(characterId);
+  await consumeInventoryItems(characterId, [{ itemId: item.itemId.trim(), quantity: item.quantity }]);
+
+  const snapshot = await getCharacterProgressionSnapshot(characterId);
+  broadcastProgression(characterId, snapshot);
+  return snapshot;
+}
+
+export async function applyQuestCompletion(
+  characterId: string,
+  quest: QuestCompletionInput
+): Promise<CharacterProgressionSnapshot> {
+  if (!quest.questId?.trim()) {
+    throw new HttpError(400, 'questId is required');
+  }
+
+  await initializeCharacterProgressionState(characterId);
+  await upsertQuestState(characterId, {
+    questId: quest.questId.trim(),
+    status: 'completed',
+    progress: quest.progress,
+  });
 
   const snapshot = await getCharacterProgressionSnapshot(characterId);
   broadcastProgression(characterId, snapshot);

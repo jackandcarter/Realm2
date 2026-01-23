@@ -4,7 +4,14 @@ import {
   markActionRequestProcessing,
   resolveActionRequest,
 } from '../db/actionRequestRepository';
-import { applyProgressionUpdate, ProgressionUpdateInput } from './progressionService';
+import {
+  applyInventoryConsumption,
+  applyInventoryGrant,
+  applyProgressionUpdate,
+  applyProgressionXpGrant,
+  applyQuestCompletion,
+  ProgressionUpdateInput,
+} from './progressionService';
 import { HttpError } from '../utils/errors';
 
 const PROCESSOR_POLL_MS = 2000;
@@ -55,6 +62,34 @@ async function handleActionRequest(
       await applyProgressionUpdate(characterId, payload);
       return;
     }
+    case 'progression.grantXp': {
+      const payload = parsePayload<{ amount?: unknown }>(payloadJson);
+      const amount = ensurePositiveNumber(payload.amount, 'amount');
+      await applyProgressionXpGrant(characterId, amount);
+      return;
+    }
+    case 'inventory.grantItem': {
+      const payload = parsePayload<{ itemId?: unknown; quantity?: unknown; metadata?: unknown }>(
+        payloadJson
+      );
+      const itemId = ensureNonEmptyString(payload.itemId, 'itemId');
+      const quantity = ensurePositiveNumber(payload.quantity, 'quantity');
+      await applyInventoryGrant(characterId, { itemId, quantity, metadata: payload.metadata });
+      return;
+    }
+    case 'inventory.consumeItem': {
+      const payload = parsePayload<{ itemId?: unknown; quantity?: unknown }>(payloadJson);
+      const itemId = ensureNonEmptyString(payload.itemId, 'itemId');
+      const quantity = ensurePositiveNumber(payload.quantity, 'quantity');
+      await applyInventoryConsumption(characterId, { itemId, quantity });
+      return;
+    }
+    case 'quest.complete': {
+      const payload = parsePayload<{ questId?: unknown; progress?: unknown }>(payloadJson);
+      const questId = ensureNonEmptyString(payload.questId, 'questId');
+      await applyQuestCompletion(characterId, { questId, progress: payload.progress });
+      return;
+    }
     default:
       throw new HttpError(400, `Unsupported action request type '${requestType}'.`);
   }
@@ -66,4 +101,19 @@ function parsePayload<T>(payloadJson: string): T {
   } catch (_error) {
     return {} as T;
   }
+}
+
+function ensureNonEmptyString(value: unknown, fieldName: string): string {
+  if (typeof value !== 'string' || value.trim().length === 0) {
+    throw new HttpError(400, `${fieldName} must be a non-empty string.`);
+  }
+  return value.trim();
+}
+
+function ensurePositiveNumber(value: unknown, fieldName: string): number {
+  const numberValue = typeof value === 'number' ? value : Number(value);
+  if (!Number.isFinite(numberValue) || numberValue <= 0) {
+    throw new HttpError(400, `${fieldName} must be a positive number.`);
+  }
+  return numberValue;
 }
