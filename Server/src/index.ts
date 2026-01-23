@@ -7,6 +7,7 @@ import { registerChunkSocketHandlers } from './services/chunkSocketService';
 import { logger } from './observability/logger';
 import { initializeDatabase } from './db/database';
 import { startActionRequestProcessor } from './services/actionRequestProcessor';
+import { startCommandConsole } from './cli/commandConsole';
 
 async function startServer(): Promise<void> {
   await initializeDatabase();
@@ -20,6 +21,7 @@ async function startServer(): Promise<void> {
   server.listen(env.port, () => {
     logger.info({ port: env.port }, 'Server listening');
   });
+  startCommandConsole();
 }
 
 startServer().catch((error) => {
