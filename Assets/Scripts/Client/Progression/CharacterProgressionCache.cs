@@ -119,6 +119,14 @@ namespace Client.Progression
                         updatedAt = source.classUnlocks.updatedAt,
                         unlocks = CloneClassUnlocks(source.classUnlocks.unlocks)
                     },
+                abilityUnlocks = source.abilityUnlocks == null
+                    ? null
+                    : new CharacterAbilityUnlockCollection
+                    {
+                        version = source.abilityUnlocks.version,
+                        updatedAt = source.abilityUnlocks.updatedAt,
+                        unlocks = CloneAbilityUnlocks(source.abilityUnlocks.unlocks)
+                    },
                 inventory = source.inventory == null
                     ? null
                     : new CharacterInventoryCollection
@@ -178,6 +186,30 @@ namespace Client.Progression
                     : new CharacterClassUnlockEntry
                     {
                         classId = entry.classId,
+                        unlocked = entry.unlocked,
+                        unlockedAt = entry.unlockedAt
+                    };
+            }
+
+            return clone;
+        }
+
+        private static CharacterAbilityUnlockEntry[] CloneAbilityUnlocks(CharacterAbilityUnlockEntry[] unlocks)
+        {
+            if (unlocks == null || unlocks.Length == 0)
+            {
+                return Array.Empty<CharacterAbilityUnlockEntry>();
+            }
+
+            var clone = new CharacterAbilityUnlockEntry[unlocks.Length];
+            for (var i = 0; i < unlocks.Length; i++)
+            {
+                var entry = unlocks[i];
+                clone[i] = entry == null
+                    ? null
+                    : new CharacterAbilityUnlockEntry
+                    {
+                        abilityId = entry.abilityId,
                         unlocked = entry.unlocked,
                         unlockedAt = entry.unlockedAt
                     };

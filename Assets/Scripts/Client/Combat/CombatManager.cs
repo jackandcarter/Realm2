@@ -185,20 +185,16 @@ namespace Client.Combat
 
         private WeaponAttackResolution BuildResolution(WeaponAttackRequest request, AbilityDefinition ability)
         {
-            var attackerStats = _statsProvider?.GetCombatStats() ?? CombatStats.Default;
-            var damageBreakdown = PhysicalDamageCalculator.Calculate(request, attackerStats);
-            var damage = damageBreakdown.TotalDamage;
-            var accuracy = request.Accuracy;
-            var hitbox = ability != null ? ability.Hitbox : defaultWeaponHitbox;
+            var hitbox = ability != null ? ability.Hitbox : null;
 
             return new WeaponAttackResolution(
                 request,
-                damage,
-                accuracy,
+                0f,
+                0f,
                 CloneHitbox(hitbox),
                 ability,
-                attackerStats,
-                damageBreakdown);
+                CombatStats.Default,
+                new PhysicalDamageResult(0f, 0f, 0f, 0f));
         }
 
         private AbilityDefinition ResolveSpecialAbility(WeaponAttackRequest request)
@@ -224,35 +220,9 @@ namespace Client.Combat
                 return;
             }
 
-            var totalDamage = resolution.TotalDamage;
-            if (ability.Effects == null || ability.Effects.Count == 0)
-            {
-                Debug.Log(
-                    $"Resolved special ability '{ability.AbilityName}' with {totalDamage:0.#} damage and {resolution.Accuracy:P0} accuracy.",
-                    this);
-                return;
-            }
-
-            foreach (var effect in ability.Effects)
-            {
-                if (effect == null)
-                {
-                    continue;
-                }
-
-                if (effect.EffectType == AbilityEffectType.Damage)
-                {
-                    Debug.Log(
-                        $"Special ability '{ability.AbilityName}' damage effect resolved for {totalDamage:0.#} damage.",
-                        this);
-                }
-                else
-                {
-                    Debug.Log(
-                        $"Special ability '{ability.AbilityName}' resolved effect '{effect.Name}' ({effect.EffectType}).",
-                        this);
-                }
-            }
+            Debug.Log(
+                $"Queued special ability '{ability.AbilityName}' for server resolution.",
+                this);
         }
 
         private void BuildAbilityLookup()

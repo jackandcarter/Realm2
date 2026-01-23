@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using Client.Progression;
+using UnityEngine;
 
 namespace Client.Equipment
 {
@@ -76,8 +77,9 @@ namespace Client.Equipment
 
             if (_progressionClient == null)
             {
-                UpdateLocalEquipment(characterId, sanitized);
-                onSuccess?.Invoke(true);
+                UnityEngine.Debug.LogWarning(
+                    "Equipment updates are server-authoritative. Configure a progression client before requesting updates.");
+                onSuccess?.Invoke(false);
                 yield break;
             }
 

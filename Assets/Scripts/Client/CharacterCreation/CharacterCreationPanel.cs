@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using UnityEngine;
 using UnityEngine.UI;
@@ -196,15 +197,10 @@ namespace Client.CharacterCreation
                 return state;
             }
 
-            var unlocked = false;
-            if (ClassRulesCatalog.TryGetRule(trimmed, out var rule))
-            {
-                unlocked = rule.UnlockMethod == ClassUnlockMethod.Starter;
-            }
             state = new ClassUnlockState
             {
                 ClassId = trimmed,
-                Unlocked = unlocked
+                Unlocked = false
             };
             _classStatesById[trimmed] = state;
             return state;
@@ -519,7 +515,7 @@ namespace Client.CharacterCreation
                 return;
             }
 
-            var allowedClassIds = ClassRulesCatalog.GetStarterClassIdsForRace(race.Id);
+            var allowedClassIds = _classStatesById.Keys.ToArray();
             if (allowedClassIds == null || allowedClassIds.Length == 0)
             {
                 SelectClass(null);
@@ -538,8 +534,6 @@ namespace Client.CharacterCreation
 
                 var state = EnsureClassState(classDefinition.Id);
                 var unlocked = state?.Unlocked ?? false;
-                var hasRule = ClassRulesCatalog.TryGetRule(classDefinition.Id, out var rule) && rule != null;
-                var requiresExplicitUnlock = hasRule && rule.UnlockMethod != ClassUnlockMethod.Starter;
 
                 _availableClassDefinitions.Add(classDefinition);
 
@@ -559,10 +553,7 @@ namespace Client.CharacterCreation
                         }
                         else
                         {
-                            var reason = requiresExplicitUnlock
-                                ? "Requires quest unlock."
-                                : "Unlock through gameplay.";
-                            label.text = $"{classDefinition.DisplayName} (Locked — {reason})";
+                            label.text = $"{classDefinition.DisplayName} (Locked — unlock on server)";
                         }
                     }
 
@@ -731,33 +722,17 @@ namespace Client.CharacterCreation
 
         private ClassUnlockState[] BuildClassStates()
         {
-            if (_selectedRace?.AllowedClassIds == null || _selectedRace.AllowedClassIds.Length == 0)
+            if (_classStatesById.Count == 0)
             {
                 return Array.Empty<ClassUnlockState>();
             }
 
-            var states = new List<ClassUnlockState>(_selectedRace.AllowedClassIds.Length);
-            foreach (var classId in _selectedRace.AllowedClassIds)
+            var states = new List<ClassUnlockState>(_classStatesById.Count);
+            foreach (var state in _classStatesById.Values)
             {
-                if (string.IsNullOrWhiteSpace(classId))
-                {
-                    continue;
-                }
-
-                var state = EnsureClassState(classId);
                 if (state == null)
                 {
                     continue;
-                }
-
-                if (_selectedRace != null && ClassRulesCatalog.IsStarterClassForRace(state.ClassId, _selectedRace.Id))
-                {
-                    state.Unlocked = true;
-                }
-
-                if (_selectedClass != null && string.Equals(state.ClassId, _selectedClass.Id, StringComparison.OrdinalIgnoreCase))
-                {
-                    state.Unlocked = true;
                 }
 
                 states.Add(new ClassUnlockState

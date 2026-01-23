@@ -344,63 +344,7 @@ namespace Client
 
         private static ClassUnlockState[] BuildDefaultClassStates(string raceId, string activeClassId)
         {
-            if (!RaceCatalog.TryGetRace(raceId, out var race) || race?.AllowedClassIds == null)
-            {
-                return Array.Empty<ClassUnlockState>();
-            }
-
-            var states = new List<ClassUnlockState>(race.AllowedClassIds.Length);
-            foreach (var allowedClassId in race.AllowedClassIds)
-            {
-                if (string.IsNullOrWhiteSpace(allowedClassId))
-                {
-                    continue;
-                }
-
-                var trimmedId = allowedClassId.Trim();
-                var unlocked = (!string.IsNullOrWhiteSpace(activeClassId)
-                        && string.Equals(trimmedId, activeClassId, StringComparison.OrdinalIgnoreCase))
-                    || ClassRulesCatalog.IsStarterClassForRace(trimmedId, raceId);
-                states.Add(new ClassUnlockState
-                {
-                    ClassId = trimmedId,
-                    Unlocked = unlocked
-                });
-            }
-
-            return ClassUnlockUtility.SanitizeStates(states.ToArray());
-        }
-
-        private static string GetDefaultClassForRace(string raceId)
-        {
-            if (!RaceCatalog.TryGetRace(raceId, out var race))
-            {
-                return null;
-            }
-
-            if (race.StarterClassIds != null)
-            {
-                foreach (var starter in race.StarterClassIds)
-                {
-                    if (!string.IsNullOrWhiteSpace(starter))
-                    {
-                        return starter.Trim();
-                    }
-                }
-            }
-
-            if (race.AllowedClassIds != null)
-            {
-                foreach (var allowed in race.AllowedClassIds)
-                {
-                    if (!string.IsNullOrWhiteSpace(allowed))
-                    {
-                        return allowed.Trim();
-                    }
-                }
-            }
-
-            return null;
+            return Array.Empty<ClassUnlockState>();
         }
 
         private IEnumerator RunMockCreateCharacter(string realmId, string name, string bio, Action<CharacterInfo> onSuccess, Action<ApiError> onError, CharacterCreationSelection? selection)
@@ -417,7 +361,7 @@ namespace Client
             var selectedClassId = selection.HasValue && selection.Value.Class != null ? selection.Value.Class.Id : null;
             if (string.IsNullOrWhiteSpace(selectedClassId))
             {
-                selectedClassId = GetDefaultClassForRace(raceId) ?? "warrior";
+                selectedClassId = null;
             }
 
             var classStates = selection.HasValue
