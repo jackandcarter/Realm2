@@ -166,17 +166,29 @@ function buildAbilitySeeds(): { abilities: AbilitySeed[] } {
 }
 
 function buildLevelSeeds(): LevelSeed[] {
-  return [
-    {
-      level: 1,
-      xpRequired: 0,
-      totalXp: 0,
-      hpGain: 0,
-      manaGain: 0,
-      statPoints: 0,
+  const levelCap = 60;
+  const seeds: LevelSeed[] = [];
+  let totalXp = 0;
+
+  for (let level = 1; level <= levelCap; level += 1) {
+    const xpRequired = level === 1 ? 0 : Math.round(75 * Math.pow(level, 2));
+    totalXp += xpRequired;
+    const hpGain = level === 1 ? 0 : Math.round(8 + level * 1.6);
+    const manaGain = level === 1 ? 0 : Math.round(5 + level * 1.2);
+    const statPoints = level === 1 ? 0 : 2 + Math.floor(level / 10);
+
+    seeds.push({
+      level,
+      xpRequired,
+      totalXp,
+      hpGain,
+      manaGain,
+      statPoints,
       reward: {},
-    },
-  ];
+    });
+  }
+
+  return seeds;
 }
 
 export async function seedCatalogData(db: DbExecutor): Promise<void> {

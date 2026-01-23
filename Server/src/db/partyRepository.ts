@@ -1,5 +1,6 @@
 import { randomUUID } from 'crypto';
 import { db, DbExecutor } from './database';
+import { PartyRole } from '../config/gameEnums';
 
 export interface Party {
   id: string;
@@ -13,7 +14,7 @@ export interface PartyMember {
   id: string;
   partyId: string;
   characterId: string;
-  role: string;
+  role: PartyRole;
   joinedAt: string;
 }
 
@@ -97,7 +98,7 @@ export async function listPartyMembers(
 export async function upsertPartyMember(
   partyId: string,
   characterId: string,
-  role: string,
+  role: PartyRole,
   executor: DbExecutor = db
 ): Promise<PartyMember> {
   const now = new Date().toISOString();

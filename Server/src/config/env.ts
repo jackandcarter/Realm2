@@ -7,6 +7,13 @@ dotenv.config();
 
 export const env = {
   port: parseInt(process.env.PORT ?? '3000', 10),
+  gatewayPort: parseInt(process.env.GATEWAY_PORT ?? process.env.PORT ?? '3000', 10),
+  authPort: parseInt(process.env.AUTH_PORT ?? '3001', 10),
+  worldPort: parseInt(process.env.WORLD_PORT ?? '3002', 10),
+  combatPort: parseInt(process.env.COMBAT_PORT ?? '3003', 10),
+  catalogPort: parseInt(process.env.CATALOG_PORT ?? '3004', 10),
+  economyPort: parseInt(process.env.ECONOMY_PORT ?? '3005', 10),
+  socialPort: parseInt(process.env.SOCIAL_PORT ?? '3006', 10),
   jwtSecret: process.env.JWT_SECRET ?? 'dev-secret-change-me',
   accessTokenTtlSeconds: parseInt(process.env.ACCESS_TOKEN_TTL ?? '900', 10), // 15 minutes
   refreshTokenTtlSeconds: parseInt(process.env.REFRESH_TOKEN_TTL ?? '604800', 10), // 7 days

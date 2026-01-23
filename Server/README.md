@@ -1,6 +1,6 @@
 # Realm2 Authentication Service
 
-This directory hosts a lightweight Express + TypeScript backend that provides authentication APIs for Realm2. It exposes REST endpoints for registering accounts, logging in, logging out, and refreshing access tokens. A MariaDB database stores users, realms, characters, and progression data, and JWTs secure API access.
+This directory hosts a lightweight Express + TypeScript backend that provides authentication APIs for Realm2. It exposes REST endpoints for registering accounts, logging in, logging out, and refreshing access tokens. A MariaDB database stores users, realms, characters, and progression data, and JWTs secure API access. The server can run as a single gateway or as multiple service-specific processes on dedicated ports for local testing.
 
 ## Getting Started
 
@@ -31,6 +31,15 @@ npm run dev
 ```
 
 The service listens on `http://localhost:3000` by default.
+
+### Run the service suite (multi-service mode)
+
+```bash
+npm run dev:services
+```
+
+This starts the gateway plus the auth, world, combat, catalog, economy, and social services on their
+own ports. You can also start a single service with commands like `npm run dev:world`.
 
 ### Command console (CLI)
 
@@ -78,6 +87,13 @@ Create a `.env` file (see `.env.example`) to override defaults.
 | Variable | Description | Default |
 | --- | --- | --- |
 | `PORT` | HTTP port | `3000` |
+| `GATEWAY_PORT` | Gateway service port (multi-service mode) | `3000` |
+| `AUTH_PORT` | Auth service port | `3001` |
+| `WORLD_PORT` | World service port | `3002` |
+| `COMBAT_PORT` | Combat service port | `3003` |
+| `CATALOG_PORT` | Catalog service port | `3004` |
+| `ECONOMY_PORT` | Economy service port | `3005` |
+| `SOCIAL_PORT` | Social service port | `3006` |
 | `JWT_SECRET` | Secret key for signing JWT access tokens | `dev-secret-change-me` |
 | `DB_HOST` | MariaDB host | `127.0.0.1` |
 | `DB_PORT` | MariaDB port | `3306` |
