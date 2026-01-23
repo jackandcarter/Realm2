@@ -1,3 +1,5 @@
+import { EquipmentSlot } from '../../config/gameEnums';
+
 export type ElementType =
   | 'fire'
   | 'ice'
@@ -281,9 +283,6 @@ export const professionDefinitions: ProfessionDefinition[] = [
   { id: 'mechanic', name: 'Mechanic', outputs: ['resource.tech-shards'], inputs: ['resource.ore', 'resource.tech-shards'] },
 ];
 
-export const equipmentSlots = ['weapon', 'head', 'chest', 'legs', 'hands', 'feet', 'accessory', 'tool'] as const;
-
-export type EquipmentSlot = (typeof equipmentSlots)[number];
 
 export interface EquipmentDefinition {
   id: string;

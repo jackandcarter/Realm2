@@ -1,7 +1,6 @@
 import { randomUUID } from 'crypto';
 import { db, DbExecutor } from './database';
-
-export type TradeStatus = 'pending' | 'accepted' | 'cancelled' | 'completed';
+import { TradeStatus } from '../config/gameEnums';
 
 export interface Trade {
   id: string;

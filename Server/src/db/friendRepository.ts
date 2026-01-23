@@ -1,7 +1,6 @@
 import { randomUUID } from 'crypto';
 import { db, DbExecutor } from './database';
-
-export type FriendStatus = 'pending' | 'accepted' | 'blocked';
+import { FriendStatus } from '../config/gameEnums';
 
 export interface FriendRecord {
   id: string;

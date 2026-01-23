@@ -1,5 +1,6 @@
 import { randomUUID } from 'crypto';
 import { db } from './database';
+import { ActionRequestType } from '../config/gameEnums';
 
 export type ActionRequestStatus = 'pending' | 'processing' | 'completed' | 'rejected';
 
@@ -8,7 +9,7 @@ export interface ActionRequestRecord {
   characterId: string;
   realmId: string | null;
   requestedBy: string;
-  requestType: string;
+  requestType: ActionRequestType;
   payloadJson: string;
   status: ActionRequestStatus;
   errorMessage: string | null;
@@ -21,7 +22,7 @@ export interface ActionRequestInput {
   characterId: string;
   realmId?: string | null;
   requestedBy: string;
-  requestType: string;
+  requestType: ActionRequestType;
   payload: unknown;
 }
 

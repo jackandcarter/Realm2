@@ -20,7 +20,7 @@ import { VersionConflictError } from '../db/progressionRepository';
 import { CharacterClassState } from '../types/classUnlocks';
 import { HttpError, isHttpError } from '../utils/errors';
 import { JsonValue } from '../types/characterCustomization';
-import { EquipmentSlot, equipmentSlots } from '../gameplay/design/systemFoundations';
+import { EquipmentSlot, equipmentSlots } from '../config/gameEnums';
 
 export const characterRouter = Router();
 

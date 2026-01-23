@@ -1,5 +1,6 @@
 import { randomUUID } from 'crypto';
 import { db, DbExecutor } from './database';
+import { GuildRole } from '../config/gameEnums';
 
 export interface Guild {
   id: string;
@@ -12,7 +13,7 @@ export interface GuildMember {
   id: string;
   guildId: string;
   characterId: string;
-  role: string;
+  role: GuildRole;
   joinedAt: string;
 }
 
@@ -110,7 +111,7 @@ export async function listGuildMembers(
 export async function upsertGuildMember(
   guildId: string,
   characterId: string,
-  role: string,
+  role: GuildRole,
   executor: DbExecutor = db
 ): Promise<GuildMember> {
   const now = new Date().toISOString();
