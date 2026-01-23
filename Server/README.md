@@ -32,6 +32,19 @@ npm run dev
 
 The service listens on `http://localhost:3000` by default.
 
+### Command console (CLI)
+
+When the server starts in a TTY session (for example `npm run dev` in a terminal), an interactive
+command console is available for quick testing. Type `help` to see commands.
+
+```text
+realm2> help
+realm2> create-user you@example.com yourname StrongPass!1
+```
+
+The `create-user` command returns a user id plus access/refresh tokens in the server logs so you can
+paste them into client tooling.
+
 ### Run the test suite
 
 ```bash

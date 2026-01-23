@@ -1,7 +1,6 @@
 import { Router } from 'express';
 import { login, logout, refresh, register } from '../services/authService';
-
-const usernameRegex = /^[a-zA-Z0-9_\-]{3,20}$/;
+import { usernameRegex, validatePassword } from '../utils/authValidation';
 
 const router = Router();
 
@@ -53,11 +52,9 @@ router.post('/register', async (req, res) => {
     return res.status(400).json({ message: 'Username must be 3-20 characters using letters, numbers, hyphens, or underscores.' });
   }
 
-  if (password.length < 8 || !/[A-Z]/.test(password) || !/[a-z]/.test(password) || !/[0-9]/.test(password) || !/[^A-Za-z0-9]/.test(password)) {
-    return res.status(400).json({
-      message:
-        'Password must be at least 8 characters and include uppercase, lowercase, number, and special character.',
-    });
+  const passwordError = validatePassword(password);
+  if (passwordError) {
+    return res.status(400).json({ message: passwordError });
   }
 
   try {
