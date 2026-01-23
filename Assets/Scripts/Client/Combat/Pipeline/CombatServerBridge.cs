@@ -48,6 +48,7 @@ namespace Client.Combat.Pipeline
         [SerializeField] private bool useMockServer;
         [SerializeField] private bool autoConfirm;
         [SerializeField] private bool fallbackToLocalOnError;
+        [SerializeField] private bool forceServerAuthority = true;
 
         private CombatApiClient _apiClient;
 
@@ -71,7 +72,8 @@ namespace Client.Combat.Pipeline
         {
             AbilityRequested?.Invoke(request);
 
-            if (!autoConfirm || !useMockServer)
+            var allowAutoConfirm = autoConfirm && useMockServer && !forceServerAuthority;
+            if (!allowAutoConfirm)
             {
                 StartCoroutine(SendAbilityRequest(request));
                 return;
@@ -112,7 +114,7 @@ namespace Client.Combat.Pipeline
             if (requestError != null)
             {
                 Debug.LogWarning($"CombatServerBridge failed to send ability request: {requestError.Message}", this);
-                if (fallbackToLocalOnError && useMockServer)
+                if (fallbackToLocalOnError && useMockServer && !forceServerAuthority)
                 {
                     ReceiveServerConfirmation(new CombatAbilityConfirmation
                     {

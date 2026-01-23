@@ -26,6 +26,7 @@ namespace Client.Combat.Pipeline
         [SerializeField] private QueryTriggerInteraction hitboxTriggerInteraction = QueryTriggerInteraction.Collide;
 
         [Header("Server Authority")]
+        [SerializeField] private bool serverAuthoritative = true;
         [SerializeField] private bool deferImpactUntilConfirmed = true;
         [SerializeField] private bool applyPredictedEffects;
 
@@ -153,28 +154,35 @@ namespace Client.Combat.Pipeline
                 ? targetSelection.GroundTargetPoint
                 : (Vector3?)null;
 
-            var targets = CombatTargetResolver.ResolveTargets(
-                targeting,
-                caster,
-                primaryTarget,
-                groundPoint,
-                CombatEntityRegistry.All);
+            var resolvedTargets = new List<CombatEntity>();
+            var predictedResults = new List<CombatEffectResult>();
+            var shouldApplyPredicted = applyPredictedEffects && !serverAuthoritative;
 
-            var hitbox = ability != null ? ability.Hitbox : resolution.Hitbox;
-            var usePhysicsQuery = usePhysicsHitDetection || (hitbox != null && hitbox.RequiresContact);
-            var resolvedTargets = CombatHitboxResolver.ResolveHitTargets(
-                hitbox,
-                caster,
-                targets,
-                usePhysicsQuery,
-                hitboxMask,
-                hitboxTriggerInteraction);
+            if (!serverAuthoritative)
+            {
+                var targets = CombatTargetResolver.ResolveTargets(
+                    targeting,
+                    caster,
+                    primaryTarget,
+                    groundPoint,
+                    CombatEntityRegistry.All);
 
-            var predictedResults = BuildEffectResults(ability, resolution.TotalDamage, resolvedTargets);
+                var hitbox = ability != null ? ability.Hitbox : resolution.Hitbox;
+                var usePhysicsQuery = usePhysicsHitDetection || (hitbox != null && hitbox.RequiresContact);
+                resolvedTargets = CombatHitboxResolver.ResolveHitTargets(
+                    hitbox,
+                    caster,
+                    targets,
+                    usePhysicsQuery,
+                    hitboxMask,
+                    hitboxTriggerInteraction);
+
+                predictedResults = BuildEffectResults(ability, resolution.TotalDamage, resolvedTargets);
+            }
             var requestId = Guid.NewGuid().ToString("N");
             var request = SendAbilityRequest(requestId, ability, resolvedTargets, groundPoint);
 
-            if (applyPredictedEffects)
+            if (shouldApplyPredicted)
             {
                 CombatEffectResolver.ApplyResolvedEffects(predictedResults);
             }
@@ -185,7 +193,7 @@ namespace Client.Combat.Pipeline
                 Ability = ability,
                 PredictedTargets = resolvedTargets,
                 PredictedResults = predictedResults,
-                PredictedApplied = applyPredictedEffects,
+                PredictedApplied = shouldApplyPredicted,
                 BaseDamage = resolution.TotalDamage
             };
 
@@ -270,6 +278,14 @@ namespace Client.Combat.Pipeline
 
             var confirmedTargets = ResolveConfirmedTargets(confirmation, pending);
             var confirmedResults = BuildConfirmedResults(confirmation, pending, confirmedTargets);
+            if (serverAuthoritative && (confirmedResults == null || confirmedResults.Count == 0))
+            {
+                Debug.LogWarning(
+                    $"CombatPipelineController received an empty server response for request '{confirmation.requestId}'.",
+                    this);
+                AbilityConfirmed?.Invoke(confirmation, confirmedResults);
+                return;
+            }
 
             if (!deferImpactUntilConfirmed && pending.PredictedApplied)
             {
@@ -330,6 +346,11 @@ namespace Client.Combat.Pipeline
             if (confirmation.events != null && confirmation.events.Count > 0)
             {
                 return BuildResultsFromEvents(confirmation.events);
+            }
+
+            if (serverAuthoritative)
+            {
+                return new List<CombatEffectResult>();
             }
 
             return BuildEffectResults(pending.Ability, pending.BaseDamage, confirmedTargets);
