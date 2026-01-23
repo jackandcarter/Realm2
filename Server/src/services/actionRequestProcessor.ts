@@ -13,6 +13,7 @@ import {
   ProgressionUpdateInput,
 } from './progressionService';
 import { HttpError } from '../utils/errors';
+import { JsonValue, isJsonValue } from '../types/characterCustomization';
 
 const PROCESSOR_POLL_MS = 2000;
 const PROCESSOR_BATCH_SIZE = 25;
@@ -74,7 +75,8 @@ async function handleActionRequest(
       );
       const itemId = ensureNonEmptyString(payload.itemId, 'itemId');
       const quantity = ensurePositiveNumber(payload.quantity, 'quantity');
-      await applyInventoryGrant(characterId, { itemId, quantity, metadata: payload.metadata });
+      const metadata = normalizeJsonValue(payload.metadata, 'metadata');
+      await applyInventoryGrant(characterId, { itemId, quantity, metadata });
       return;
     }
     case 'inventory.consumeItem': {
@@ -87,7 +89,8 @@ async function handleActionRequest(
     case 'quest.complete': {
       const payload = parsePayload<{ questId?: unknown; progress?: unknown }>(payloadJson);
       const questId = ensureNonEmptyString(payload.questId, 'questId');
-      await applyQuestCompletion(characterId, { questId, progress: payload.progress });
+      const progress = normalizeJsonValue(payload.progress, 'progress');
+      await applyQuestCompletion(characterId, { questId, progress });
       return;
     }
     default:
@@ -116,4 +119,14 @@ function ensurePositiveNumber(value: unknown, fieldName: string): number {
     throw new HttpError(400, `${fieldName} must be a positive number.`);
   }
   return numberValue;
+}
+
+function normalizeJsonValue(value: unknown, fieldName: string): JsonValue | undefined {
+  if (typeof value === 'undefined') {
+    return undefined;
+  }
+  if (!isJsonValue(value)) {
+    throw new HttpError(400, `${fieldName} must be JSON-serializable.`);
+  }
+  return value;
 }

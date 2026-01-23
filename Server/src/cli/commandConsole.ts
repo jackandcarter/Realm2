@@ -77,7 +77,12 @@ export function startCommandConsole(): void {
       rl.prompt();
       return;
     }
-    const [command, ...args] = trimmed.split(/\s+/);
+    const [commandRaw, ...args] = trimmed.split(/\s+/);
+    const command = commandRaw ?? '';
+    if (!command) {
+      rl.prompt();
+      return;
+    }
     const handler = handlers[command];
     if (!handler) {
       logger.warn(`Unknown command: ${command}`);

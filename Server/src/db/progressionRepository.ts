@@ -305,6 +305,9 @@ export async function getCharacterProgressionSnapshot(
     [characterId]
   );
   const progressionRow = progressionRows[0];
+  if (!progressionRow) {
+    throw new Error(`Missing progression state for character ${characterId}`);
+  }
 
   const classUnlockRows = await db.query<ClassUnlockRow[]>(
     `SELECT class_id as classId, unlocked, unlocked_at as unlockedAt

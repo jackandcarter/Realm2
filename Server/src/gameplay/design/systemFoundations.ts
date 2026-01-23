@@ -91,6 +91,9 @@ function matchesElements(rule: FusionRule, casts: FusionCastSnapshot[]): boolean
     }
 
     const [matched] = remainingCasts.splice(index, 1);
+    if (!matched) {
+      return false;
+    }
     if (component.requiresAoE && !matched.isAreaOfEffect) {
       return false;
     }

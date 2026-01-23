@@ -62,6 +62,10 @@ function parseVector3(value: unknown): CombatAbilityExecutionRequestDto['targetP
   const y = ensureNumber(record.y);
   const z = ensureNumber(record.z);
 
+  if (x === undefined || y === undefined || z === undefined) {
+    return undefined;
+  }
+
   if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(z)) {
     return undefined;
   }
@@ -87,6 +91,9 @@ function ensureNumber(value: unknown, fieldName?: string): number | undefined {
 
 function ensureRequiredNumber(value: unknown, fieldName: string): number {
   const num = ensureNumber(value, fieldName);
+  if (num === undefined) {
+    throw new HttpError(400, `${fieldName} must be a number`);
+  }
   if (!Number.isFinite(num)) {
     throw new HttpError(400, `${fieldName} must be a number`);
   }

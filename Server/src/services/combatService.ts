@@ -89,11 +89,13 @@ export async function executeCombatAbility(
   };
 }
 
+type CharacterRecord = NonNullable<Awaited<ReturnType<typeof findCharacterById>>>;
+
 async function validateCombatRequest(
   request: CombatAbilityExecutionRequestDto,
   context: CombatExecutionContext,
 ): Promise<{
-  casterCharacter: Awaited<ReturnType<typeof findCharacterById>>;
+  casterCharacter: CharacterRecord;
   abilityRecord?: AbilityRecord;
   resourceSnapshot?: ResourceSnapshot;
 }> {
@@ -135,7 +137,7 @@ async function validateCombatRequest(
     }
   }
 
-  return { casterCharacter, abilityRecord, resourceSnapshot };
+  return { casterCharacter: casterCharacter as CharacterRecord, abilityRecord, resourceSnapshot };
 }
 
 async function ensureClientTimeIsMonotonic(

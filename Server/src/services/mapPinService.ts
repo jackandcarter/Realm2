@@ -48,8 +48,10 @@ export async function replaceMapPinsForUser(
   } catch (error) {
     if (error instanceof MapPinVersionConflictError) {
       throw new HttpError(409, 'Map pin progression version conflict', {
-        expectedVersion: error.expected,
-        actualVersion: error.actual,
+        details: {
+          expectedVersion: error.expected,
+          actualVersion: error.actual,
+        },
       });
     }
     throw error;
