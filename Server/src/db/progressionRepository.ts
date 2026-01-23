@@ -1,6 +1,6 @@
 import { randomUUID } from 'crypto';
 import { db, DbExecutor } from './database';
-import { getItemsByIds } from './catalogRepository';
+import { getItemsByIds, listLevelProgression } from './catalogRepository';
 import { JsonValue } from '../types/characterCustomization';
 import { recordVersionConflict } from '../observability/metrics';
 import { isClassAllowedForRace } from '../config/classRules';
@@ -152,6 +152,13 @@ export class InvalidInventoryCatalogError extends Error {
   }
 }
 
+export class InvalidInventoryQuantityError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'InvalidInventoryQuantityError';
+  }
+}
+
 async function ensureProgressionRow(
   characterId: string,
   executor: DbExecutor = db,
@@ -255,6 +262,31 @@ function normalizeInventoryMetadata(item: MetadataInput): JsonValue | undefined 
   }
 
   return undefined;
+}
+
+async function getProgressionStateForUpdate(
+  characterId: string,
+  executor: DbExecutor = db,
+): Promise<CharacterProgressionState> {
+  await ensureProgressionRow(characterId, executor);
+  const rows = await executor.query<CharacterProgressionStateRow[]>(
+    `SELECT level, xp, version, updated_at as updatedAt
+     FROM character_progression
+     WHERE character_id = ?
+     FOR UPDATE`,
+    [characterId],
+  );
+  const row = rows[0];
+  if (!row) {
+    const now = new Date().toISOString();
+    return { level: 1, xp: 0, version: 0, updatedAt: now };
+  }
+  return {
+    level: row.level,
+    xp: row.xp,
+    version: row.version,
+    updatedAt: row.updatedAt,
+  };
 }
 
 export async function getCharacterProgressionSnapshot(
@@ -426,6 +458,51 @@ export async function updateProgressionLevels(
   };
 }
 
+export async function grantProgressionExperience(
+  characterId: string,
+  amount: number,
+  executor: DbExecutor = db,
+): Promise<CharacterProgressionState> {
+  if (executor === db) {
+    return db.withTransaction(async (tx) =>
+      grantProgressionExperience(characterId, amount, tx),
+    );
+  }
+
+  if (!Number.isFinite(amount) || amount <= 0) {
+    throw new Error('XP grant amount must be positive.');
+  }
+
+  const current = await getProgressionStateForUpdate(characterId, executor);
+  const nextXp = current.xp + Math.floor(amount);
+  const levelProgression = await listLevelProgression();
+  const sorted = levelProgression
+    .slice()
+    .sort((a, b) => a.level - b.level);
+  const resolvedLevel =
+    sorted
+      .filter((entry) => entry.totalXp <= nextXp)
+      .reduce((highest, entry) => Math.max(highest, entry.level), 1) || 1;
+
+  const updatedAt = new Date().toISOString();
+  await executor.execute(
+    `UPDATE character_progression
+     SET level = ?,
+         xp = ?,
+         version = version + 1,
+         updated_at = ?
+     WHERE character_id = ?`,
+    [resolvedLevel, nextXp, updatedAt, characterId],
+  );
+
+  return {
+    level: resolvedLevel,
+    xp: nextXp,
+    version: current.version + 1,
+    updatedAt,
+  };
+}
+
 export async function replaceClassUnlocks(
   characterId: string,
   unlocks: ClassUnlockInput[],
@@ -571,6 +648,120 @@ export async function replaceInventory(
       metadataJson: serializeJson(normalizeInventoryMetadata(item)),
     })),
   };
+}
+
+export async function grantInventoryItems(
+  characterId: string,
+  items: InventoryItemInput[],
+  executor: DbExecutor = db,
+): Promise<InventoryCollection> {
+  if (executor === db) {
+    return db.withTransaction(async (tx) => grantInventoryItems(characterId, items, tx));
+  }
+
+  const snapshot = await getInventorySnapshotForUpdate(characterId, executor);
+  const inventoryMap = new Map<
+    string,
+    { quantity: number; metadataJson?: string; metadata?: JsonValue | undefined }
+  >();
+  for (const item of snapshot.items) {
+    inventoryMap.set(item.itemId, {
+      quantity: item.quantity,
+      metadataJson: item.metadataJson ?? '{}',
+    });
+  }
+
+  for (const item of items) {
+    const itemId = item.itemId?.trim();
+    const quantity = Math.floor(item.quantity ?? 0);
+    if (!itemId) {
+      throw new InvalidInventoryQuantityError('Inventory grant must include itemId.');
+    }
+    if (!Number.isFinite(quantity) || quantity <= 0) {
+      throw new InvalidInventoryQuantityError('Inventory grant quantity must be positive.');
+    }
+    const existing = inventoryMap.get(itemId);
+    inventoryMap.set(itemId, {
+      quantity: (existing?.quantity ?? 0) + quantity,
+      metadataJson:
+        item.metadataJson && item.metadataJson.trim().length > 0
+          ? item.metadataJson
+          : existing?.metadataJson,
+      metadata: item.metadata ?? existing?.metadata,
+    });
+  }
+
+  const nextItems: InventoryItemInput[] = Array.from(inventoryMap.entries()).map(
+    ([itemId, entry]) => ({
+      itemId,
+      quantity: entry.quantity,
+      metadataJson: entry.metadataJson,
+      metadata: entry.metadata,
+    }),
+  );
+
+  return replaceInventory(characterId, nextItems, snapshot.version, executor);
+}
+
+export async function consumeInventoryItems(
+  characterId: string,
+  items: InventoryItemInput[],
+  executor: DbExecutor = db,
+): Promise<InventoryCollection> {
+  if (executor === db) {
+    return db.withTransaction(async (tx) => consumeInventoryItems(characterId, items, tx));
+  }
+
+  const snapshot = await getInventorySnapshotForUpdate(characterId, executor);
+  const inventoryMap = new Map<
+    string,
+    { quantity: number; metadataJson?: string; metadata?: JsonValue | undefined }
+  >();
+  for (const item of snapshot.items) {
+    inventoryMap.set(item.itemId, {
+      quantity: item.quantity,
+      metadataJson: item.metadataJson ?? '{}',
+    });
+  }
+
+  for (const item of items) {
+    const itemId = item.itemId?.trim();
+    const quantity = Math.floor(item.quantity ?? 0);
+    if (!itemId) {
+      throw new InvalidInventoryQuantityError('Inventory consumption must include itemId.');
+    }
+    if (!Number.isFinite(quantity) || quantity <= 0) {
+      throw new InvalidInventoryQuantityError('Inventory consumption quantity must be positive.');
+    }
+    const existing = inventoryMap.get(itemId);
+    if (!existing) {
+      throw new InvalidInventoryQuantityError(`Inventory item '${itemId}' does not exist.`);
+    }
+    const nextQuantity = existing.quantity - quantity;
+    if (nextQuantity < 0) {
+      throw new InvalidInventoryQuantityError(`Inventory item '${itemId}' has insufficient quantity.`);
+    }
+    if (nextQuantity === 0) {
+      inventoryMap.delete(itemId);
+    } else {
+      inventoryMap.set(itemId, {
+        quantity: nextQuantity,
+        metadataJson: existing.metadataJson,
+        metadata: existing.metadata,
+      });
+    }
+  }
+
+  const nextItems: InventoryItemInput[] = Array.from(inventoryMap.entries()).map(
+    ([itemId, entry]) => ({
+      itemId,
+      quantity: entry.quantity,
+      metadataJson: entry.metadataJson,
+      metadata: entry.metadata,
+    }),
+  );
+
+  return replaceInventory(characterId, nextItems, snapshot.version, executor);
 }
 
 export async function getInventorySnapshotForUpdate(
@@ -836,6 +1027,49 @@ export async function replaceQuestStates(
       updatedAt: now,
     })),
   };
+}
+
+export async function upsertQuestState(
+  characterId: string,
+  quest: QuestStateInput,
+  executor: DbExecutor = db,
+): Promise<void> {
+  if (executor === db) {
+    return db.withTransaction(async (tx) => upsertQuestState(characterId, quest, tx));
+  }
+
+  await ensureQuestMeta(characterId, executor);
+  const metaRows = await executor.query<VersionRow[]>(
+    `SELECT version, updated_at as updatedAt
+     FROM character_quest_state_meta
+     WHERE character_id = ?
+     FOR UPDATE`,
+    [characterId],
+  );
+  const meta = metaRows[0];
+  const now = new Date().toISOString();
+
+  await executor.execute(
+    `INSERT INTO character_quest_states (id, character_id, quest_id, status, progress_json, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?)
+     ON DUPLICATE KEY UPDATE status = VALUES(status), progress_json = VALUES(progress_json), updated_at = VALUES(updated_at)`,
+    [
+      randomUUID(),
+      characterId,
+      quest.questId,
+      quest.status,
+      serializeJson(quest.progress),
+      now,
+    ],
+  );
+
+  await executor.execute(
+    `UPDATE character_quest_state_meta
+     SET version = ?,
+         updated_at = ?
+     WHERE character_id = ?`,
+    [(meta?.version ?? 0) + 1, now, characterId],
+  );
 }
 
 interface CharacterProgressionStateRow {
