@@ -1,6 +1,7 @@
 import type { DbExecutor } from '../database';
 import {
   actionRequestTypes,
+  abilityTypes,
   armorTypes,
   chatChannelTypes,
   classRoles,
@@ -14,6 +15,7 @@ import {
   partyRoles,
   questStatuses,
   raceIds,
+  resourceIds,
   tradeStatuses,
   weaponHandedness,
 } from '../../config/gameEnums';
@@ -82,6 +84,11 @@ export async function up(db: DbExecutor): Promise<void> {
 
   await normalizeEnumColumn(db, 'items', 'rarity', itemRarities, 'common');
   await enforceEnumColumn(db, 'items', 'rarity', itemRarities, { defaultValue: 'common' });
+
+  await normalizeEnumColumn(db, 'weapons', 'handedness', weaponHandedness, 'one-hand');
+  await enforceEnumColumn(db, 'weapons', 'handedness', weaponHandedness, {
+    defaultValue: 'one-hand',
+  });
 
   await normalizeEnumColumn(db, 'weapons', 'handedness', weaponHandedness, 'one-hand');
   await enforceEnumColumn(db, 'weapons', 'handedness', weaponHandedness, {
