@@ -31,6 +31,7 @@ import { publishChunkChange } from './chunkStreamService';
 import { applyResourceDeltas, InsufficientResourceError } from '../db/resourceWalletRepository';
 import { ResourceDelta } from '../types/resources';
 import { getPlotOwner, getPlotPermissionForUser, upsertPlotOwner } from '../db/plotAccessRepository';
+import { listResourceTypeIds } from './referenceDataService';
 
 export interface ChunkSnapshotEnvelope {
   realmId: string;
@@ -232,15 +233,19 @@ export async function getChunkChangeFeed(
   };
 }
 
-function normalizeResourceDeltas(deltas: ResourceDelta[] | undefined): ResourceDeltaDTO[] {
+async function normalizeResourceDeltas(deltas: ResourceDelta[] | undefined): Promise<ResourceDeltaDTO[]> {
   const normalized: ResourceDeltaDTO[] = [];
+  const resourceTypeIds = await listResourceTypeIds();
   for (const delta of deltas ?? []) {
     if (!delta) {
       continue;
     }
     const resourceType = delta.resourceType?.trim();
-    if (!resourceType) {
-      throw new HttpError(400, 'resourceType is required for resource adjustments');
+    if (!resourceType || !resourceTypeIds.includes(resourceType)) {
+      throw new HttpError(
+        400,
+        `resourceType must be one of: ${resourceTypeIds.join(', ')}`
+      );
     }
     if (!Number.isFinite(delta.quantity) || delta.quantity === 0) {
       continue;
@@ -319,7 +324,7 @@ export async function recordChunkChange(
     throw new HttpError(403, 'Only builders can modify realm chunks');
   }
 
-  const normalizedResources = normalizeResourceDeltas(resources);
+  const normalizedResources = await normalizeResourceDeltas(resources);
 
   try {
     const changeDto = await db.withTransaction(async (tx) => {

@@ -7,6 +7,8 @@ startHttpService({
   app: authApp,
   port: env.authPort,
   serviceName: 'auth',
+  initializeAuthDb: true,
+  initializeWorldDb: false,
 }).catch((error) => {
   logger.error({ err: error }, 'Auth service failed to start');
   process.exit(1);

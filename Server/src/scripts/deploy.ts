@@ -1,8 +1,8 @@
 import { logger } from '../observability/logger';
-import { initializeDatabase } from '../db/database';
+import { initializeWorldDatabase } from '../db/database';
 
 async function main(): Promise<void> {
-  await initializeDatabase();
+  await initializeWorldDatabase();
   logger.info('Deployment migrations completed successfully');
 }
 

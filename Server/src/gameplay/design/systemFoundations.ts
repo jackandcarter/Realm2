@@ -1,4 +1,12 @@
-import { EquipmentSlot } from '../../config/gameEnums';
+import {
+  EquipmentSlot,
+  ItemCategory,
+  ItemRarity,
+  ResourceCategory,
+  ResourceId,
+  WeaponType,
+  resourceCategories,
+} from '../../config/gameEnums';
 
 export type ElementType =
   | 'fire'
@@ -174,7 +182,7 @@ export interface ClassDefinition {
   name: string;
   role: 'tank' | 'damage' | 'support' | 'builder';
   primaryStats: string[];
-  weaponProficiencies: string[];
+  weaponProficiencies: WeaponType[];
   signatureAbilities: string[];
   unlockQuestId?: string;
 }
@@ -288,7 +296,7 @@ export interface EquipmentDefinition {
   id: string;
   name: string;
   slot: EquipmentSlot;
-  category: 'weapon' | 'armor' | 'consumable' | 'key-item';
+  category: ItemCategory;
   subtype?: string;
   requiredClassIds?: string[];
 }
@@ -302,10 +310,8 @@ export const equipmentArchetypes: EquipmentDefinition[] = [
   { id: 'key.chrono-shard', name: 'Chrono Nexus Shard', slot: 'accessory', category: 'key-item', subtype: 'artifact' },
 ];
 
-export type ResourceCategory = 'raw' | 'processed' | 'crafted' | 'consumable' | 'quest';
-
 export interface ResourceDefinition {
-  id: string;
+  id: ResourceId;
   name: string;
   category: ResourceCategory;
 }
@@ -330,8 +336,25 @@ export const resourceDefinitions: ResourceDefinition[] = [
   { id: 'resource.quest-chrono-shard', name: 'Chrono Shard Fragment', category: 'quest' },
 ];
 
+function assertResourceDefinitionsValid(): void {
+  const allowedCategories = new Set(resourceCategories);
+  const seen = new Set<string>();
+
+  for (const definition of resourceDefinitions) {
+    if (!allowedCategories.has(definition.category)) {
+      throw new Error(`Invalid resource category "${definition.category}" for ${definition.id}`);
+    }
+    if (seen.has(definition.id)) {
+      throw new Error(`Duplicate resource definition "${definition.id}"`);
+    }
+    seen.add(definition.id);
+  }
+}
+
+assertResourceDefinitionsValid();
+
 export interface EquipmentCatalogEntry extends EquipmentDefinition {
-  tier: 'starter' | 'standard' | 'rare' | 'legendary';
+  tier: ItemRarity;
   baseStats: Record<string, number>;
 }
 

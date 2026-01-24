@@ -2,6 +2,8 @@ import mysql, { Pool, PoolConnection, ResultSetHeader, RowDataPacket } from 'mys
 import { env } from '../config/env';
 import { runMigrations } from './migrationRunner';
 import { seedCatalogData } from './catalogSeeder';
+import { seedRaceCatalogData } from './raceCatalogSeeder';
+import { seedReferenceData } from './referenceDataSeeder';
 import { seedDefaultCurrencies } from './currencySeeder';
 import { measurePersistenceOperationAsync } from '../observability/metrics';
 import { logger } from '../observability/logger';
@@ -91,7 +93,7 @@ async function seedRealms(): Promise<void> {
   }
 }
 
-export async function initializeDatabase(): Promise<void> {
+export async function initializeWorldDatabase(): Promise<void> {
   if (pool) {
     return;
   }
@@ -130,9 +132,15 @@ export async function initializeDatabase(): Promise<void> {
 
   await runMigrations(db);
   await seedRealms();
+  await seedReferenceData(db);
   await seedCatalogData(db);
+  await seedRaceCatalogData(db);
   await seedDefaultCurrencies(db);
   logger.info('Database connection established');
+}
+
+export async function initializeDatabase(): Promise<void> {
+  await initializeWorldDatabase();
 }
 
 export { db };
@@ -177,6 +185,12 @@ export async function resetDatabase(): Promise<void> {
   await db.execute('DELETE FROM character_class_unlocks');
   await db.execute('DELETE FROM character_class_unlock_state');
   await db.execute('DELETE FROM character_progression');
+  await db.execute('DELETE FROM class_weapon_proficiencies');
+  await db.execute('DELETE FROM race_class_rules');
+  await db.execute('DELETE FROM races');
+  await db.execute('DELETE FROM ability_types');
+  await db.execute('DELETE FROM resource_types');
+  await db.execute('DELETE FROM weapon_types');
   await db.execute('DELETE FROM level_progression');
   await db.execute('DELETE FROM abilities');
   await db.execute('DELETE FROM enemy_base_stats');
