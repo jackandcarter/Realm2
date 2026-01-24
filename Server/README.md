@@ -127,6 +127,8 @@ Terrain (voxel/mesh/change-log) data is now isolated in the terrain database and
 
 Terrain authoring utilities live under the terrain service as well: `/realms/:realmId/terrain/regions` for region metadata and `/realms/:realmId/terrain/import` for bulk chunk imports from Unity editor tooling.
 
+Runtime chunk mutations are blocked when the chunk payload marks itself as immutable base terrain. To enable this guardrail, include `terrainLayer: "base"` or `immutableBase: true` inside the chunk payload JSON you import. Build zones can be authored via `PUT /realms/:realmId/build-zones` on the world API and validated via `POST /realms/:realmId/build-zones/validate`.
+
 ## Observability
 
 - Prometheus metrics are exposed at `GET /metrics` and include latency histograms, replication queue gauges, and conflict/error counters for persistence layers.

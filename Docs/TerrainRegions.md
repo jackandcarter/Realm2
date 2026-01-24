@@ -9,6 +9,7 @@ This document describes how terrain regions are configured in the client and whi
 ### Identity
 
 - **Region Id**: Unique identifier for the region. Use a stable key that matches backend or content data.
+- **Region Name**: Optional display name used when publishing region metadata to backend services.
 - **Zone Id**: Optional identifier used to group regions for streaming or gameplay rules.
 
 ### Terrains
