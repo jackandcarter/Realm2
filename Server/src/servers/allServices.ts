@@ -6,12 +6,14 @@ import { gatewayApp } from '../apps/gatewayApp';
 import { socialApp } from '../apps/socialApp';
 import { worldApp } from '../apps/worldApp';
 import { env } from '../config/env';
-import { initializeDatabase } from '../db/database';
+import { initializeAuthDatabase } from '../db/authDatabase';
+import { initializeWorldDatabase } from '../db/database';
 import { logger } from '../observability/logger';
 import { startHttpService } from './serviceBootstrap';
 
 async function startAll(): Promise<void> {
-  await initializeDatabase();
+  await initializeAuthDatabase();
+  await initializeWorldDatabase();
 
   await startHttpService({
     app: authApp,

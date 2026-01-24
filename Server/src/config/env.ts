@@ -24,4 +24,14 @@ export const env = {
   databaseName: process.env.DB_NAME ?? 'realm2',
   databaseSsl: process.env.DB_SSL === 'true',
   databaseConnectionLimit: parseInt(process.env.DB_POOL_LIMIT ?? '10', 10),
+  authDatabaseHost: process.env.AUTH_DB_HOST ?? process.env.DB_HOST ?? '127.0.0.1',
+  authDatabasePort: parseInt(process.env.AUTH_DB_PORT ?? process.env.DB_PORT ?? '3306', 10),
+  authDatabaseUser: process.env.AUTH_DB_USER ?? process.env.DB_USER ?? 'realm2',
+  authDatabasePassword: process.env.AUTH_DB_PASSWORD ?? process.env.DB_PASSWORD ?? '',
+  authDatabaseName: process.env.AUTH_DB_NAME ?? process.env.DB_NAME ?? 'realm2',
+  authDatabaseSsl: process.env.AUTH_DB_SSL === 'true',
+  authDatabaseConnectionLimit: parseInt(
+    process.env.AUTH_DB_POOL_LIMIT ?? process.env.DB_POOL_LIMIT ?? '10',
+    10
+  ),
 };
