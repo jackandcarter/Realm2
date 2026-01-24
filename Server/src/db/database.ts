@@ -5,6 +5,7 @@ import { seedCatalogData } from './catalogSeeder';
 import { seedRaceCatalogData } from './raceCatalogSeeder';
 import { seedReferenceData } from './referenceDataSeeder';
 import { seedDefaultCurrencies } from './currencySeeder';
+import { initializeTerrainDatabase, terrainDb } from './terrainDatabase';
 import { measurePersistenceOperationAsync } from '../observability/metrics';
 import { logger } from '../observability/logger';
 
@@ -141,18 +142,19 @@ export async function initializeWorldDatabase(): Promise<void> {
 
 export async function initializeDatabase(): Promise<void> {
   await initializeWorldDatabase();
+  await initializeTerrainDatabase();
 }
 
 export { db };
 
 export async function resetDatabase(): Promise<void> {
   await initializeDatabase();
-  await db.execute('DELETE FROM chunk_change_log');
-  await db.execute('DELETE FROM chunk_structures');
-  await db.execute('DELETE FROM chunk_plots');
-  await db.execute('DELETE FROM plot_permissions');
-  await db.execute('DELETE FROM plot_ownerships');
-  await db.execute('DELETE FROM realm_chunks');
+  await terrainDb.execute('DELETE FROM chunk_change_log');
+  await terrainDb.execute('DELETE FROM chunk_structures');
+  await terrainDb.execute('DELETE FROM plot_permissions');
+  await terrainDb.execute('DELETE FROM plot_ownerships');
+  await terrainDb.execute('DELETE FROM chunk_plots');
+  await terrainDb.execute('DELETE FROM realm_chunks');
   await db.execute('DELETE FROM realm_build_zones');
   await db.execute('DELETE FROM realm_resource_wallets');
   await db.execute('DELETE FROM character_dock_layouts');

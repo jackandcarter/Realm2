@@ -4,16 +4,19 @@ import { combatApp } from '../apps/combatApp';
 import { economyApp } from '../apps/economyApp';
 import { gatewayApp } from '../apps/gatewayApp';
 import { socialApp } from '../apps/socialApp';
+import { terrainApp } from '../apps/terrainApp';
 import { worldApp } from '../apps/worldApp';
 import { env } from '../config/env';
 import { initializeAuthDatabase } from '../db/authDatabase';
 import { initializeWorldDatabase } from '../db/database';
+import { initializeTerrainDatabase } from '../db/terrainDatabase';
 import { logger } from '../observability/logger';
 import { startHttpService } from './serviceBootstrap';
 
 async function startAll(): Promise<void> {
   await initializeAuthDatabase();
   await initializeWorldDatabase();
+  await initializeTerrainDatabase();
 
   await startHttpService({
     app: authApp,
@@ -29,6 +32,14 @@ async function startAll(): Promise<void> {
     initializeDb: false,
     enableWorldSockets: true,
     enableActionProcessor: true,
+  });
+
+  await startHttpService({
+    app: terrainApp,
+    port: env.terrainPort,
+    serviceName: 'terrain',
+    initializeDb: false,
+    enableChunkSockets: true,
   });
 
   await startHttpService({

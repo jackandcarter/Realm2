@@ -1,6 +1,5 @@
 import { authRouter } from '../routes/authRoutes';
 import { realmRouter } from '../routes/realmRoutes';
-import { realmChunkRouter } from '../routes/chunkRoutes';
 import { characterRouter } from '../routes/characterRoutes';
 import { combatRouter } from '../routes/combatRoutes';
 import { catalogRouter } from '../routes/catalogRoutes';
@@ -13,7 +12,6 @@ export const gatewayApp = createServiceApp({
   routes: [
     { path: '/auth', router: authRouter },
     { path: '/realms', router: realmRouter },
-    { path: '/realms', router: realmChunkRouter },
     { path: '/characters', router: characterRouter },
     { path: '/combat', router: combatRouter },
     { path: '/catalog', router: catalogRouter },

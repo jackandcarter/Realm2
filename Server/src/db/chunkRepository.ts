@@ -1,5 +1,6 @@
 import { randomUUID } from 'crypto';
-import { db, DbExecutor } from './database';
+import { DbExecutor } from './database';
+import { terrainDb } from './terrainDatabase';
 import { setReplicationQueueLength } from '../observability/metrics';
 
 export interface RealmChunkRecord {
@@ -124,7 +125,10 @@ function mapChangeRow(row: any): ChunkChangeRecord {
   };
 }
 
-async function refreshReplicationGauge(realmId: string, executor: DbExecutor = db): Promise<void> {
+async function refreshReplicationGauge(
+  realmId: string,
+  executor: DbExecutor = terrainDb
+): Promise<void> {
   const rows = await executor.query<{ total: number }[]>(
     'SELECT COUNT(*) as total FROM chunk_change_log WHERE realm_id = ?',
     [realmId]
@@ -135,7 +139,7 @@ async function refreshReplicationGauge(realmId: string, executor: DbExecutor = d
 
 export async function findChunkById(
   id: string,
-  executor: DbExecutor = db
+  executor: DbExecutor = terrainDb
 ): Promise<RealmChunkRecord | undefined> {
   const rows = await executor.query(
     `SELECT id, realm_id, chunk_x, chunk_z, payload_json, is_deleted, created_at, updated_at
@@ -151,7 +155,7 @@ export async function findChunkByRealmAndCoords(
   realmId: string,
   chunkX: number,
   chunkZ: number,
-  executor: DbExecutor = db
+  executor: DbExecutor = terrainDb
 ): Promise<RealmChunkRecord | undefined> {
   const rows = await executor.query(
     `SELECT id, realm_id, chunk_x, chunk_z, payload_json, is_deleted, created_at, updated_at
@@ -165,7 +169,7 @@ export async function findChunkByRealmAndCoords(
 
 export async function upsertChunk(
   input: UpsertChunkInput,
-  executor: DbExecutor = db
+  executor: DbExecutor = terrainDb
 ): Promise<RealmChunkRecord> {
   const now = new Date().toISOString();
   await executor.execute(
@@ -195,7 +199,7 @@ export async function upsertChunk(
 export async function listChunksByRealm(
   realmId: string,
   updatedAfter?: string,
-  executor: DbExecutor = db
+  executor: DbExecutor = terrainDb
 ): Promise<RealmChunkRecord[]> {
   if (updatedAfter) {
     const rows = await executor.query(
@@ -219,7 +223,7 @@ export async function listChunksByRealm(
 
 export async function listStructuresForChunks(
   chunkIds: string[],
-  executor: DbExecutor = db
+  executor: DbExecutor = terrainDb
 ): Promise<ChunkStructureRecord[]> {
   if (chunkIds.length === 0) {
     return [];
@@ -237,7 +241,7 @@ export async function listStructuresForChunks(
 
 export async function listPlotsForChunks(
   chunkIds: string[],
-  executor: DbExecutor = db
+  executor: DbExecutor = terrainDb
 ): Promise<ChunkPlotRecord[]> {
   if (chunkIds.length === 0) {
     return [];
@@ -255,7 +259,7 @@ export async function listPlotsForChunks(
 
 export async function findPlotById(
   plotId: string,
-  executor: DbExecutor = db
+  executor: DbExecutor = terrainDb
 ): Promise<ChunkPlotRecord | undefined> {
   const rows = await executor.query(
     `SELECT id, realm_id, chunk_id, plot_identifier, owner_user_id, data_json, is_deleted, created_at, updated_at
@@ -271,7 +275,7 @@ export async function findPlotByIdentifier(
   realmId: string,
   chunkId: string,
   plotIdentifier: string,
-  executor: DbExecutor = db
+  executor: DbExecutor = terrainDb
 ): Promise<ChunkPlotRecord | undefined> {
   const rows = await executor.query(
     `SELECT id, realm_id, chunk_id, plot_identifier, owner_user_id, data_json, is_deleted, created_at, updated_at
@@ -285,7 +289,7 @@ export async function findPlotByIdentifier(
 
 export async function upsertStructures(
   structures: UpsertStructureInput[],
-  executor: DbExecutor = db
+  executor: DbExecutor = terrainDb
 ): Promise<ChunkStructureRecord[]> {
   if (structures.length === 0) {
     return [];
@@ -331,7 +335,7 @@ export async function upsertStructures(
 
 export async function upsertPlots(
   plots: UpsertPlotInput[],
-  executor: DbExecutor = db
+  executor: DbExecutor = terrainDb
 ): Promise<ChunkPlotRecord[]> {
   if (plots.length === 0) {
     return [];
@@ -382,7 +386,7 @@ export async function logChunkChange(
   chunkId: string,
   changeType: string,
   payloadJson: string,
-  executor: DbExecutor = db
+  executor: DbExecutor = terrainDb
 ): Promise<ChunkChangeRecord> {
   const change: ChunkChangeRecord = {
     id: randomUUID(),
@@ -405,7 +409,7 @@ export async function listChunkChanges(
   realmId: string,
   createdAfter?: string,
   limit = 500,
-  executor: DbExecutor = db
+  executor: DbExecutor = terrainDb
 ): Promise<ChunkChangeRecord[]> {
   if (createdAfter) {
     const rows = await executor.query(
@@ -432,7 +436,7 @@ export async function listChunkChanges(
 export async function deleteChunkChangeLogBefore(
   realmId: string,
   cutoff: string,
-  executor: DbExecutor = db
+  executor: DbExecutor = terrainDb
 ): Promise<void> {
   await executor.execute(`DELETE FROM chunk_change_log WHERE realm_id = ? AND created_at < ?`, [
     realmId,

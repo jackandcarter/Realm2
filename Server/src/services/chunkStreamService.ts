@@ -26,6 +26,15 @@ export function removeChunkListener(realmId: string, listener: ChunkListener): v
 }
 
 export function publishChunkChange(change: ChunkChangeDTO): void {
+  logger.info(
+    {
+      realmId: change.realmId,
+      chunkId: change.chunkId,
+      changeType: change.changeType,
+      changeId: change.changeId,
+    },
+    'Terrain change published'
+  );
   const realmListeners = listeners.get(change.realmId);
   if (!realmListeners) {
     return;
