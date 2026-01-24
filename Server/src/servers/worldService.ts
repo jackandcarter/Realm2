@@ -7,6 +7,7 @@ startHttpService({
   app: worldApp,
   port: env.worldPort,
   serviceName: 'world',
+  initializeWorldDb: true,
   enableWorldSockets: true,
   enableActionProcessor: true,
 }).catch((error) => {

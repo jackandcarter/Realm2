@@ -1,9 +1,11 @@
+import { RaceId } from './gameEnums';
+
 export type ClassUnlockMethod = 'starter' | 'quest';
 
 export interface ClassRuleDefinition {
   id: string;
   unlockMethod: ClassUnlockMethod;
-  exclusiveRaceIds?: string[];
+  exclusiveRaceIds?: RaceId[];
 }
 
 const CLASS_RULES: ClassRuleDefinition[] = [

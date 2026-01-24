@@ -50,6 +50,7 @@ export interface ChunkChangeDTO {
 }
 
 export interface ResourceDeltaDTO {
-  resourceType: string;
+  resourceType: ResourceId;
   quantity: number;
 }
+import { ResourceId } from '../config/gameEnums';

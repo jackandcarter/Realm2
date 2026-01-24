@@ -22,26 +22,18 @@ export const equipmentSlots = [
 ] as const;
 export type EquipmentSlot = (typeof equipmentSlots)[number];
 
-export const weaponTypes = [
-  'greatsword',
-  'double-saber',
-  'shield',
-  'staff',
-  'book',
-  'scythe',
-  'sword',
-  'mech-rod',
-  'pistol',
-  'dagger',
-  'dual-blades',
-  'bow',
-  'toolkit',
-  'boomerang',
-] as const;
-export type WeaponType = (typeof weaponTypes)[number];
+export type WeaponType = string;
+
+export const weaponHandedness = ['one-hand', 'two-hand', 'off-hand'] as const;
+export type WeaponHandedness = (typeof weaponHandedness)[number];
 
 export const armorTypes = ['cloth', 'leather', 'plate'] as const;
 export type ArmorType = (typeof armorTypes)[number];
+
+export const classResourceTypes = ['mana', 'stamina', 'energy'] as const;
+export type ClassResourceType = (typeof classResourceTypes)[number];
+
+export type AbilityType = string;
 
 export const tradeStatuses = ['pending', 'accepted', 'cancelled', 'completed'] as const;
 export type TradeStatus = (typeof tradeStatuses)[number];
@@ -60,3 +52,17 @@ export type QuestStatus = (typeof questStatuses)[number];
 
 export const actionRequestTypes = ['progression.update', 'quest.complete'] as const;
 export type ActionRequestType = (typeof actionRequestTypes)[number];
+
+export const actionRequestStatuses = ['pending', 'processing', 'completed', 'rejected'] as const;
+export type ActionRequestStatus = (typeof actionRequestStatuses)[number];
+
+export const chatChannelTypes = ['global', 'party', 'guild', 'direct', 'system'] as const;
+export type ChatChannelType = (typeof chatChannelTypes)[number];
+
+export const combatEventKinds = ['damage', 'heal', 'stateApplied'] as const;
+export type CombatEventKind = (typeof combatEventKinds)[number];
+
+export const resourceCategories = ['raw', 'processed', 'crafted', 'consumable', 'quest'] as const;
+export type ResourceCategory = (typeof resourceCategories)[number];
+
+export type ResourceId = string;

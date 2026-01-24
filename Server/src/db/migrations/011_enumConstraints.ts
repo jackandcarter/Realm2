@@ -2,7 +2,10 @@ import type { DbExecutor } from '../database';
 import {
   actionRequestTypes,
   armorTypes,
+  chatChannelTypes,
   classRoles,
+  classResourceTypes,
+  combatEventKinds,
   equipmentSlots,
   friendStatuses,
   guildRoles,
@@ -12,7 +15,7 @@ import {
   questStatuses,
   raceIds,
   tradeStatuses,
-  weaponTypes,
+  weaponHandedness,
 } from '../../config/gameEnums';
 
 function buildEnumList(values: readonly string[]): string {
@@ -61,8 +64,6 @@ async function enforceEnumColumn(
 }
 
 export async function up(db: DbExecutor): Promise<void> {
-  const weaponDefault = weaponTypes[0] ?? 'greatsword';
-
   await normalizeEnumColumn(db, 'characters', 'race_id', raceIds, 'human');
   await enforceEnumColumn(db, 'characters', 'race_id', raceIds, {
     defaultValue: 'human',
@@ -70,6 +71,9 @@ export async function up(db: DbExecutor): Promise<void> {
 
   await normalizeEnumColumn(db, 'classes', 'role', classRoles, null);
   await enforceEnumColumn(db, 'classes', 'role', classRoles, { nullable: true });
+
+  await normalizeEnumColumn(db, 'classes', 'resource_type', classResourceTypes, null);
+  await enforceEnumColumn(db, 'classes', 'resource_type', classResourceTypes, { nullable: true });
 
   await normalizeEnumColumn(db, 'items', 'category', itemCategories, 'consumable');
   await enforceEnumColumn(db, 'items', 'category', itemCategories, {
@@ -79,9 +83,9 @@ export async function up(db: DbExecutor): Promise<void> {
   await normalizeEnumColumn(db, 'items', 'rarity', itemRarities, 'common');
   await enforceEnumColumn(db, 'items', 'rarity', itemRarities, { defaultValue: 'common' });
 
-  await normalizeEnumColumn(db, 'weapons', 'weapon_type', weaponTypes, weaponDefault);
-  await enforceEnumColumn(db, 'weapons', 'weapon_type', weaponTypes, {
-    defaultValue: weaponDefault,
+  await normalizeEnumColumn(db, 'weapons', 'handedness', weaponHandedness, 'one-hand');
+  await enforceEnumColumn(db, 'weapons', 'handedness', weaponHandedness, {
+    defaultValue: 'one-hand',
   });
 
   await normalizeEnumColumn(db, 'armor', 'slot', equipmentSlots, 'chest');
@@ -93,6 +97,16 @@ export async function up(db: DbExecutor): Promise<void> {
   await normalizeEnumColumn(db, 'character_equipment_items', 'slot', equipmentSlots, 'weapon');
   await enforceEnumColumn(db, 'character_equipment_items', 'slot', equipmentSlots, {
     defaultValue: 'weapon',
+  });
+
+  await normalizeEnumColumn(db, 'chat_channels', 'type', chatChannelTypes, 'global');
+  await enforceEnumColumn(db, 'chat_channels', 'type', chatChannelTypes, {
+    defaultValue: 'global',
+  });
+
+  await normalizeEnumColumn(db, 'character_resource_state', 'resource_type', classResourceTypes, 'mana');
+  await enforceEnumColumn(db, 'character_resource_state', 'resource_type', classResourceTypes, {
+    defaultValue: 'mana',
   });
 
   await normalizeEnumColumn(db, 'trades', 'status', tradeStatuses, 'pending');
@@ -115,6 +129,11 @@ export async function up(db: DbExecutor): Promise<void> {
   await normalizeEnumColumn(db, 'character_action_requests', 'request_type', actionRequestTypes, 'progression.update');
   await enforceEnumColumn(db, 'character_action_requests', 'request_type', actionRequestTypes, {
     defaultValue: 'progression.update',
+  });
+
+  await normalizeEnumColumn(db, 'combat_event_logs', 'event_kind', combatEventKinds, combatEventKinds[0]);
+  await enforceEnumColumn(db, 'combat_event_logs', 'event_kind', combatEventKinds, {
+    defaultValue: combatEventKinds[0],
   });
 }
 
