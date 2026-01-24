@@ -1,5 +1,6 @@
 import { randomUUID } from 'crypto';
-import { db, DbExecutor } from '../db/database';
+import { DbExecutor, db } from '../db/database';
+import { terrainDb } from '../db/terrainDatabase';
 import {
   ChunkChangeRecord,
   ChunkPlotRecord,
@@ -18,7 +19,6 @@ import {
 } from '../db/chunkRepository';
 import { findRealmById } from '../db/realmRepository';
 import { findMembership } from '../db/realmMembershipRepository';
-import { resourceIds } from '../config/gameEnums';
 import { HttpError } from '../utils/errors';
 import {
   ChunkChangeDTO,
@@ -33,6 +33,7 @@ import { applyResourceDeltas, InsufficientResourceError } from '../db/resourceWa
 import { ResourceDelta } from '../types/resources';
 import { getPlotOwner, getPlotPermissionForUser, upsertPlotOwner } from '../db/plotAccessRepository';
 import { listResourceTypeIds } from './referenceDataService';
+import { logger } from '../observability/logger';
 
 export interface ChunkSnapshotEnvelope {
   realmId: string;
@@ -66,6 +67,22 @@ export interface PlotUpdateInput {
   ownerUserId?: string | null;
   data?: unknown;
   isDeleted?: boolean;
+}
+
+export interface TerrainImportChunkInput {
+  chunkId: string;
+  chunkX: number;
+  chunkZ: number;
+  payload?: unknown;
+  isDeleted?: boolean;
+  structures?: StructureUpdateInput[];
+  plots?: PlotUpdateInput[];
+}
+
+export interface TerrainImportPayload {
+  chunks: TerrainImportChunkInput[];
+  emitChangeLog?: boolean;
+  changeType?: string;
 }
 
 interface ChunkChangePayload {
@@ -262,7 +279,7 @@ async function validatePlotOwnership(
   chunkId: string,
   role: 'player' | 'builder',
   plots: PlotUpdateInput[] | undefined,
-  executor: DbExecutor = db
+  executor: DbExecutor = terrainDb
 ): Promise<void> {
   if (!plots || plots.length === 0) {
     return;
@@ -326,9 +343,17 @@ export async function recordChunkChange(
   }
 
   const normalizedResources = await normalizeResourceDeltas(resources);
+  let resourcesApplied = false;
 
   try {
-    const changeDto = await db.withTransaction(async (tx) => {
+    if (normalizedResources.length > 0) {
+      await db.withTransaction(async (tx) => {
+        await applyResourceDeltas(realmId, userId, normalizedResources, tx);
+      });
+      resourcesApplied = true;
+    }
+
+    const changeDto = await terrainDb.withTransaction(async (tx) => {
       const existingChunk = await findChunkById(chunkId, tx);
       if (!existingChunk && !chunk) {
         throw new HttpError(400, 'Chunk metadata must be supplied for new chunks');
@@ -362,10 +387,6 @@ export async function recordChunkChange(
       }
 
       await validatePlotOwnership(userId, realmId, chunkRecord.id, membership.role, plots, tx);
-
-      if (normalizedResources.length > 0) {
-        await applyResourceDeltas(realmId, userId, normalizedResources, tx);
-      }
 
       const structureRecords = await upsertStructures(
         (structures ?? []).map((structure) => {
@@ -449,9 +470,151 @@ export async function recordChunkChange(
     publishChunkChange(changeDto);
     return changeDto;
   } catch (error) {
+    if (resourcesApplied) {
+      try {
+        await db.withTransaction(async (tx) => {
+          const reversal = normalizedResources.map((delta) => ({
+            resourceType: delta.resourceType,
+            quantity: -delta.quantity,
+          }));
+          await applyResourceDeltas(realmId, userId, reversal, tx);
+        });
+      } catch (revertError) {
+        logger.warn(
+          { err: revertError, realmId, chunkId },
+          'Failed to revert resource adjustments after terrain error'
+        );
+      }
+    }
     if (error instanceof InsufficientResourceError) {
       throw new HttpError(409, error.message, { retryable: false });
     }
     throw error;
   }
+}
+
+export async function importTerrainSnapshot(
+  userId: string,
+  realmId: string,
+  payload: TerrainImportPayload
+): Promise<ChunkChangeDTO[]> {
+  const { membership } = await ensureRealmAccess(userId, realmId);
+  if (membership.role !== 'builder') {
+    throw new HttpError(403, 'Only builders can import terrain snapshots');
+  }
+
+  if (!payload || !Array.isArray(payload.chunks) || payload.chunks.length === 0) {
+    throw new HttpError(400, 'chunks array is required for terrain import');
+  }
+
+  const changeType = payload.changeType ?? 'terrain:import';
+  const emitChangeLog = Boolean(payload.emitChangeLog);
+  const changes: ChunkChangeDTO[] = [];
+
+  await terrainDb.withTransaction(async (tx) => {
+    for (const chunkInput of payload.chunks) {
+      if (!chunkInput?.chunkId) {
+        throw new HttpError(400, 'chunkId is required for terrain import');
+      }
+      if (!Number.isFinite(chunkInput.chunkX) || !Number.isFinite(chunkInput.chunkZ)) {
+        throw new HttpError(400, 'chunkX and chunkZ are required for terrain import');
+      }
+
+      const chunkRecord = await upsertChunk(
+        {
+          id: chunkInput.chunkId,
+          realmId,
+          chunkX: chunkInput.chunkX,
+          chunkZ: chunkInput.chunkZ,
+          payloadJson: serializePayload(chunkInput.payload),
+          isDeleted: Boolean(chunkInput.isDeleted),
+        },
+        tx
+      );
+
+      const structureRecords = await upsertStructures(
+        (chunkInput.structures ?? []).map((structure) => {
+          if (!structure.structureType) {
+            throw new HttpError(400, 'Structure type is required');
+          }
+          return {
+            id: structure.structureId ?? randomUUID(),
+            realmId,
+            chunkId: chunkRecord.id,
+            structureType: structure.structureType,
+            dataJson: serializePayload(structure.data),
+            isDeleted: Boolean(structure.isDeleted),
+          };
+        }),
+        tx
+      );
+
+      const plotInputs = await Promise.all(
+        (chunkInput.plots ?? []).map(async (plot) => {
+          const plotId = plot.plotId ?? randomUUID();
+          const identifier = plot.plotIdentifier ?? plotId;
+          const existingPlot =
+            (plot.plotId && (await findPlotById(plot.plotId, tx))) ||
+            (await findPlotByIdentifier(realmId, chunkRecord.id, identifier, tx));
+          const ownerUserId =
+            typeof plot.ownerUserId === 'undefined'
+              ? existingPlot?.ownerUserId ?? null
+              : plot.ownerUserId ?? null;
+          return {
+            id: plotId,
+            realmId,
+            chunkId: chunkRecord.id,
+            plotIdentifier: identifier,
+            ownerUserId,
+            dataJson: serializePayload(plot.data ?? existingPlot?.dataJson ?? {}),
+            isDeleted: Boolean(plot.isDeleted),
+          };
+        })
+      );
+      const plotRecords = await upsertPlots(plotInputs, tx);
+
+      for (const plot of plotRecords) {
+        await upsertPlotOwner(
+          plot.id,
+          realmId,
+          plot.isDeleted ? null : plot.ownerUserId ?? null,
+          tx
+        );
+      }
+
+      const changePayload: ChunkChangePayload = {
+        chunk: toChunkDTO(chunkRecord),
+        structures: structureRecords.length > 0 ? structureRecords.map(toStructureDTO) : undefined,
+        plots: plotRecords.length > 0 ? plotRecords.map(toPlotDTO) : undefined,
+      };
+
+      if (emitChangeLog) {
+        const change = await logChunkChange(
+          realmId,
+          chunkRecord.id,
+          changeType,
+          JSON.stringify(changePayload),
+          tx
+        );
+        changes.push({
+          changeId: change.id,
+          realmId: change.realmId,
+          chunkId: change.chunkId,
+          changeType: change.changeType,
+          createdAt: change.createdAt,
+          chunk: changePayload.chunk,
+          structures: changePayload.structures,
+          plots: changePayload.plots,
+        });
+      }
+    }
+  });
+
+  if (emitChangeLog) {
+    for (const change of changes) {
+      publishChunkChange(change);
+    }
+  }
+
+  return changes;
 }

@@ -1,5 +1,6 @@
 import { randomUUID } from 'crypto';
-import { db, DbExecutor } from './database';
+import { DbExecutor } from './database';
+import { terrainDb } from './terrainDatabase';
 
 export interface PlotOwnerRecord {
   plotId: string;
@@ -43,7 +44,7 @@ function mapPermissionRow(row: any): PlotPermissionRecord {
 
 export async function getPlotOwner(
   plotId: string,
-  executor: DbExecutor = db
+  executor: DbExecutor = terrainDb
 ): Promise<PlotOwnerRecord | undefined> {
   const rows = await executor.query<any[]>(
     `SELECT plot_id, realm_id, owner_user_id, created_at, updated_at
@@ -59,7 +60,7 @@ export async function upsertPlotOwner(
   plotId: string,
   realmId: string,
   ownerUserId: string | null,
-  executor: DbExecutor = db
+  executor: DbExecutor = terrainDb
 ): Promise<PlotOwnerRecord> {
   const now = new Date().toISOString();
   await executor.execute(
@@ -81,14 +82,14 @@ export async function upsertPlotOwner(
 
 export async function clearPlotOwner(
   plotId: string,
-  executor: DbExecutor = db
+  executor: DbExecutor = terrainDb
 ): Promise<void> {
   await executor.execute('DELETE FROM plot_ownerships WHERE plot_id = ?', [plotId]);
 }
 
 export async function listPlotPermissions(
   plotId: string,
-  executor: DbExecutor = db
+  executor: DbExecutor = terrainDb
 ): Promise<PlotPermissionRecord[]> {
   const rows = await executor.query<any[]>(
     `SELECT id, plot_id, realm_id, user_id, permission, created_at, updated_at
@@ -103,7 +104,7 @@ export async function listPlotPermissions(
 export async function getPlotPermissionForUser(
   plotId: string,
   userId: string,
-  executor: DbExecutor = db
+  executor: DbExecutor = terrainDb
 ): Promise<PlotPermissionRecord | undefined> {
   const rows = await executor.query<any[]>(
     `SELECT id, plot_id, realm_id, user_id, permission, created_at, updated_at
@@ -119,7 +120,7 @@ export async function replacePlotPermissions(
   plotId: string,
   realmId: string,
   permissions: Array<{ userId: string; permission: string }>,
-  executor: DbExecutor = db
+  executor: DbExecutor = terrainDb
 ): Promise<PlotPermissionRecord[]> {
   const now = new Date().toISOString();
   await executor.execute('DELETE FROM plot_permissions WHERE plot_id = ?', [plotId]);
