@@ -155,6 +155,7 @@ export async function resetDatabase(): Promise<void> {
   await terrainDb.execute('DELETE FROM plot_ownerships');
   await terrainDb.execute('DELETE FROM chunk_plots');
   await terrainDb.execute('DELETE FROM realm_chunks');
+  await terrainDb.execute('DELETE FROM terrain_regions');
   await db.execute('DELETE FROM realm_build_zones');
   await db.execute('DELETE FROM realm_resource_wallets');
   await db.execute('DELETE FROM character_dock_layouts');

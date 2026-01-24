@@ -12,6 +12,19 @@ async function indexExists(db: DbExecutor, table: string, index: string): Promis
 
 export async function up(db: DbExecutor): Promise<void> {
   await db.execute(
+    `CREATE TABLE IF NOT EXISTS terrain_regions (
+      id VARCHAR(64) PRIMARY KEY,
+      realm_id VARCHAR(36) NOT NULL,
+      name VARCHAR(120) NOT NULL,
+      bounds_json LONGTEXT NOT NULL DEFAULT '{}',
+      terrain_count INT NOT NULL DEFAULT 0,
+      payload_json LONGTEXT NOT NULL DEFAULT '{}',
+      created_at VARCHAR(32) NOT NULL,
+      updated_at VARCHAR(32) NOT NULL
+    ) ENGINE=InnoDB;`
+  );
+
+  await db.execute(
     `CREATE TABLE IF NOT EXISTS realm_chunks (
       id VARCHAR(36) PRIMARY KEY,
       realm_id VARCHAR(36) NOT NULL,
@@ -94,6 +107,10 @@ export async function up(db: DbExecutor): Promise<void> {
 
   if (!(await indexExists(db, 'realm_chunks', 'idx_realm_chunks_realm'))) {
     await db.execute('CREATE INDEX idx_realm_chunks_realm ON realm_chunks(realm_id, updated_at DESC)');
+  }
+
+  if (!(await indexExists(db, 'terrain_regions', 'idx_terrain_regions_realm'))) {
+    await db.execute('CREATE INDEX idx_terrain_regions_realm ON terrain_regions(realm_id, updated_at DESC)');
   }
 
   if (!(await indexExists(db, 'chunk_structures', 'idx_chunk_structures_chunk'))) {

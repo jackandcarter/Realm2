@@ -69,6 +69,22 @@ export interface PlotUpdateInput {
   isDeleted?: boolean;
 }
 
+export interface TerrainImportChunkInput {
+  chunkId: string;
+  chunkX: number;
+  chunkZ: number;
+  payload?: unknown;
+  isDeleted?: boolean;
+  structures?: StructureUpdateInput[];
+  plots?: PlotUpdateInput[];
+}
+
+export interface TerrainImportPayload {
+  chunks: TerrainImportChunkInput[];
+  emitChangeLog?: boolean;
+  changeType?: string;
+}
+
 interface ChunkChangePayload {
   chunk?: RealmChunkDTO | undefined;
   structures?: ChunkStructureDTO[] | undefined;
@@ -475,4 +491,130 @@ export async function recordChunkChange(
     }
     throw error;
   }
+}
+
+export async function importTerrainSnapshot(
+  userId: string,
+  realmId: string,
+  payload: TerrainImportPayload
+): Promise<ChunkChangeDTO[]> {
+  const { membership } = await ensureRealmAccess(userId, realmId);
+  if (membership.role !== 'builder') {
+    throw new HttpError(403, 'Only builders can import terrain snapshots');
+  }
+
+  if (!payload || !Array.isArray(payload.chunks) || payload.chunks.length === 0) {
+    throw new HttpError(400, 'chunks array is required for terrain import');
+  }
+
+  const changeType = payload.changeType ?? 'terrain:import';
+  const emitChangeLog = Boolean(payload.emitChangeLog);
+  const changes: ChunkChangeDTO[] = [];
+
+  await terrainDb.withTransaction(async (tx) => {
+    for (const chunkInput of payload.chunks) {
+      if (!chunkInput?.chunkId) {
+        throw new HttpError(400, 'chunkId is required for terrain import');
+      }
+      if (!Number.isFinite(chunkInput.chunkX) || !Number.isFinite(chunkInput.chunkZ)) {
+        throw new HttpError(400, 'chunkX and chunkZ are required for terrain import');
+      }
+
+      const chunkRecord = await upsertChunk(
+        {
+          id: chunkInput.chunkId,
+          realmId,
+          chunkX: chunkInput.chunkX,
+          chunkZ: chunkInput.chunkZ,
+          payloadJson: serializePayload(chunkInput.payload),
+          isDeleted: Boolean(chunkInput.isDeleted),
+        },
+        tx
+      );
+
+      const structureRecords = await upsertStructures(
+        (chunkInput.structures ?? []).map((structure) => {
+          if (!structure.structureType) {
+            throw new HttpError(400, 'Structure type is required');
+          }
+          return {
+            id: structure.structureId ?? randomUUID(),
+            realmId,
+            chunkId: chunkRecord.id,
+            structureType: structure.structureType,
+            dataJson: serializePayload(structure.data),
+            isDeleted: Boolean(structure.isDeleted),
+          };
+        }),
+        tx
+      );
+
+      const plotInputs = await Promise.all(
+        (chunkInput.plots ?? []).map(async (plot) => {
+          const plotId = plot.plotId ?? randomUUID();
+          const identifier = plot.plotIdentifier ?? plotId;
+          const existingPlot =
+            (plot.plotId && (await findPlotById(plot.plotId, tx))) ||
+            (await findPlotByIdentifier(realmId, chunkRecord.id, identifier, tx));
+          const ownerUserId =
+            typeof plot.ownerUserId === 'undefined'
+              ? existingPlot?.ownerUserId ?? null
+              : plot.ownerUserId ?? null;
+          return {
+            id: plotId,
+            realmId,
+            chunkId: chunkRecord.id,
+            plotIdentifier: identifier,
+            ownerUserId,
+            dataJson: serializePayload(plot.data ?? existingPlot?.dataJson ?? {}),
+            isDeleted: Boolean(plot.isDeleted),
+          };
+        })
+      );
+      const plotRecords = await upsertPlots(plotInputs, tx);
+
+      for (const plot of plotRecords) {
+        await upsertPlotOwner(
+          plot.id,
+          realmId,
+          plot.isDeleted ? null : plot.ownerUserId ?? null,
+          tx
+        );
+      }
+
+      const changePayload: ChunkChangePayload = {
+        chunk: toChunkDTO(chunkRecord),
+        structures: structureRecords.length > 0 ? structureRecords.map(toStructureDTO) : undefined,
+        plots: plotRecords.length > 0 ? plotRecords.map(toPlotDTO) : undefined,
+      };
+
+      if (emitChangeLog) {
+        const change = await logChunkChange(
+          realmId,
+          chunkRecord.id,
+          changeType,
+          JSON.stringify(changePayload),
+          tx
+        );
+        changes.push({
+          changeId: change.id,
+          realmId: change.realmId,
+          chunkId: change.chunkId,
+          changeType: change.changeType,
+          createdAt: change.createdAt,
+          chunk: changePayload.chunk,
+          structures: changePayload.structures,
+          plots: changePayload.plots,
+        });
+      }
+    }
+  });
+
+  if (emitChangeLog) {
+    for (const change of changes) {
+      publishChunkChange(change);
+    }
+  }
+
+  return changes;
 }

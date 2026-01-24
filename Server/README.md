@@ -125,6 +125,8 @@ Base installs now live in the auth/world/terrain schema migrations (`100_auth_sc
 
 Terrain (voxel/mesh/change-log) data is now isolated in the terrain database and served from the dedicated terrain service (`TERRAIN_PORT`). Use this service for `/realms/:realmId/chunks` HTTP routes and `/ws/chunks` streaming updates.
 
+Terrain authoring utilities live under the terrain service as well: `/realms/:realmId/terrain/regions` for region metadata and `/realms/:realmId/terrain/import` for bulk chunk imports from Unity editor tooling.
+
 ## Observability
 
 - Prometheus metrics are exposed at `GET /metrics` and include latency histograms, replication queue gauges, and conflict/error counters for persistence layers.
