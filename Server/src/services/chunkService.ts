@@ -18,6 +18,7 @@ import {
 } from '../db/chunkRepository';
 import { findRealmById } from '../db/realmRepository';
 import { findMembership } from '../db/realmMembershipRepository';
+import { resourceIds } from '../config/gameEnums';
 import { HttpError } from '../utils/errors';
 import {
   ChunkChangeDTO,
@@ -239,8 +240,8 @@ function normalizeResourceDeltas(deltas: ResourceDelta[] | undefined): ResourceD
       continue;
     }
     const resourceType = delta.resourceType?.trim();
-    if (!resourceType) {
-      throw new HttpError(400, 'resourceType is required for resource adjustments');
+    if (!resourceType || !resourceIds.includes(resourceType)) {
+      throw new HttpError(400, `resourceType must be one of: ${resourceIds.join(', ')}`);
     }
     if (!Number.isFinite(delta.quantity) || delta.quantity === 0) {
       continue;

@@ -1,11 +1,22 @@
+import {
+  AbilityType,
+  ArmorType,
+  ClassResourceType,
+  ClassRole,
+  EquipmentSlot,
+  ItemCategory,
+  ItemRarity,
+  WeaponHandedness,
+  WeaponType,
+} from '../config/gameEnums';
 import { db } from './database';
 
 export interface ItemRecord {
   id: string;
   name: string;
   description: string | null;
-  category: string;
-  rarity: string;
+  category: ItemCategory;
+  rarity: ItemRarity;
   stackLimit: number;
   iconUrl: string | null;
   metadataJson: string;
@@ -15,8 +26,8 @@ export interface ItemRecord {
 
 export interface WeaponRecord {
   itemId: string;
-  weaponType: string;
-  handedness: string;
+  weaponType: WeaponType;
+  handedness: WeaponHandedness;
   minDamage: number;
   maxDamage: number;
   attackSpeed: number;
@@ -28,8 +39,8 @@ export interface WeaponRecord {
 
 export interface ArmorRecord {
   itemId: string;
-  slot: string;
-  armorType: string;
+  slot: EquipmentSlot;
+  armorType: ArmorType;
   defense: number;
   resistancesJson: string;
   requiredLevel: number;
@@ -41,8 +52,8 @@ export interface ClassRecord {
   id: string;
   name: string;
   description: string | null;
-  role: string | null;
-  resourceType: string | null;
+  role: ClassRole | null;
+  resourceType: ClassResourceType | null;
   startingLevel: number;
   metadataJson: string;
   createdAt: string;
@@ -93,7 +104,7 @@ export interface AbilityRecord {
   id: string;
   name: string;
   description: string | null;
-  abilityType: string | null;
+  abilityType: AbilityType | null;
   cooldownSeconds: number;
   resourceCost: number;
   rangeMeters: number;
