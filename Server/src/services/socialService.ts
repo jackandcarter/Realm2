@@ -42,6 +42,7 @@ import {
 } from '../db/chatRepository';
 import { requireCharacter, requireOwnedCharacter } from './characterAccessService';
 import { ensureMembership } from './realmService';
+import { ChatChannelType, chatChannelTypes } from '../config/gameEnums';
 import { HttpError } from '../utils/errors';
 
 export async function listGuilds(userId: string, characterId: string): Promise<Guild[]> {
@@ -290,7 +291,11 @@ export async function createChannelForRealm(
   if (!trimmedName) {
     throw new HttpError(400, 'Channel name is required');
   }
-  return createChatChannel(realmId, trimmedName, type || 'global');
+  const normalizedType = (type?.trim() || 'global') as ChatChannelType;
+  if (!chatChannelTypes.includes(normalizedType)) {
+    throw new HttpError(400, `Channel type must be one of: ${chatChannelTypes.join(', ')}`);
+  }
+  return createChatChannel(realmId, trimmedName, normalizedType);
 }
 
 export async function sendChatMessage(

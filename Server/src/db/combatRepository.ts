@@ -1,4 +1,5 @@
 import { randomUUID } from 'crypto';
+import { ClassResourceType } from '../config/gameEnums';
 import { db } from './database';
 import { AbilityResultEvent } from '../gameplay/combat/types';
 
@@ -18,7 +19,7 @@ export interface AbilityCooldownRecord {
 
 export interface CharacterResourceState {
   characterId: string;
-  resourceType: string;
+  resourceType: ClassResourceType;
   currentValue: number;
   maxValue: number;
   updatedAt: string;
@@ -86,7 +87,7 @@ export async function upsertAbilityCooldown(
 
 export async function getCharacterResourceState(
   characterId: string,
-  resourceType: string,
+  resourceType: ClassResourceType,
 ): Promise<CharacterResourceState | undefined> {
   const rows = await db.query<CharacterResourceState[]>(
     `SELECT character_id as characterId,
@@ -103,7 +104,7 @@ export async function getCharacterResourceState(
 
 export async function upsertCharacterResourceState(
   characterId: string,
-  resourceType: string,
+  resourceType: ClassResourceType,
   currentValue: number,
   maxValue: number,
 ): Promise<void> {

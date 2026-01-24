@@ -1,11 +1,12 @@
 import { randomUUID } from 'crypto';
+import { ChatChannelType } from '../config/gameEnums';
 import { db, DbExecutor } from './database';
 
 export interface ChatChannel {
   id: string;
   realmId: string;
   name: string;
-  type: string;
+  type: ChatChannelType;
   createdAt: string;
 }
 
@@ -54,7 +55,7 @@ export async function findChatChannelById(
 export async function createChatChannel(
   realmId: string,
   name: string,
-  type: string,
+  type: ChatChannelType,
   executor: DbExecutor = db
 ): Promise<ChatChannel> {
   const now = new Date().toISOString();

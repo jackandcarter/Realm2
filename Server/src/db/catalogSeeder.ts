@@ -1,4 +1,15 @@
 import type { DbExecutor } from './database';
+import {
+  AbilityType,
+  ArmorType,
+  ClassRole,
+  EquipmentSlot,
+  ItemCategory,
+  ItemRarity,
+  WeaponHandedness,
+  WeaponType,
+  weaponTypes,
+} from '../config/gameEnums';
 import { coreClassDefinitions, equipmentCatalog } from '../gameplay/design/systemFoundations';
 import { generatedAbilityDefinitions } from '../gameplay/combat/generated/abilityRegistry';
 
@@ -6,8 +17,8 @@ interface ItemSeed {
   id: string;
   name: string;
   description: string | null;
-  category: string;
-  rarity: string;
+  category: ItemCategory;
+  rarity: ItemRarity;
   stackLimit: number;
   iconUrl: string | null;
   metadata: Record<string, unknown>;
@@ -15,8 +26,8 @@ interface ItemSeed {
 
 interface WeaponSeed {
   itemId: string;
-  weaponType: string;
-  handedness: string;
+  weaponType: WeaponType;
+  handedness: WeaponHandedness;
   minDamage: number;
   maxDamage: number;
   attackSpeed: number;
@@ -28,8 +39,8 @@ interface WeaponSeed {
 
 interface ArmorSeed {
   itemId: string;
-  slot: string;
-  armorType: string;
+  slot: EquipmentSlot;
+  armorType: ArmorType;
   defense: number;
   resistances: Record<string, number>;
   requiredLevel: number;
@@ -40,7 +51,7 @@ interface ArmorSeed {
 interface ClassSeed {
   id: string;
   name: string;
-  role: string | null;
+  role: ClassRole | null;
   metadata: Record<string, unknown>;
 }
 
@@ -48,7 +59,7 @@ interface AbilitySeed {
   id: string;
   name: string;
   description: string | null;
-  abilityType: string;
+  abilityType: AbilityType;
   rangeMeters: number;
   metadata: Record<string, unknown>;
 }
@@ -93,7 +104,7 @@ function buildItemSeeds(): { items: ItemSeed[]; weapons: WeaponSeed[]; armor: Ar
     if (entry.category === 'weapon') {
       weapons.push({
         itemId: entry.id,
-        weaponType: entry.subtype ?? 'weapon',
+        weaponType: (entry.subtype as WeaponType) ?? weaponTypes[0],
         handedness: 'one-hand',
         minDamage: 0,
         maxDamage: 0,
@@ -116,7 +127,7 @@ function buildItemSeeds(): { items: ItemSeed[]; weapons: WeaponSeed[]; armor: Ar
       armor.push({
         itemId: entry.id,
         slot: entry.slot,
-        armorType: entry.subtype ?? 'armor',
+        armorType: (entry.subtype as ArmorType) ?? 'cloth',
         defense: 0,
         resistances: {},
         requiredLevel: 1,
