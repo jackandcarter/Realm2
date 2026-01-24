@@ -1,8 +1,6 @@
 import { randomUUID } from 'crypto';
 import { db } from './database';
-import { ActionRequestType } from '../config/gameEnums';
-
-export type ActionRequestStatus = 'pending' | 'processing' | 'completed' | 'rejected';
+import { ActionRequestStatus, ActionRequestType } from '../config/gameEnums';
 
 export interface ActionRequestRecord {
   id: string;

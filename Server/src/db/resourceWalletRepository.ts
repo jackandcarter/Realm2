@@ -1,24 +1,25 @@
 import { randomUUID } from 'crypto';
 import { db, DbExecutor } from './database';
+import { ResourceId } from '../config/gameEnums';
 import { ResourceDelta } from '../types/resources';
 
 export interface ResourceWalletRecord {
   id: string;
   realmId: string;
   userId: string;
-  resourceType: string;
+  resourceType: ResourceId;
   quantity: number;
   updatedAt: string;
 }
 
 export interface ResourceAdjustment {
-  resourceType: string;
+  resourceType: ResourceId;
   delta: number;
 }
 
 export class InsufficientResourceError extends Error {
   constructor(
-    public readonly resourceType: string,
+    public readonly resourceType: ResourceId,
     public readonly requested: number,
     public readonly available: number
   ) {
@@ -69,7 +70,7 @@ export async function applyResourceAdjustments(
   const updated: ResourceWalletRecord[] = [];
 
   for (const adjustment of filtered) {
-    const resourceType = adjustment.resourceType.trim();
+    const resourceType = adjustment.resourceType.trim() as ResourceId;
     if (!resourceType) {
       throw new Error('resourceType is required for resource adjustments');
     }
