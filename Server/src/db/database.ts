@@ -1,6 +1,6 @@
 import mysql, { Pool, PoolConnection, ResultSetHeader, RowDataPacket } from 'mysql2/promise';
 import { env } from '../config/env';
-import { runMigrations } from './migrationRunner';
+import { runWorldMigrations } from './worldMigrationRunner';
 import { seedCatalogData } from './catalogSeeder';
 import { seedRaceCatalogData } from './raceCatalogSeeder';
 import { seedReferenceData } from './referenceDataSeeder';
@@ -130,7 +130,7 @@ export async function initializeWorldDatabase(): Promise<void> {
     }
   };
 
-  await runMigrations(db);
+  await runWorldMigrations(db);
   await seedRealms();
   await seedReferenceData(db);
   await seedCatalogData(db);
@@ -147,7 +147,6 @@ export { db };
 
 export async function resetDatabase(): Promise<void> {
   await initializeDatabase();
-  await db.execute('DELETE FROM refresh_tokens');
   await db.execute('DELETE FROM chunk_change_log');
   await db.execute('DELETE FROM chunk_structures');
   await db.execute('DELETE FROM chunk_plots');
@@ -203,7 +202,6 @@ export async function resetDatabase(): Promise<void> {
   await db.execute('DELETE FROM characters');
   await db.execute('DELETE FROM realm_memberships');
   await db.execute('DELETE FROM realms');
-  await db.execute('DELETE FROM users');
   await seedRealms();
   await seedDefaultCurrencies(db);
 }
