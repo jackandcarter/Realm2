@@ -18,6 +18,7 @@ import {
   upsertCharacterResourceState,
   upsertCombatClientTime,
 } from '../db/combatRepository';
+import { ClassResourceType, classResourceTypes } from '../config/gameEnums';
 import { getCharacterProgressionSnapshot } from '../db/progressionRepository';
 import {
   AbilityRecord,
@@ -32,7 +33,7 @@ const statRegistry = new CombatStatRegistry(generatedStatDefinitions);
 const abilityRegistry = new AbilityRegistry(generatedAbilityDefinitions);
 const executor = new AbilityExecutor({ stats: statRegistry, abilities: abilityRegistry });
 interface ResourceSnapshot {
-  resourceType: string;
+  resourceType: ClassResourceType;
   currentValue: number;
   maxValue: number;
 }
@@ -273,7 +274,9 @@ async function validateAbilityResourceCost(
     .filter((entry) => entry.level > 1 && entry.level <= level)
     .reduce((sum, entry) => sum + (entry.manaGain ?? 0), 0);
   const maxResource = (classBaseStats?.baseMana ?? 0) + manaBonus || 100;
-  const resourceType = classRecord?.resourceType?.trim() || 'mana';
+  const resolvedType = classRecord?.resourceType?.trim() as ClassResourceType | undefined;
+  const resourceType: ClassResourceType =
+    resolvedType && classResourceTypes.includes(resolvedType) ? resolvedType : 'mana';
   const resourceState = await getCharacterResourceState(casterId, resourceType);
   const currentValue = resourceState ? resourceState.currentValue : maxResource;
   const clampedCurrent = Math.min(currentValue, maxResource);
