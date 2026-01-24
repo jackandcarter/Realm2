@@ -1,6 +1,6 @@
 import { randomUUID } from 'crypto';
 import { db, DbExecutor } from './database';
-import { ResourceId, resourceIds } from '../config/gameEnums';
+import { ResourceId } from '../config/gameEnums';
 import { ResourceDelta } from '../types/resources';
 
 export interface ResourceWalletRecord {
@@ -71,8 +71,8 @@ export async function applyResourceAdjustments(
 
   for (const adjustment of filtered) {
     const resourceType = adjustment.resourceType.trim() as ResourceId;
-    if (!resourceType || !resourceIds.includes(resourceType)) {
-      throw new Error(`resourceType must be one of: ${resourceIds.join(', ')}`);
+    if (!resourceType) {
+      throw new Error('resourceType is required for resource adjustments');
     }
 
     const rows = await executor.query<ResourceWalletRecord[]>(

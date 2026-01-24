@@ -27,6 +27,11 @@ import {
   name as raceCatalogName,
   up as raceCatalogUp
 } from './migrations/012_raceCatalog';
+import {
+  id as referenceTypesId,
+  name as referenceTypesName,
+  up as referenceTypesUp
+} from './migrations/013_referenceTypes';
 import type { DbExecutor } from './database';
 
 interface DatabaseMigration {
@@ -47,6 +52,7 @@ const migrations: DatabaseMigration[] = [
   { id: combatPersistenceId, name: combatPersistenceName, up: combatPersistenceUp },
   { id: enumConstraintId, name: enumConstraintName, up: enumConstraintUp },
   { id: raceCatalogId, name: raceCatalogName, up: raceCatalogUp },
+  { id: referenceTypesId, name: referenceTypesName, up: referenceTypesUp },
 ];
 
 async function ensureMigrationsTable(db: DbExecutor): Promise<void> {

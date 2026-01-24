@@ -7,6 +7,7 @@ import {
   InsufficientResourceError,
 } from '../db/resourceWalletRepository';
 import { HttpError } from '../utils/errors';
+import { listResourceTypeIds } from './referenceDataService';
 
 export async function listWalletForUser(userId: string, realmId: string) {
   const realm = await findRealmById(realmId);
@@ -35,6 +36,17 @@ export async function applyWalletAdjustmentsForUser(
   const membership = await findMembership(userId, realmId);
   if (!membership) {
     throw new HttpError(403, 'Join the realm before accessing its resources');
+  }
+
+  const resourceTypeIds = await listResourceTypeIds();
+  for (const adjustment of adjustments ?? []) {
+    const resourceType = adjustment?.resourceType?.trim();
+    if (!resourceType || !resourceTypeIds.includes(resourceType)) {
+      throw new HttpError(
+        400,
+        `resourceType must be one of: ${resourceTypeIds.join(', ')}`
+      );
+    }
   }
 
   try {

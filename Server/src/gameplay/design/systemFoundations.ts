@@ -6,8 +6,6 @@ import {
   ResourceId,
   WeaponType,
   resourceCategories,
-  resourceIds,
-  weaponTypes,
 } from '../../config/gameEnums';
 
 export type ElementType =
@@ -352,14 +350,10 @@ export const resourceDefinitions: ResourceDefinition[] = [
 ];
 
 function assertResourceDefinitionsValid(): void {
-  const allowedIds = new Set(resourceIds);
   const allowedCategories = new Set(resourceCategories);
   const seen = new Set<string>();
 
   for (const definition of resourceDefinitions) {
-    if (!allowedIds.has(definition.id)) {
-      throw new Error(`Invalid resource id "${definition.id}"`);
-    }
     if (!allowedCategories.has(definition.category)) {
       throw new Error(`Invalid resource category "${definition.category}" for ${definition.id}`);
     }
@@ -367,12 +361,6 @@ function assertResourceDefinitionsValid(): void {
       throw new Error(`Duplicate resource definition "${definition.id}"`);
     }
     seen.add(definition.id);
-  }
-
-  for (const id of allowedIds) {
-    if (!seen.has(id)) {
-      throw new Error(`Missing resource definition for "${id}"`);
-    }
   }
 }
 

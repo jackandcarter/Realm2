@@ -18,7 +18,6 @@ import {
   resourceIds,
   tradeStatuses,
   weaponHandedness,
-  weaponTypes,
 } from '../../config/gameEnums';
 
 function buildEnumList(values: readonly string[]): string {
@@ -67,8 +66,6 @@ async function enforceEnumColumn(
 }
 
 export async function up(db: DbExecutor): Promise<void> {
-  const weaponDefault = weaponTypes[0] ?? 'greatsword';
-
   await normalizeEnumColumn(db, 'characters', 'race_id', raceIds, 'human');
   await enforceEnumColumn(db, 'characters', 'race_id', raceIds, {
     defaultValue: 'human',
@@ -88,9 +85,9 @@ export async function up(db: DbExecutor): Promise<void> {
   await normalizeEnumColumn(db, 'items', 'rarity', itemRarities, 'common');
   await enforceEnumColumn(db, 'items', 'rarity', itemRarities, { defaultValue: 'common' });
 
-  await normalizeEnumColumn(db, 'weapons', 'weapon_type', weaponTypes, weaponDefault);
-  await enforceEnumColumn(db, 'weapons', 'weapon_type', weaponTypes, {
-    defaultValue: weaponDefault,
+  await normalizeEnumColumn(db, 'weapons', 'handedness', weaponHandedness, 'one-hand');
+  await enforceEnumColumn(db, 'weapons', 'handedness', weaponHandedness, {
+    defaultValue: 'one-hand',
   });
 
   await normalizeEnumColumn(db, 'weapons', 'handedness', weaponHandedness, 'one-hand');
@@ -109,17 +106,9 @@ export async function up(db: DbExecutor): Promise<void> {
     defaultValue: 'weapon',
   });
 
-  await normalizeEnumColumn(db, 'abilities', 'ability_type', abilityTypes, 'combat');
-  await enforceEnumColumn(db, 'abilities', 'ability_type', abilityTypes, { defaultValue: 'combat' });
-
   await normalizeEnumColumn(db, 'chat_channels', 'type', chatChannelTypes, 'global');
   await enforceEnumColumn(db, 'chat_channels', 'type', chatChannelTypes, {
     defaultValue: 'global',
-  });
-
-  await normalizeEnumColumn(db, 'realm_resource_wallets', 'resource_type', resourceIds, resourceIds[0]);
-  await enforceEnumColumn(db, 'realm_resource_wallets', 'resource_type', resourceIds, {
-    defaultValue: resourceIds[0],
   });
 
   await normalizeEnumColumn(db, 'character_resource_state', 'resource_type', classResourceTypes, 'mana');

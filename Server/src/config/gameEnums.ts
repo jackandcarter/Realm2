@@ -22,23 +22,10 @@ export const equipmentSlots = [
 ] as const;
 export type EquipmentSlot = (typeof equipmentSlots)[number];
 
-export const weaponTypes = [
-  'greatsword',
-  'double-saber',
-  'shield',
-  'staff',
-  'book',
-  'scythe',
-  'sword',
-  'mech-rod',
-  'pistol',
-  'dagger',
-  'dual-blades',
-  'bow',
-  'toolkit',
-  'boomerang',
-] as const;
-export type WeaponType = (typeof weaponTypes)[number];
+export type WeaponType = string;
+
+export const weaponHandedness = ['one-hand', 'two-hand', 'off-hand'] as const;
+export type WeaponHandedness = (typeof weaponHandedness)[number];
 
 export const weaponHandedness = ['one-hand', 'two-hand', 'off-hand'] as const;
 export type WeaponHandedness = (typeof weaponHandedness)[number];
@@ -49,8 +36,7 @@ export type ArmorType = (typeof armorTypes)[number];
 export const classResourceTypes = ['mana', 'stamina', 'energy'] as const;
 export type ClassResourceType = (typeof classResourceTypes)[number];
 
-export const abilityTypes = ['combat'] as const;
-export type AbilityType = (typeof abilityTypes)[number];
+export type AbilityType = string;
 
 export const tradeStatuses = ['pending', 'accepted', 'cancelled', 'completed'] as const;
 export type TradeStatus = (typeof tradeStatuses)[number];
@@ -82,23 +68,4 @@ export type CombatEventKind = (typeof combatEventKinds)[number];
 export const resourceCategories = ['raw', 'processed', 'crafted', 'consumable', 'quest'] as const;
 export type ResourceCategory = (typeof resourceCategories)[number];
 
-export const resourceIds = [
-  'resource.wood',
-  'resource.ore',
-  'resource.rare-essence',
-  'resource.herbs',
-  'resource.crops',
-  'resource.cloth',
-  'resource.leather',
-  'resource.pigment',
-  'resource.tech-shards',
-  'resource.wood-beam-small',
-  'resource.wood-beam-medium',
-  'resource.wood-beam-large',
-  'resource.iron-plate',
-  'resource.mana-resin',
-  'resource.health-tonic',
-  'resource.stamina-tonic',
-  'resource.quest-chrono-shard',
-] as const;
-export type ResourceId = (typeof resourceIds)[number];
+export type ResourceId = string;

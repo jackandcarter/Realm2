@@ -8,7 +8,6 @@ import {
   ItemRarity,
   WeaponHandedness,
   WeaponType,
-  weaponTypes,
 } from '../config/gameEnums';
 import { coreClassDefinitions, equipmentCatalog } from '../gameplay/design/systemFoundations';
 import { generatedAbilityDefinitions } from '../gameplay/combat/generated/abilityRegistry';
@@ -104,7 +103,7 @@ function buildItemSeeds(): { items: ItemSeed[]; weapons: WeaponSeed[]; armor: Ar
     if (entry.category === 'weapon') {
       weapons.push({
         itemId: entry.id,
-        weaponType: (entry.subtype as WeaponType) ?? weaponTypes[0],
+        weaponType: (entry.subtype as WeaponType) ?? 'unknown',
         handedness: 'one-hand',
         minDamage: 0,
         maxDamage: 0,
