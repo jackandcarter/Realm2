@@ -18,6 +18,7 @@ import {
 } from '../db/chunkRepository';
 import { findRealmById } from '../db/realmRepository';
 import { findMembership } from '../db/realmMembershipRepository';
+import { resourceIds } from '../config/gameEnums';
 import { HttpError } from '../utils/errors';
 import {
   ChunkChangeDTO,

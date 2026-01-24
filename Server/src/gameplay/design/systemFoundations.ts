@@ -273,6 +273,19 @@ export const coreClassDefinitions: ClassDefinition[] = [
   },
 ];
 
+function assertWeaponProficienciesValid(): void {
+  const allowed = new Set(weaponTypes);
+  for (const definition of coreClassDefinitions) {
+    for (const weapon of definition.weaponProficiencies) {
+      if (!allowed.has(weapon)) {
+        throw new Error(`Invalid weapon proficiency "${weapon}" for class ${definition.id}`);
+      }
+    }
+  }
+}
+
+assertWeaponProficienciesValid();
+
 export interface ProfessionDefinition {
   id: string;
   name: string;

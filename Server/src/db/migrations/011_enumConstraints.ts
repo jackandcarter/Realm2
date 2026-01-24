@@ -1,6 +1,7 @@
 import type { DbExecutor } from '../database';
 import {
   actionRequestTypes,
+  abilityTypes,
   armorTypes,
   chatChannelTypes,
   classRoles,
@@ -14,6 +15,7 @@ import {
   partyRoles,
   questStatuses,
   raceIds,
+  resourceIds,
   tradeStatuses,
   weaponHandedness,
 } from '../../config/gameEnums';
