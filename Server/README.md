@@ -94,6 +94,7 @@ Create a `.env` file (see `.env.example`) to override defaults.
 | `CATALOG_PORT` | Catalog service port | `3004` |
 | `ECONOMY_PORT` | Economy service port | `3005` |
 | `SOCIAL_PORT` | Social service port | `3006` |
+| `TERRAIN_PORT` | Terrain service port | `3007` |
 | `JWT_SECRET` | Secret key for signing JWT access tokens | `dev-secret-change-me` |
 | `DB_HOST` | MariaDB host | `127.0.0.1` |
 | `DB_PORT` | MariaDB port | `3306` |
@@ -102,6 +103,13 @@ Create a `.env` file (see `.env.example`) to override defaults.
 | `DB_NAME` | MariaDB database name | `realm2` |
 | `DB_SSL` | Whether to enable SSL for MariaDB connections | `false` |
 | `DB_POOL_LIMIT` | Connection pool size | `10` |
+| `TERRAIN_DB_HOST` | MariaDB host for the terrain database | `127.0.0.1` |
+| `TERRAIN_DB_PORT` | MariaDB port for the terrain database | `3306` |
+| `TERRAIN_DB_USER` | MariaDB username for the terrain database | `realm2` |
+| `TERRAIN_DB_PASSWORD` | MariaDB password for the terrain database | (empty) |
+| `TERRAIN_DB_NAME` | MariaDB database name for terrain data | `realm2_terrain` |
+| `TERRAIN_DB_SSL` | Whether to enable SSL for terrain DB connections | `false` |
+| `TERRAIN_DB_POOL_LIMIT` | Terrain database connection pool size | `10` |
 | `ACCESS_TOKEN_TTL` | Access token lifetime in seconds | `900` (15 minutes) |
 | `REFRESH_TOKEN_TTL` | Refresh token lifetime in seconds | `604800` (7 days) |
 
@@ -113,7 +121,9 @@ Swagger UI is available at `http://localhost:3000/docs` once the server is runni
 
 The service ships with an idempotent migration runner that upgrades the world-state schema automatically on startup. If tables, columns, or indexes are missing, startup migrations will recreate them before the HTTP server begins accepting requests. You can also apply migrations manually using the commands shown above.
 
-Base installs now live entirely in the auth/world schema migrations (`100_auth_schema` and `200_world_schema`), with incremental migrations folded into those definitions.
+Base installs now live in the auth/world/terrain schema migrations (`100_auth_schema`, `200_world_schema`, and `300_terrain_schema`), with incremental migrations folded into those definitions.
+
+Terrain (voxel/mesh/change-log) data is now isolated in the terrain database and served from the dedicated terrain service (`TERRAIN_PORT`). Use this service for `/realms/:realmId/chunks` HTTP routes and `/ws/chunks` streaming updates.
 
 ## Observability
 

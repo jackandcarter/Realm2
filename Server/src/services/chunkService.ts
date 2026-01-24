@@ -1,5 +1,6 @@
 import { randomUUID } from 'crypto';
-import { db, DbExecutor } from '../db/database';
+import { DbExecutor, db } from '../db/database';
+import { terrainDb } from '../db/terrainDatabase';
 import {
   ChunkChangeRecord,
   ChunkPlotRecord,
@@ -18,7 +19,6 @@ import {
 } from '../db/chunkRepository';
 import { findRealmById } from '../db/realmRepository';
 import { findMembership } from '../db/realmMembershipRepository';
-import { resourceIds } from '../config/gameEnums';
 import { HttpError } from '../utils/errors';
 import {
   ChunkChangeDTO,
@@ -33,6 +33,7 @@ import { applyResourceDeltas, InsufficientResourceError } from '../db/resourceWa
 import { ResourceDelta } from '../types/resources';
 import { getPlotOwner, getPlotPermissionForUser, upsertPlotOwner } from '../db/plotAccessRepository';
 import { listResourceTypeIds } from './referenceDataService';
+import { logger } from '../observability/logger';
 
 export interface ChunkSnapshotEnvelope {
   realmId: string;
@@ -262,7 +263,7 @@ async function validatePlotOwnership(
   chunkId: string,
   role: 'player' | 'builder',
   plots: PlotUpdateInput[] | undefined,
-  executor: DbExecutor = db
+  executor: DbExecutor = terrainDb
 ): Promise<void> {
   if (!plots || plots.length === 0) {
     return;
@@ -326,9 +327,17 @@ export async function recordChunkChange(
   }
 
   const normalizedResources = await normalizeResourceDeltas(resources);
+  let resourcesApplied = false;
 
   try {
-    const changeDto = await db.withTransaction(async (tx) => {
+    if (normalizedResources.length > 0) {
+      await db.withTransaction(async (tx) => {
+        await applyResourceDeltas(realmId, userId, normalizedResources, tx);
+      });
+      resourcesApplied = true;
+    }
+
+    const changeDto = await terrainDb.withTransaction(async (tx) => {
       const existingChunk = await findChunkById(chunkId, tx);
       if (!existingChunk && !chunk) {
         throw new HttpError(400, 'Chunk metadata must be supplied for new chunks');
@@ -362,10 +371,6 @@ export async function recordChunkChange(
       }
 
       await validatePlotOwnership(userId, realmId, chunkRecord.id, membership.role, plots, tx);
-
-      if (normalizedResources.length > 0) {
-        await applyResourceDeltas(realmId, userId, normalizedResources, tx);
-      }
 
       const structureRecords = await upsertStructures(
         (structures ?? []).map((structure) => {
@@ -449,6 +454,22 @@ export async function recordChunkChange(
     publishChunkChange(changeDto);
     return changeDto;
   } catch (error) {
+    if (resourcesApplied) {
+      try {
+        await db.withTransaction(async (tx) => {
+          const reversal = normalizedResources.map((delta) => ({
+            resourceType: delta.resourceType,
+            quantity: -delta.quantity,
+          }));
+          await applyResourceDeltas(realmId, userId, reversal, tx);
+        });
+      } catch (revertError) {
+        logger.warn(
+          { err: revertError, realmId, chunkId },
+          'Failed to revert resource adjustments after terrain error'
+        );
+      }
+    }
     if (error instanceof InsufficientResourceError) {
       throw new HttpError(409, error.message, { retryable: false });
     }

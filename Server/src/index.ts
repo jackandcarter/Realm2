@@ -8,6 +8,7 @@ async function startServer(): Promise<void> {
     app,
     port: env.port,
     serviceName: 'gateway',
+    initializeTerrainDb: true,
     enableWorldSockets: true,
     enableActionProcessor: true,
     enableCommandConsole: true,

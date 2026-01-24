@@ -4,6 +4,7 @@ import type { Express } from 'express';
 import { logger } from '../observability/logger';
 import { initializeAuthDatabase } from '../db/authDatabase';
 import { initializeWorldDatabase } from '../db/database';
+import { initializeTerrainDatabase } from '../db/terrainDatabase';
 import { registerProgressionSocketHandlers } from '../services/progressionService';
 import { registerChunkSocketHandlers } from '../services/chunkSocketService';
 import { startActionRequestProcessor } from '../services/actionRequestProcessor';
@@ -16,7 +17,9 @@ export interface ServiceBootstrapOptions {
   initializeDb?: boolean;
   initializeAuthDb?: boolean;
   initializeWorldDb?: boolean;
+  initializeTerrainDb?: boolean;
   enableWorldSockets?: boolean;
+  enableChunkSockets?: boolean;
   enableActionProcessor?: boolean;
   enableCommandConsole?: boolean;
 }
@@ -29,6 +32,9 @@ export async function startHttpService(options: ServiceBootstrapOptions): Promis
     if (options.initializeWorldDb !== false) {
       await initializeWorldDatabase();
     }
+    if (options.initializeTerrainDb) {
+      await initializeTerrainDatabase();
+    }
   }
 
   const server = http.createServer(options.app);
@@ -36,6 +42,9 @@ export async function startHttpService(options: ServiceBootstrapOptions): Promis
   if (options.enableWorldSockets) {
     const wsServer = new WebSocketServer({ server, path: '/ws/progression' });
     registerProgressionSocketHandlers(wsServer);
+  }
+
+  if (options.enableChunkSockets) {
     const chunkWsServer = new WebSocketServer({ server, path: '/ws/chunks' });
     registerChunkSocketHandlers(chunkWsServer);
   }

@@ -47,53 +47,6 @@ export async function up(db: DbExecutor): Promise<void> {
   );
 
   await db.execute(
-    `CREATE TABLE IF NOT EXISTS realm_chunks (
-      id VARCHAR(36) PRIMARY KEY,
-      realm_id VARCHAR(36) NOT NULL,
-      chunk_x INT NOT NULL,
-      chunk_z INT NOT NULL,
-      payload_json LONGTEXT NOT NULL DEFAULT '{}',
-      is_deleted TINYINT(1) NOT NULL DEFAULT 0,
-      created_at VARCHAR(32) NOT NULL,
-      updated_at VARCHAR(32) NOT NULL,
-      UNIQUE KEY uniq_realm_chunk (realm_id, chunk_x, chunk_z),
-      FOREIGN KEY (realm_id) REFERENCES realms(id) ON DELETE CASCADE
-    ) ENGINE=InnoDB;`
-  );
-
-  await db.execute(
-    `CREATE TABLE IF NOT EXISTS chunk_structures (
-      id VARCHAR(36) PRIMARY KEY,
-      realm_id VARCHAR(36) NOT NULL,
-      chunk_id VARCHAR(36) NOT NULL,
-      structure_type VARCHAR(64) NOT NULL,
-      data_json LONGTEXT NOT NULL DEFAULT '{}',
-      is_deleted TINYINT(1) NOT NULL DEFAULT 0,
-      created_at VARCHAR(32) NOT NULL,
-      updated_at VARCHAR(32) NOT NULL,
-      FOREIGN KEY (realm_id) REFERENCES realms(id) ON DELETE CASCADE,
-      FOREIGN KEY (chunk_id) REFERENCES realm_chunks(id) ON DELETE CASCADE
-    ) ENGINE=InnoDB;`
-  );
-
-  await db.execute(
-    `CREATE TABLE IF NOT EXISTS chunk_plots (
-      id VARCHAR(36) PRIMARY KEY,
-      realm_id VARCHAR(36) NOT NULL,
-      chunk_id VARCHAR(36) NOT NULL,
-      plot_identifier VARCHAR(128) NOT NULL,
-      owner_user_id VARCHAR(36),
-      data_json LONGTEXT NOT NULL DEFAULT '{}',
-      is_deleted TINYINT(1) NOT NULL DEFAULT 0,
-      created_at VARCHAR(32) NOT NULL,
-      updated_at VARCHAR(32) NOT NULL,
-      UNIQUE KEY uniq_chunk_plot (chunk_id, plot_identifier),
-      FOREIGN KEY (realm_id) REFERENCES realms(id) ON DELETE CASCADE,
-      FOREIGN KEY (chunk_id) REFERENCES realm_chunks(id) ON DELETE CASCADE
-    ) ENGINE=InnoDB;`
-  );
-
-  await db.execute(
     `CREATE TABLE IF NOT EXISTS realm_resource_wallets (
       id VARCHAR(36) PRIMARY KEY,
       realm_id VARCHAR(36) NOT NULL,
@@ -103,19 +56,6 @@ export async function up(db: DbExecutor): Promise<void> {
       updated_at VARCHAR(32) NOT NULL,
       UNIQUE KEY uniq_resource_wallet (realm_id, user_id, resource_type),
       FOREIGN KEY (realm_id) REFERENCES realms(id) ON DELETE CASCADE
-    ) ENGINE=InnoDB;`
-  );
-
-  await db.execute(
-    `CREATE TABLE IF NOT EXISTS chunk_change_log (
-      id VARCHAR(36) PRIMARY KEY,
-      realm_id VARCHAR(36) NOT NULL,
-      chunk_id VARCHAR(36) NOT NULL,
-      change_type VARCHAR(64) NOT NULL,
-      payload_json LONGTEXT NOT NULL DEFAULT '{}',
-      created_at VARCHAR(32) NOT NULL,
-      FOREIGN KEY (realm_id) REFERENCES realms(id) ON DELETE CASCADE,
-      FOREIGN KEY (chunk_id) REFERENCES realm_chunks(id) ON DELETE CASCADE
     ) ENGINE=InnoDB;`
   );
 
@@ -263,33 +203,6 @@ export async function up(db: DbExecutor): Promise<void> {
       updated_at VARCHAR(32) NOT NULL,
       UNIQUE KEY uniq_character_quest (character_id, quest_id),
       FOREIGN KEY (character_id) REFERENCES characters(id) ON DELETE CASCADE
-    ) ENGINE=InnoDB;`
-  );
-
-  await db.execute(
-    `CREATE TABLE IF NOT EXISTS plot_ownerships (
-      plot_id VARCHAR(36) PRIMARY KEY,
-      realm_id VARCHAR(36) NOT NULL,
-      owner_user_id VARCHAR(36),
-      created_at VARCHAR(32) NOT NULL,
-      updated_at VARCHAR(32) NOT NULL,
-      FOREIGN KEY (plot_id) REFERENCES chunk_plots(id) ON DELETE CASCADE,
-      FOREIGN KEY (realm_id) REFERENCES realms(id) ON DELETE CASCADE
-    ) ENGINE=InnoDB;`
-  );
-
-  await db.execute(
-    `CREATE TABLE IF NOT EXISTS plot_permissions (
-      id VARCHAR(36) PRIMARY KEY,
-      plot_id VARCHAR(36) NOT NULL,
-      realm_id VARCHAR(36) NOT NULL,
-      user_id VARCHAR(36) NOT NULL,
-      permission VARCHAR(64) NOT NULL,
-      created_at VARCHAR(32) NOT NULL,
-      updated_at VARCHAR(32) NOT NULL,
-      UNIQUE KEY uniq_plot_permission (plot_id, user_id),
-      FOREIGN KEY (plot_id) REFERENCES chunk_plots(id) ON DELETE CASCADE,
-      FOREIGN KEY (realm_id) REFERENCES realms(id) ON DELETE CASCADE
     ) ENGINE=InnoDB;`
   );
 
@@ -837,33 +750,9 @@ export async function up(db: DbExecutor): Promise<void> {
     ) ENGINE=InnoDB;`
   );
 
-  if (!(await indexExists(db, 'realm_chunks', 'idx_realm_chunks_realm'))) {
-    await db.execute(
-      'CREATE INDEX idx_realm_chunks_realm ON realm_chunks(realm_id, updated_at DESC)'
-    );
-  }
-
-  if (!(await indexExists(db, 'chunk_structures', 'idx_chunk_structures_chunk'))) {
-    await db.execute(
-      'CREATE INDEX idx_chunk_structures_chunk ON chunk_structures(chunk_id, updated_at DESC)'
-    );
-  }
-
-  if (!(await indexExists(db, 'chunk_plots', 'idx_chunk_plots_chunk'))) {
-    await db.execute(
-      'CREATE INDEX idx_chunk_plots_chunk ON chunk_plots(chunk_id, updated_at DESC)'
-    );
-  }
-
   if (!(await indexExists(db, 'realm_resource_wallets', 'idx_resource_wallet_lookup'))) {
     await db.execute(
       'CREATE INDEX idx_resource_wallet_lookup ON realm_resource_wallets(realm_id, user_id, resource_type)'
-    );
-  }
-
-  if (!(await indexExists(db, 'chunk_change_log', 'idx_chunk_change_log_realm'))) {
-    await db.execute(
-      'CREATE INDEX idx_chunk_change_log_realm ON chunk_change_log(realm_id, created_at DESC)'
     );
   }
 
@@ -907,10 +796,6 @@ export async function up(db: DbExecutor): Promise<void> {
     await db.execute(
       'CREATE INDEX idx_action_requests_type ON character_action_requests(request_type)'
     );
-  }
-
-  if (!(await indexExists(db, 'plot_permissions', 'idx_plot_permissions_plot'))) {
-    await db.execute('CREATE INDEX idx_plot_permissions_plot ON plot_permissions(plot_id)');
   }
 
   if (!(await indexExists(db, 'realm_build_zones', 'idx_build_zones_realm'))) {
