@@ -113,6 +113,8 @@ Swagger UI is available at `http://localhost:3000/docs` once the server is runni
 
 The service ships with an idempotent migration runner that upgrades the world-state schema automatically on startup. If tables, columns, or indexes are missing, startup migrations will recreate them before the HTTP server begins accepting requests. You can also apply migrations manually using the commands shown above.
 
+Base installs now live entirely in the auth/world schema migrations (`100_auth_schema` and `200_world_schema`), with incremental migrations folded into those definitions.
+
 ## Observability
 
 - Prometheus metrics are exposed at `GET /metrics` and include latency histograms, replication queue gauges, and conflict/error counters for persistence layers.

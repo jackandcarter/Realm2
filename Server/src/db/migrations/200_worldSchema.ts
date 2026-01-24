@@ -14,6 +14,16 @@ async function constraintExists(
   return (rows[0]?.total ?? 0) > 0;
 }
 
+async function indexExists(db: DbExecutor, table: string, index: string): Promise<boolean> {
+  const rows = await db.query<{ total: number }[]>(
+    `SELECT COUNT(*) as total
+     FROM information_schema.statistics
+     WHERE table_schema = DATABASE() AND table_name = ? AND index_name = ?`,
+    [table, index]
+  );
+  return (rows[0]?.total ?? 0) > 0;
+}
+
 export async function up(db: DbExecutor): Promise<void> {
   await db.execute(
     `CREATE TABLE IF NOT EXISTS realms (
@@ -826,6 +836,176 @@ export async function up(db: DbExecutor): Promise<void> {
       FOREIGN KEY (target_id) REFERENCES characters(id) ON DELETE CASCADE
     ) ENGINE=InnoDB;`
   );
+
+  if (!(await indexExists(db, 'realm_chunks', 'idx_realm_chunks_realm'))) {
+    await db.execute(
+      'CREATE INDEX idx_realm_chunks_realm ON realm_chunks(realm_id, updated_at DESC)'
+    );
+  }
+
+  if (!(await indexExists(db, 'chunk_structures', 'idx_chunk_structures_chunk'))) {
+    await db.execute(
+      'CREATE INDEX idx_chunk_structures_chunk ON chunk_structures(chunk_id, updated_at DESC)'
+    );
+  }
+
+  if (!(await indexExists(db, 'chunk_plots', 'idx_chunk_plots_chunk'))) {
+    await db.execute(
+      'CREATE INDEX idx_chunk_plots_chunk ON chunk_plots(chunk_id, updated_at DESC)'
+    );
+  }
+
+  if (!(await indexExists(db, 'realm_resource_wallets', 'idx_resource_wallet_lookup'))) {
+    await db.execute(
+      'CREATE INDEX idx_resource_wallet_lookup ON realm_resource_wallets(realm_id, user_id, resource_type)'
+    );
+  }
+
+  if (!(await indexExists(db, 'chunk_change_log', 'idx_chunk_change_log_realm'))) {
+    await db.execute(
+      'CREATE INDEX idx_chunk_change_log_realm ON chunk_change_log(realm_id, created_at DESC)'
+    );
+  }
+
+  if (!(await indexExists(db, 'items', 'idx_items_category'))) {
+    await db.execute('CREATE INDEX idx_items_category ON items(category)');
+  }
+
+  if (!(await indexExists(db, 'weapons', 'idx_weapons_type'))) {
+    await db.execute('CREATE INDEX idx_weapons_type ON weapons(weapon_type)');
+  }
+
+  if (!(await indexExists(db, 'armor', 'idx_armor_slot'))) {
+    await db.execute('CREATE INDEX idx_armor_slot ON armor(slot)');
+  }
+
+  if (!(await indexExists(db, 'classes', 'idx_classes_role'))) {
+    await db.execute('CREATE INDEX idx_classes_role ON classes(role)');
+  }
+
+  if (!(await indexExists(db, 'enemies', 'idx_enemies_type'))) {
+    await db.execute('CREATE INDEX idx_enemies_type ON enemies(enemy_type)');
+  }
+
+  if (!(await indexExists(db, 'abilities', 'idx_abilities_type'))) {
+    await db.execute('CREATE INDEX idx_abilities_type ON abilities(ability_type)');
+  }
+
+  if (!(await indexExists(db, 'character_action_requests', 'idx_action_requests_character'))) {
+    await db.execute(
+      'CREATE INDEX idx_action_requests_character ON character_action_requests(character_id)'
+    );
+  }
+
+  if (!(await indexExists(db, 'character_action_requests', 'idx_action_requests_status'))) {
+    await db.execute(
+      'CREATE INDEX idx_action_requests_status ON character_action_requests(status)'
+    );
+  }
+
+  if (!(await indexExists(db, 'character_action_requests', 'idx_action_requests_type'))) {
+    await db.execute(
+      'CREATE INDEX idx_action_requests_type ON character_action_requests(request_type)'
+    );
+  }
+
+  if (!(await indexExists(db, 'plot_permissions', 'idx_plot_permissions_plot'))) {
+    await db.execute('CREATE INDEX idx_plot_permissions_plot ON plot_permissions(plot_id)');
+  }
+
+  if (!(await indexExists(db, 'realm_build_zones', 'idx_build_zones_realm'))) {
+    await db.execute('CREATE INDEX idx_build_zones_realm ON realm_build_zones(realm_id)');
+  }
+
+  if (!(await indexExists(db, 'character_dock_layouts', 'idx_character_layout_key'))) {
+    await db.execute(
+      'CREATE INDEX idx_character_layout_key ON character_dock_layouts(character_id, layout_key)'
+    );
+  }
+
+  if (!(await indexExists(db, 'character_map_pin_states', 'idx_map_pin_character'))) {
+    await db.execute(
+      'CREATE INDEX idx_map_pin_character ON character_map_pin_states(character_id, updated_at DESC)'
+    );
+  }
+
+  if (!(await indexExists(db, 'character_inventory_items', 'idx_character_inventory_item'))) {
+    await db.execute(
+      'CREATE INDEX idx_character_inventory_item ON character_inventory_items(item_id)'
+    );
+  }
+
+  if (!(await indexExists(db, 'character_equipment_items', 'idx_character_equipment_item'))) {
+    await db.execute(
+      'CREATE INDEX idx_character_equipment_item ON character_equipment_items(item_id)'
+    );
+  }
+
+  if (!(await indexExists(db, 'currencies', 'idx_character_currencies_character'))) {
+    await db.execute(
+      'CREATE INDEX idx_character_currencies_character ON character_currencies(character_id, currency_id)'
+    );
+  }
+
+  if (!(await indexExists(db, 'trades', 'idx_trades_realm'))) {
+    await db.execute('CREATE INDEX idx_trades_realm ON trades(realm_id, updated_at DESC)');
+  }
+
+  if (!(await indexExists(db, 'trade_items', 'idx_trade_items_trade'))) {
+    await db.execute('CREATE INDEX idx_trade_items_trade ON trade_items(trade_id)');
+  }
+
+  if (!(await indexExists(db, 'guild_members', 'idx_guild_members_character'))) {
+    await db.execute('CREATE INDEX idx_guild_members_character ON guild_members(character_id)');
+  }
+
+  if (!(await indexExists(db, 'friends', 'idx_friends_character'))) {
+    await db.execute('CREATE INDEX idx_friends_character ON friends(character_id)');
+  }
+
+  if (!(await indexExists(db, 'party_members', 'idx_party_members_character'))) {
+    await db.execute('CREATE INDEX idx_party_members_character ON party_members(character_id)');
+  }
+
+  if (!(await indexExists(db, 'mail', 'idx_mail_recipient'))) {
+    await db.execute('CREATE INDEX idx_mail_recipient ON mail(to_character_id, sent_at DESC)');
+  }
+
+  if (!(await indexExists(db, 'chat_messages', 'idx_chat_messages_channel'))) {
+    await db.execute(
+      'CREATE INDEX idx_chat_messages_channel ON chat_messages(channel_id, sent_at DESC)'
+    );
+  }
+
+  if (!(await indexExists(db, 'race_class_rules', 'idx_race_class_rules_class'))) {
+    await db.execute('CREATE INDEX idx_race_class_rules_class ON race_class_rules(class_id)');
+  }
+
+  if (!(await indexExists(db, 'class_weapon_proficiencies', 'idx_class_weapon_type'))) {
+    await db.execute(
+      'CREATE INDEX idx_class_weapon_type ON class_weapon_proficiencies(weapon_type)'
+    );
+  }
+
+  if (!(await indexExists(db, 'resource_types', 'idx_resource_types_category'))) {
+    await db.execute('CREATE INDEX idx_resource_types_category ON resource_types(category)');
+  }
+
+  if (!(await indexExists(db, 'combat_event_logs', 'idx_combat_event_caster'))) {
+    await db.execute(
+      'CREATE INDEX idx_combat_event_caster ON combat_event_logs(caster_id, created_at DESC)'
+    );
+  }
+
+  if (!(await indexExists(db, 'combat_event_logs', 'idx_combat_event_target'))) {
+    await db.execute(
+      'CREATE INDEX idx_combat_event_target ON combat_event_logs(target_id, created_at DESC)'
+    );
+  }
+
+  if (!(await indexExists(db, 'combat_event_logs', 'idx_combat_event_request'))) {
+    await db.execute('CREATE INDEX idx_combat_event_request ON combat_event_logs(request_id)');
+  }
 }
 
 export const id = '200_world_schema';
