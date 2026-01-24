@@ -93,7 +93,7 @@ async function seedRealms(): Promise<void> {
   }
 }
 
-export async function initializeDatabase(): Promise<void> {
+export async function initializeWorldDatabase(): Promise<void> {
   if (pool) {
     return;
   }
@@ -137,6 +137,10 @@ export async function initializeDatabase(): Promise<void> {
   await seedRaceCatalogData(db);
   await seedDefaultCurrencies(db);
   logger.info('Database connection established');
+}
+
+export async function initializeDatabase(): Promise<void> {
+  await initializeWorldDatabase();
 }
 
 export { db };

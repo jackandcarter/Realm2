@@ -1,5 +1,5 @@
 import { randomUUID } from 'crypto';
-import { db } from './database';
+import { authDb } from './authDatabase';
 
 export interface User {
   id: string;
@@ -22,7 +22,7 @@ export async function createUser(
     createdAt: new Date().toISOString(),
   };
 
-  await db.execute(
+  await authDb.execute(
     'INSERT INTO users (id, email, username, password_hash, created_at) VALUES (?, ?, ?, ?, ?)',
     [user.id, user.email, user.username, user.passwordHash, user.createdAt]
   );
@@ -30,7 +30,7 @@ export async function createUser(
 }
 
 export async function findUserByEmail(email: string): Promise<User | undefined> {
-  const rows = await db.query<User[]>(
+  const rows = await authDb.query<User[]>(
     'SELECT id, email, username, password_hash as passwordHash, created_at as createdAt FROM users WHERE email = ?',
     [email.toLowerCase()]
   );
@@ -38,7 +38,7 @@ export async function findUserByEmail(email: string): Promise<User | undefined> 
 }
 
 export async function findUserById(id: string): Promise<User | undefined> {
-  const rows = await db.query<User[]>(
+  const rows = await authDb.query<User[]>(
     'SELECT id, email, username, password_hash as passwordHash, created_at as createdAt FROM users WHERE id = ?',
     [id]
   );
@@ -46,7 +46,7 @@ export async function findUserById(id: string): Promise<User | undefined> {
 }
 
 export async function findUserByUsername(username: string): Promise<User | undefined> {
-  const rows = await db.query<User[]>(
+  const rows = await authDb.query<User[]>(
     'SELECT id, email, username, password_hash as passwordHash, created_at as createdAt FROM users WHERE username = ?',
     [username]
   );

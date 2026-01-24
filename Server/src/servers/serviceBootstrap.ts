@@ -2,7 +2,8 @@ import http from 'http';
 import { WebSocketServer } from 'ws';
 import type { Express } from 'express';
 import { logger } from '../observability/logger';
-import { initializeDatabase } from '../db/database';
+import { initializeAuthDatabase } from '../db/authDatabase';
+import { initializeWorldDatabase } from '../db/database';
 import { registerProgressionSocketHandlers } from '../services/progressionService';
 import { registerChunkSocketHandlers } from '../services/chunkSocketService';
 import { startActionRequestProcessor } from '../services/actionRequestProcessor';
@@ -13,6 +14,8 @@ export interface ServiceBootstrapOptions {
   port: number;
   serviceName: string;
   initializeDb?: boolean;
+  initializeAuthDb?: boolean;
+  initializeWorldDb?: boolean;
   enableWorldSockets?: boolean;
   enableActionProcessor?: boolean;
   enableCommandConsole?: boolean;
@@ -20,7 +23,12 @@ export interface ServiceBootstrapOptions {
 
 export async function startHttpService(options: ServiceBootstrapOptions): Promise<void> {
   if (options.initializeDb !== false) {
-    await initializeDatabase();
+    if (options.initializeAuthDb) {
+      await initializeAuthDatabase();
+    }
+    if (options.initializeWorldDb !== false) {
+      await initializeWorldDatabase();
+    }
   }
 
   const server = http.createServer(options.app);

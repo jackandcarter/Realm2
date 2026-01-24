@@ -90,11 +90,6 @@ export async function up(db: DbExecutor): Promise<void> {
     defaultValue: 'one-hand',
   });
 
-  await normalizeEnumColumn(db, 'weapons', 'handedness', weaponHandedness, 'one-hand');
-  await enforceEnumColumn(db, 'weapons', 'handedness', weaponHandedness, {
-    defaultValue: 'one-hand',
-  });
-
   await normalizeEnumColumn(db, 'armor', 'slot', equipmentSlots, 'chest');
   await enforceEnumColumn(db, 'armor', 'slot', equipmentSlots, { defaultValue: 'chest' });
 

@@ -27,9 +27,6 @@ export type WeaponType = string;
 export const weaponHandedness = ['one-hand', 'two-hand', 'off-hand'] as const;
 export type WeaponHandedness = (typeof weaponHandedness)[number];
 
-export const weaponHandedness = ['one-hand', 'two-hand', 'off-hand'] as const;
-export type WeaponHandedness = (typeof weaponHandedness)[number];
-
 export const armorTypes = ['cloth', 'leather', 'plate'] as const;
 export type ArmorType = (typeof armorTypes)[number];
 

@@ -1,5 +1,5 @@
 import { randomUUID } from 'crypto';
-import { db } from './database';
+import { authDb } from './authDatabase';
 
 export interface RefreshToken {
   id: string;
@@ -21,7 +21,7 @@ export async function storeRefreshToken(
     expiresAt: expiresAt.toISOString(),
     createdAt: new Date().toISOString(),
   };
-  await db.execute(
+  await authDb.execute(
     'INSERT INTO refresh_tokens (id, user_id, token_hash, expires_at, created_at) VALUES (?, ?, ?, ?, ?)',
     [token.id, token.userId, token.tokenHash, token.expiresAt, token.createdAt]
   );
@@ -29,11 +29,11 @@ export async function storeRefreshToken(
 }
 
 export async function removeRefreshTokenByHash(tokenHash: string): Promise<void> {
-  await db.execute('DELETE FROM refresh_tokens WHERE token_hash = ?', [tokenHash]);
+  await authDb.execute('DELETE FROM refresh_tokens WHERE token_hash = ?', [tokenHash]);
 }
 
 export async function findRefreshToken(tokenHash: string): Promise<RefreshToken | undefined> {
-  const rows = await db.query<RefreshToken[]>(
+  const rows = await authDb.query<RefreshToken[]>(
     'SELECT id, user_id as userId, token_hash as tokenHash, expires_at as expiresAt, created_at as createdAt FROM refresh_tokens WHERE token_hash = ?',
     [tokenHash]
   );
@@ -41,5 +41,5 @@ export async function findRefreshToken(tokenHash: string): Promise<RefreshToken 
 }
 
 export async function removeUserTokens(userId: string): Promise<void> {
-  await db.execute('DELETE FROM refresh_tokens WHERE user_id = ?', [userId]);
+  await authDb.execute('DELETE FROM refresh_tokens WHERE user_id = ?', [userId]);
 }
