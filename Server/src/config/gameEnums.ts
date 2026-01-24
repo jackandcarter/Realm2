@@ -40,8 +40,17 @@ export const weaponTypes = [
 ] as const;
 export type WeaponType = (typeof weaponTypes)[number];
 
+export const weaponHandedness = ['one-hand', 'two-hand', 'off-hand'] as const;
+export type WeaponHandedness = (typeof weaponHandedness)[number];
+
 export const armorTypes = ['cloth', 'leather', 'plate'] as const;
 export type ArmorType = (typeof armorTypes)[number];
+
+export const classResourceTypes = ['mana', 'stamina', 'energy'] as const;
+export type ClassResourceType = (typeof classResourceTypes)[number];
+
+export const abilityTypes = ['combat'] as const;
+export type AbilityType = (typeof abilityTypes)[number];
 
 export const tradeStatuses = ['pending', 'accepted', 'cancelled', 'completed'] as const;
 export type TradeStatus = (typeof tradeStatuses)[number];
@@ -60,3 +69,36 @@ export type QuestStatus = (typeof questStatuses)[number];
 
 export const actionRequestTypes = ['progression.update', 'quest.complete'] as const;
 export type ActionRequestType = (typeof actionRequestTypes)[number];
+
+export const actionRequestStatuses = ['pending', 'processing', 'completed', 'rejected'] as const;
+export type ActionRequestStatus = (typeof actionRequestStatuses)[number];
+
+export const chatChannelTypes = ['global', 'party', 'guild', 'direct', 'system'] as const;
+export type ChatChannelType = (typeof chatChannelTypes)[number];
+
+export const combatEventKinds = ['damage', 'heal', 'stateApplied'] as const;
+export type CombatEventKind = (typeof combatEventKinds)[number];
+
+export const resourceCategories = ['raw', 'processed', 'crafted', 'consumable', 'quest'] as const;
+export type ResourceCategory = (typeof resourceCategories)[number];
+
+export const resourceIds = [
+  'resource.wood',
+  'resource.ore',
+  'resource.rare-essence',
+  'resource.herbs',
+  'resource.crops',
+  'resource.cloth',
+  'resource.leather',
+  'resource.pigment',
+  'resource.tech-shards',
+  'resource.wood-beam-small',
+  'resource.wood-beam-medium',
+  'resource.wood-beam-large',
+  'resource.iron-plate',
+  'resource.mana-resin',
+  'resource.health-tonic',
+  'resource.stamina-tonic',
+  'resource.quest-chrono-shard',
+] as const;
+export type ResourceId = (typeof resourceIds)[number];

@@ -1,4 +1,14 @@
-import { EquipmentSlot } from '../../config/gameEnums';
+import {
+  EquipmentSlot,
+  ItemCategory,
+  ItemRarity,
+  ResourceCategory,
+  ResourceId,
+  WeaponType,
+  resourceCategories,
+  resourceIds,
+  weaponTypes,
+} from '../../config/gameEnums';
 
 export type ElementType =
   | 'fire'
@@ -174,7 +184,7 @@ export interface ClassDefinition {
   name: string;
   role: 'tank' | 'damage' | 'support' | 'builder';
   primaryStats: string[];
-  weaponProficiencies: string[];
+  weaponProficiencies: WeaponType[];
   signatureAbilities: string[];
   unlockQuestId?: string;
 }
@@ -265,6 +275,19 @@ export const coreClassDefinitions: ClassDefinition[] = [
   },
 ];
 
+function assertWeaponProficienciesValid(): void {
+  const allowed = new Set(weaponTypes);
+  for (const definition of coreClassDefinitions) {
+    for (const weapon of definition.weaponProficiencies) {
+      if (!allowed.has(weapon)) {
+        throw new Error(`Invalid weapon proficiency "${weapon}" for class ${definition.id}`);
+      }
+    }
+  }
+}
+
+assertWeaponProficienciesValid();
+
 export interface ProfessionDefinition {
   id: string;
   name: string;
@@ -288,7 +311,7 @@ export interface EquipmentDefinition {
   id: string;
   name: string;
   slot: EquipmentSlot;
-  category: 'weapon' | 'armor' | 'consumable' | 'key-item';
+  category: ItemCategory;
   subtype?: string;
   requiredClassIds?: string[];
 }
@@ -302,10 +325,8 @@ export const equipmentArchetypes: EquipmentDefinition[] = [
   { id: 'key.chrono-shard', name: 'Chrono Nexus Shard', slot: 'accessory', category: 'key-item', subtype: 'artifact' },
 ];
 
-export type ResourceCategory = 'raw' | 'processed' | 'crafted' | 'consumable' | 'quest';
-
 export interface ResourceDefinition {
-  id: string;
+  id: ResourceId;
   name: string;
   category: ResourceCategory;
 }
@@ -330,8 +351,35 @@ export const resourceDefinitions: ResourceDefinition[] = [
   { id: 'resource.quest-chrono-shard', name: 'Chrono Shard Fragment', category: 'quest' },
 ];
 
+function assertResourceDefinitionsValid(): void {
+  const allowedIds = new Set(resourceIds);
+  const allowedCategories = new Set(resourceCategories);
+  const seen = new Set<string>();
+
+  for (const definition of resourceDefinitions) {
+    if (!allowedIds.has(definition.id)) {
+      throw new Error(`Invalid resource id "${definition.id}"`);
+    }
+    if (!allowedCategories.has(definition.category)) {
+      throw new Error(`Invalid resource category "${definition.category}" for ${definition.id}`);
+    }
+    if (seen.has(definition.id)) {
+      throw new Error(`Duplicate resource definition "${definition.id}"`);
+    }
+    seen.add(definition.id);
+  }
+
+  for (const id of allowedIds) {
+    if (!seen.has(id)) {
+      throw new Error(`Missing resource definition for "${id}"`);
+    }
+  }
+}
+
+assertResourceDefinitionsValid();
+
 export interface EquipmentCatalogEntry extends EquipmentDefinition {
-  tier: 'starter' | 'standard' | 'rare' | 'legendary';
+  tier: ItemRarity;
   baseStats: Record<string, number>;
 }
 
