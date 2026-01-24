@@ -168,6 +168,33 @@ function serializePayload(data: unknown): string {
   }
 }
 
+function parsePayloadObject(payload: unknown): Record<string, any> | null {
+  if (!payload) {
+    return null;
+  }
+  if (typeof payload === 'string') {
+    try {
+      const parsed = JSON.parse(payload) as Record<string, any>;
+      return parsed && typeof parsed === 'object' ? parsed : null;
+    } catch (_error) {
+      return null;
+    }
+  }
+  if (typeof payload === 'object') {
+    return payload as Record<string, any>;
+  }
+  return null;
+}
+
+function isImmutableBase(payload: unknown): boolean {
+  const parsed = parsePayloadObject(payload);
+  if (!parsed) {
+    return false;
+  }
+  const terrainLayer = typeof parsed.terrainLayer === 'string' ? parsed.terrainLayer.trim().toLowerCase() : '';
+  return terrainLayer === 'base' || parsed.immutableBase === true;
+}
+
 function deserializeChangePayload(payloadJson: string): ChunkChangePayload {
   if (!payloadJson) {
     return {};
@@ -360,6 +387,14 @@ export async function recordChunkChange(
       }
       if (existingChunk && existingChunk.realmId !== realmId) {
         throw new HttpError(403, 'Chunk does not belong to the requested realm');
+      }
+
+      const existingIsBase = isImmutableBase(existingChunk?.payloadJson);
+      const incomingIsBase = chunk?.payload !== undefined && isImmutableBase(chunk.payload);
+      if (existingIsBase || incomingIsBase) {
+        if (chunk?.payload !== undefined || chunk?.isDeleted) {
+          throw new HttpError(403, 'Base terrain is immutable and cannot be modified');
+        }
       }
 
       let chunkRecord = existingChunk;

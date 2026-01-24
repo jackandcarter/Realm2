@@ -13,6 +13,8 @@ namespace Client.Terrain
         [Header("Identity")]
         [Tooltip("Unique identifier for this terrain region (e.g., shard or map chunk key).")]
         [SerializeField] private string regionId;
+        [Tooltip("Optional display name used when publishing region metadata to backend services.")]
+        [SerializeField] private string regionName;
         [Tooltip("Optional zone identifier used to group regions for streaming or gameplay rules.")]
         [SerializeField] private string zoneId;
 
@@ -41,11 +43,20 @@ namespace Client.Terrain
         [SerializeField] private Texture2D worldMapTexture;
 
         public string RegionId => regionId;
+        public string RegionName => regionName;
         public string ZoneId => zoneId;
         public Rect MapWorldBounds => mapWorldBounds;
         public Texture2D MiniMapTexture => miniMapTexture;
         public Texture2D WorldMapTexture => worldMapTexture;
         public IReadOnlyList<UnityTerrain> Terrains => terrains;
+        public Vector2 ChunkOriginOffset => chunkOriginOffset;
+        public float ChunkSizeOverride => chunkSizeOverride;
+        public bool UseTerrainBounds => useTerrainBounds;
+
+        public string GetDisplayName()
+        {
+            return string.IsNullOrWhiteSpace(regionName) ? regionId : regionName;
+        }
 
         public Bounds GetWorldBounds()
         {

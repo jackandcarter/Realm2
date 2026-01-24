@@ -149,4 +149,29 @@ describe('chunk build transactions', () => {
     const lumber = wallet.find((entry) => entry.resourceType === 'lumber');
     expect(lumber?.quantity).toBe(2);
   });
+
+  it('blocks edits to immutable base terrain payloads', async () => {
+    const builder = await createUser('terrain-builder@example.com', 'builder', 'hash');
+    await createMembership(builder.id, REALM_ID, 'builder');
+    await upsertChunk({
+      id: 'chunk-base',
+      realmId: REALM_ID,
+      chunkX: 1,
+      chunkZ: 2,
+      payloadJson: JSON.stringify({ terrainLayer: 'base', payloadVersion: 1 }),
+      isDeleted: false,
+    });
+
+    await expect(
+      recordChunkChange(
+        builder.id,
+        REALM_ID,
+        'chunk-base',
+        'terrain:update',
+        {
+          payload: { terrainLayer: 'base', payloadVersion: 2 },
+        }
+      )
+    ).rejects.toThrow(HttpError);
+  });
 });
