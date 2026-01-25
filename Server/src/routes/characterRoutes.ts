@@ -3,6 +3,7 @@ import { requireAuth } from '../middleware/authMiddleware';
 import {
   createCharacterForUser,
   CreateCharacterInput,
+  selectCharacterForUser,
 } from '../services/characterService';
 import {
   getCharacterProgressionForUser,
@@ -68,6 +69,19 @@ characterRouter.post('/', requireAuth, async (req, res, next) => {
 });
 
 export { characterRouter as charactersRouter };
+
+characterRouter.post('/select', requireAuth, async (req, res, next) => {
+  try {
+    const characterId = typeof req.body?.characterId === 'string' ? req.body.characterId.trim() : '';
+    if (!characterId) {
+      throw new HttpError(400, 'characterId is required');
+    }
+    await selectCharacterForUser(req.user!.id, characterId);
+    res.sendStatus(204);
+  } catch (error) {
+    next(error);
+  }
+});
 
 characterRouter.get('/:characterId/progression', requireAuth, async (req, res, next) => {
   try {

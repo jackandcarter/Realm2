@@ -20,6 +20,12 @@ namespace Realm.Editor.UI
 
             DrawSection("Core Foundations", () =>
             {
+                if (GUILayout.Button("Generate Main Menu UI"))
+                {
+                    MainMenuUiGenerator.GenerateMainMenu();
+                    GUIUtility.ExitGUI();
+                }
+
                 if (GUILayout.Button("Generate Gameplay HUD"))
                 {
                     GameplayHudGenerator.GenerateGameplayHud();
