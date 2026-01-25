@@ -6,6 +6,7 @@ using Client.BuildState;
 using Client.CharacterCreation;
 using Client.Equipment;
 using Client.Inventory;
+using Client.Quests;
 using Client.Map;
 using Client.Progression;
 using Client.UI.Dock;
@@ -105,6 +106,7 @@ namespace Client
             ClassUnlockRepository.SetProgressionClient(_progressionClient);
             InventoryRepository.SetProgressionClient(_progressionClient);
             EquipmentRepository.SetProgressionClient(_progressionClient);
+            QuestRepository.SetProgressionClient(_progressionClient);
             ApiClientRegistry.Configure(baseUrl, useMocks);
 
             _buildStateClient = new BuildStateClient(baseUrl, useMocks);

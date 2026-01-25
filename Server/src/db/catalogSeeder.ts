@@ -9,7 +9,11 @@ import {
   WeaponHandedness,
   WeaponType,
 } from '../config/gameEnums';
-import { coreClassDefinitions, equipmentCatalog } from '../gameplay/design/systemFoundations';
+import {
+  coreClassDefinitions,
+  equipmentCatalog,
+  resourceDefinitions,
+} from '../gameplay/design/systemFoundations';
 import { generatedAbilityDefinitions } from '../gameplay/combat/generated/abilityRegistry';
 
 interface ItemSeed {
@@ -52,6 +56,17 @@ interface ClassSeed {
   name: string;
   role: ClassRole | null;
   metadata: Record<string, unknown>;
+  baseStats: {
+    baseHealth: number;
+    baseMana: number;
+    strength: number;
+    agility: number;
+    intelligence: number;
+    vitality: number;
+    defense: number;
+    critChance: number;
+    speed: number;
+  };
 }
 
 interface AbilitySeed {
@@ -146,6 +161,21 @@ function buildItemSeeds(): { items: ItemSeed[]; weapons: WeaponSeed[]; armor: Ar
   return { items, weapons, armor };
 }
 
+function buildResourceItemSeeds(): ItemSeed[] {
+  return resourceDefinitions.map((resource) => ({
+    id: resource.id,
+    name: resource.name,
+    description: null,
+    category: 'consumable',
+    rarity: 'common',
+    stackLimit: 999,
+    iconUrl: null,
+    metadata: {
+      resourceCategory: resource.category,
+    },
+  }));
+}
+
 function buildClassSeeds(): { classes: ClassSeed[] } {
   return {
     classes: coreClassDefinitions.map((entry) => ({
@@ -158,6 +188,7 @@ function buildClassSeeds(): { classes: ClassSeed[] } {
         signatureAbilities: entry.signatureAbilities,
         unlockQuestId: entry.unlockQuestId ?? null,
       },
+      baseStats: entry.baseStats,
     })),
   };
 }
@@ -204,11 +235,12 @@ function buildLevelSeeds(): LevelSeed[] {
 export async function seedCatalogData(db: DbExecutor): Promise<void> {
   const now = new Date().toISOString();
   const { items, weapons, armor } = buildItemSeeds();
+  const resourceItems = buildResourceItemSeeds();
   const { classes } = buildClassSeeds();
   const { abilities } = buildAbilitySeeds();
   const levelSeeds = buildLevelSeeds();
 
-  for (const item of items) {
+  for (const item of [...items, ...resourceItems]) {
     await db.execute(
       `INSERT INTO items (id, name, description, category, rarity, stack_limit, icon_url, metadata_json, created_at, updated_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -329,7 +361,19 @@ export async function seedCatalogData(db: DbExecutor): Promise<void> {
          crit_chance = VALUES(crit_chance),
          speed = VALUES(speed),
          updated_at = VALUES(updated_at)`,
-      [entry.id, 0, 0, 0, 0, 0, 0, 0, 0, 0, now]
+      [
+        entry.id,
+        entry.baseStats.baseHealth,
+        entry.baseStats.baseMana,
+        entry.baseStats.strength,
+        entry.baseStats.agility,
+        entry.baseStats.intelligence,
+        entry.baseStats.vitality,
+        entry.baseStats.defense,
+        entry.baseStats.critChance,
+        entry.baseStats.speed,
+        now,
+      ]
     );
   }
 

@@ -206,5 +206,8 @@ export async function resetDatabase(): Promise<void> {
   await db.execute('DELETE FROM realm_memberships');
   await db.execute('DELETE FROM realms');
   await seedRealms();
+  await seedReferenceData(db);
+  await seedCatalogData(db);
+  await seedRaceCatalogData(db);
   await seedDefaultCurrencies(db);
 }
