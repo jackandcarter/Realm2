@@ -37,6 +37,7 @@ namespace Client.UI
         [SerializeField] private GameObject blueprintsPanel;
         [SerializeField] private GameObject commissionPanel;
         [SerializeField] private ArkitectPlotPanelController plotPanelController;
+        [SerializeField] private bool startHidden = true;
 
         [Header("Styling")]
         [SerializeField] private Color activeTabColor = new Color(0.533f, 0.286f, 0.741f, 1f);
@@ -53,6 +54,7 @@ namespace Client.UI
         private bool _hasPermissions = true;
         private static TMP_FontAsset _defaultFont;
         private DockShortcutSection _dockShortcutSection;
+        private bool _hideOnStartQueued;
 
         private const string PanelsRegistryId = "arkitect.ui.panels";
         private const string TabBarRegistryId = "arkitect.ui.tabbar";
@@ -129,6 +131,7 @@ namespace Client.UI
 
         private void Awake()
         {
+            _hideOnStartQueued = startHidden;
             if (!Application.isPlaying)
             {
                 InitializeUi();
@@ -174,6 +177,12 @@ namespace Client.UI
             }
 
             ApplyPermissions(_hasPermissions);
+
+            if (_hideOnStartQueued)
+            {
+                HideAllPanels();
+                _hideOnStartQueued = false;
+            }
         }
 
         private bool EnsureCanvasSetup()
@@ -469,6 +478,24 @@ namespace Client.UI
             }
 
             _activePanel = panel;
+        }
+
+        public void HideAllPanels()
+        {
+            foreach (var tab in _tabs)
+            {
+                if (tab.Panel != null)
+                {
+                    tab.Panel.SetActive(false);
+                }
+
+                if (tab.Button != null && tab.Button.TryGetComponent(out Image image))
+                {
+                    image.color = inactiveTabColor;
+                }
+            }
+
+            _activePanel = null;
         }
 
         private void ConfigureTabContainer(RectTransform rect)

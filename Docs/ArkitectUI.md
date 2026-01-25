@@ -24,6 +24,7 @@
 - **Do** keep the master dock prefab mounted once under `ClassDockAnchor` (the HUD generator already wires this up).
 - **Do** add new class UI prefabs to the `GameplayHudController` `classUiModules` list and implement `IClassUiModule` to mount into the center section.
 - **Do** keep class-specific logic inside class modules and data bindings so the dock remains class-agnostic.
+- **Do** keep `ArkitectUIManager.startHidden` enabled so builder panels stay closed until explicitly opened by class logic or player input.
 - **Do not** create or swap per-class dock prefabs; the master dock is persistent and only the class modules change.
 - **Do not** mount class modules outside the master dock center section unless you are intentionally overriding HUD layout behavior.
 
