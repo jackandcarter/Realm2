@@ -105,6 +105,14 @@ namespace Client.Progression
     }
 
     [Serializable]
+    public class ProgressionIntentResponse
+    {
+        public string requestId;
+        public string status;
+        public string createdAt;
+    }
+
+    [Serializable]
     internal class CharacterProgressionUpdateRequest
     {
         public CharacterProgressionUpdateLevels progression;

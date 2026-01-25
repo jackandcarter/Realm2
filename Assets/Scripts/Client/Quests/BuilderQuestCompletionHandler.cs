@@ -1,4 +1,3 @@
-using Client.CharacterCreation;
 using UnityEngine;
 
 namespace Client.Quests
@@ -15,36 +14,31 @@ namespace Client.Quests
             {
                 if (logUnlockEvents)
                 {
-                    Debug.LogWarning("Cannot unlock Builder class because no character is currently selected.");
+                    Debug.LogWarning("Cannot complete Builder quest because no character is currently selected.");
                 }
 
                 return;
             }
 
-            StartCoroutine(ClassUnlockRepository.UnlockClassAsync(
+            StartCoroutine(QuestRepository.CompleteQuestAsync(
                 characterId,
-                ClassUnlockUtility.BuilderClassId,
-                success =>
+                "quest-builder-arkitect",
+                "{}",
+                response =>
                 {
                     if (!logUnlockEvents)
                     {
                         return;
                     }
 
-                    if (success)
-                    {
-                        Debug.Log($"Builder class unlocked for character {characterId}.");
-                    }
-                    else
-                    {
-                        Debug.Log($"Builder class was already unlocked for character {characterId}.");
-                    }
+                    var requestId = response != null ? response.requestId : "unknown";
+                    Debug.Log($"Builder quest completion requested for character {characterId}. Request: {requestId}.");
                 },
                 error =>
                 {
                     if (logUnlockEvents)
                     {
-                        Debug.LogWarning($"Failed to unlock Builder class for {characterId}: {error.Message}");
+                        Debug.LogWarning($"Failed to complete Builder quest for {characterId}: {error.Message}");
                     }
                 }));
         }

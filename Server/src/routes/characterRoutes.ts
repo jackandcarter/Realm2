@@ -9,6 +9,8 @@ import {
   getCharacterProgressionForUser,
   ProgressionUpdateInput,
   submitProgressionIntentForUser,
+  submitQuestCompletionForUser,
+  QuestCompletionInput,
 } from '../services/progressionService';
 import {
   BuildStateUpdateInput,
@@ -20,7 +22,7 @@ import { getMapPinsForUser, MapPinUpdateInput, replaceMapPinsForUser } from '../
 import { VersionConflictError } from '../db/progressionRepository';
 import { CharacterClassState } from '../types/classUnlocks';
 import { HttpError, isHttpError } from '../utils/errors';
-import { JsonValue } from '../types/characterCustomization';
+import { JsonValue, isJsonValue } from '../types/characterCustomization';
 import { EquipmentSlot, equipmentSlots } from '../config/gameEnums';
 
 export const characterRouter = Router();
@@ -108,6 +110,20 @@ characterRouter.put('/:characterId/progression', requireAuth, async (req, res, n
       characterId,
       payload
     );
+    res.status(202).json(intent);
+  } catch (error) {
+    handleProgressionError(error, next);
+  }
+});
+
+characterRouter.post('/:characterId/quests/complete', requireAuth, async (req, res, next) => {
+  try {
+    const characterId = String(req.params.characterId ?? '').trim();
+    if (!characterId) {
+      throw new HttpError(400, 'Character id is required');
+    }
+    const payload = toQuestCompletionInput(req.body);
+    const intent = await submitQuestCompletionForUser(req.user!.id, characterId, payload);
     res.status(202).json(intent);
   } catch (error) {
     handleProgressionError(error, next);
@@ -432,6 +448,28 @@ function toProgressionUpdateInput(body: unknown): ProgressionUpdateInput {
   }
 
   return result;
+}
+
+function toQuestCompletionInput(body: unknown): QuestCompletionInput {
+  if (!body || typeof body !== 'object') {
+    throw new HttpError(400, 'Request body is required');
+  }
+
+  const record = body as Record<string, unknown>;
+  const questId = typeof record.questId === 'string' ? record.questId.trim() : '';
+  if (!questId) {
+    throw new HttpError(400, 'questId is required');
+  }
+
+  let progress: JsonValue | undefined;
+  if ('progress' in record) {
+    if (!isJsonValue(record.progress)) {
+      throw new HttpError(400, 'progress must be JSON-serializable');
+    }
+    progress = record.progress as JsonValue;
+  }
+
+  return { questId, progress };
 }
 
 function toMapPinUpdateInput(body: unknown): MapPinUpdateInput {
