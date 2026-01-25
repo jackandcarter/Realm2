@@ -4,6 +4,7 @@ namespace Client
 {
     public static class SessionManager
     {
+        public static event Action<string> SelectedRealmChanged;
         public static event Action<string> SelectedCharacterChanged;
         public static event Action SessionCleared;
 
@@ -20,7 +21,13 @@ namespace Client
 
         public static void SetRealm(string realmId)
         {
+            if (string.Equals(SelectedRealmId, realmId, StringComparison.Ordinal))
+            {
+                return;
+            }
+
             SelectedRealmId = realmId;
+            SelectedRealmChanged?.Invoke(realmId);
         }
 
         public static void SetCharacter(string characterId)
@@ -37,11 +44,17 @@ namespace Client
         public static void Clear()
         {
             var hadCharacter = !string.IsNullOrWhiteSpace(SelectedCharacterId);
+            var hadRealm = !string.IsNullOrWhiteSpace(SelectedRealmId);
 
             AuthToken = null;
             RefreshToken = null;
             SelectedRealmId = null;
             SelectedCharacterId = null;
+
+            if (hadRealm)
+            {
+                SelectedRealmChanged?.Invoke(null);
+            }
 
             if (hadCharacter)
             {
