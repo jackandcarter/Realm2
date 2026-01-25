@@ -496,9 +496,30 @@ namespace Client
         private void OnRealmSelected(RealmInfo realm)
         {
             SessionManager.SetRealm(realm.id);
-            SetMessage(_characterMessage, $"Loading characters for {realm.name}...");
+            SetMessage(_characterMessage, $"Selecting {realm.name}...");
             ShowCanvas(_characterCanvas);
-            StartCoroutine(LoadCharacters(realm));
+            StartCoroutine(SelectRealmRoutine(realm));
+        }
+
+        private IEnumerator SelectRealmRoutine(RealmInfo realm)
+        {
+            if (_realmService == null)
+            {
+                SetMessage(_characterMessage, "Realm service is unavailable.");
+                yield break;
+            }
+
+            yield return _realmService.SelectRealm(
+                realm.id,
+                () =>
+                {
+                    SetMessage(_characterMessage, $"Loading characters for {realm.name}...");
+                    StartCoroutine(LoadCharacters(realm));
+                },
+                error =>
+                {
+                    SetMessage(_characterMessage, error.Message);
+                });
         }
 
         private IEnumerator LoadCharacters(RealmInfo realm)

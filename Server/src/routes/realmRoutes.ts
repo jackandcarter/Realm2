@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { requireAuth } from '../middleware/authMiddleware';
-import { listRealmsForUser, getRealmCharacters } from '../services/realmService';
+import { listRealmsForUser, getRealmCharacters, selectRealmForUser } from '../services/realmService';
 import { HttpError, isHttpError } from '../utils/errors';
 import { replaceBuildZonesForRealm, validateBuildZoneForUser } from '../services/buildZoneService';
 import { applyWalletAdjustmentsForUser, listWalletForUser } from '../services/resourceWalletService';
@@ -12,6 +12,19 @@ realmRouter.get('/', requireAuth, async (req, res, next) => {
   try {
     const realms = await listRealmsForUser(req.user!.id);
     res.json({ realms });
+  } catch (error) {
+    next(error);
+  }
+});
+
+realmRouter.post('/select', requireAuth, async (req, res, next) => {
+  try {
+    const realmId = typeof req.body?.realmId === 'string' ? req.body.realmId.trim() : '';
+    if (!realmId) {
+      throw new HttpError(400, 'realmId is required');
+    }
+    const realm = await selectRealmForUser(req.user!.id, realmId);
+    res.status(200).json({ realmId: realm.id });
   } catch (error) {
     next(error);
   }

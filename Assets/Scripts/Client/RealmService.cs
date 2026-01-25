@@ -23,6 +23,12 @@ namespace Client
         public RealmInfo[] realms;
     }
 
+    [Serializable]
+    internal class RealmSelectionRequest
+    {
+        public string realmId;
+    }
+
     public class RealmService
     {
         private readonly string _baseUrl;
@@ -52,6 +58,34 @@ namespace Client
                 var response = JsonUtility.FromJson<RealmListResponse>(request.downloadHandler.text);
                 var realms = response?.realms ?? Array.Empty<RealmInfo>();
                 onSuccess?.Invoke(realms);
+            }
+            else
+            {
+                onError?.Invoke(ApiError.FromRequest(request));
+            }
+        }
+
+        public IEnumerator SelectRealm(string realmId, Action onSuccess, Action<ApiError> onError)
+        {
+            if (_useMock)
+            {
+                yield return null;
+                onSuccess?.Invoke();
+                yield break;
+            }
+
+            var payload = JsonUtility.ToJson(new RealmSelectionRequest { realmId = realmId });
+            using var request = new UnityWebRequest($"{_baseUrl}/realms/select", UnityWebRequest.kHttpVerbPOST);
+            request.uploadHandler = new UploadHandlerRaw(System.Text.Encoding.UTF8.GetBytes(payload));
+            request.downloadHandler = new DownloadHandlerBuffer();
+            request.SetRequestHeader("Content-Type", "application/json");
+            AttachAuthHeader(request);
+
+            yield return request.SendWebRequest();
+
+            if (request.result == UnityWebRequest.Result.Success)
+            {
+                onSuccess?.Invoke();
             }
             else
             {

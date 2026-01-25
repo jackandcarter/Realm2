@@ -5,6 +5,7 @@ import {
   findCharacterByNameForUser,
   Character,
 } from '../db/characterRepository';
+import { updateUserCharacterSelection } from '../db/userRepository';
 import { HttpError } from '../utils/errors';
 import {
   CharacterAppearance,
@@ -21,6 +22,7 @@ import {
   listCanonicalRaceIds,
   listStarterClassIdsForRace,
 } from './raceCatalogService';
+import { requireOwnedCharacter } from './characterAccessService';
 
 export interface CreateCharacterInput {
   realmId?: string;
@@ -76,6 +78,15 @@ export async function createCharacterForUser(
   } catch (_error) {
     throw new HttpError(500, 'Unable to create character');
   }
+}
+
+export async function selectCharacterForUser(
+  userId: string,
+  characterId: string
+): Promise<Character> {
+  const character = await requireOwnedCharacter(userId, characterId);
+  await updateUserCharacterSelection(userId, character.id, character.realmId);
+  return character;
 }
 
 async function resolveRace(rawRaceId: string | undefined) {

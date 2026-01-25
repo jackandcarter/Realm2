@@ -4,6 +4,7 @@ import {
   findMembership,
   RealmMembership,
 } from '../db/realmMembershipRepository';
+import { updateUserRealmSelection } from '../db/userRepository';
 import {
   listCharactersForRealm,
   listCharactersForUserInRealm,
@@ -65,4 +66,15 @@ export async function getRealmCharacters(
       : await listCharactersForUserInRealm(userId, realmId);
 
   return { realm, membership, characters };
+}
+
+export async function selectRealmForUser(userId: string, realmId: string): Promise<Realm> {
+  const realm = await findRealmById(realmId);
+  if (!realm) {
+    throw new HttpError(404, 'Realm not found');
+  }
+
+  await ensureMembership(userId, realmId);
+  await updateUserRealmSelection(userId, realmId);
+  return realm;
 }
