@@ -52,6 +52,7 @@ namespace Client.Terrain
         public Vector2 ChunkOriginOffset => chunkOriginOffset;
         public float ChunkSizeOverride => chunkSizeOverride;
         public bool UseTerrainBounds => useTerrainBounds;
+        public DiggerSystem DiggerSystem => diggerSystem;
 
         public string GetDisplayName()
         {
