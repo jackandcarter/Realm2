@@ -66,6 +66,8 @@ namespace Client
         [SerializeField] private bool fallbackUseMockServicesInEditor = true;
         [SerializeField] private bool fallbackUseMockServicesInPlayer = false;
         [SerializeField] private string worldSceneName = "SampleScene";
+        [SerializeField] private SceneTransitionController sceneTransitionController;
+        [SerializeField] private WorldPreviewTransitionManager worldPreviewTransitionManager;
 
         private AuthService _authService;
         private RealmService _realmService;
@@ -115,6 +117,25 @@ namespace Client
 
             _mapPinClient = new MapPinProgressionClient(baseUrl, useMocks);
             MapPinProgressionRepository.SetClient(_mapPinClient);
+
+            if (sceneTransitionController == null)
+            {
+                sceneTransitionController = FindFirstObjectByType<SceneTransitionController>(FindObjectsInactive.Include);
+            }
+            if (sceneTransitionController == null)
+            {
+                var transitionObject = new GameObject("Scene Transition Controller");
+                sceneTransitionController = transitionObject.AddComponent<SceneTransitionController>();
+            }
+            if (worldPreviewTransitionManager == null)
+            {
+                worldPreviewTransitionManager = FindFirstObjectByType<WorldPreviewTransitionManager>(FindObjectsInactive.Include);
+            }
+            if (worldPreviewTransitionManager == null)
+            {
+                var previewObject = new GameObject("World Preview Transition Manager");
+                worldPreviewTransitionManager = previewObject.AddComponent<WorldPreviewTransitionManager>();
+            }
 
             if (environmentConfig != null)
             {
@@ -654,6 +675,11 @@ namespace Client
                 builderUnlocked
                 ? $"Ready to enter as {character.name}."
                 : $"{character.name} must unlock the Builder class before accessing Builder mode.");
+
+            if (worldPreviewTransitionManager != null && classStatus.CanPlay)
+            {
+                worldPreviewTransitionManager.PreviewCharacter(character, worldSceneName);
+            }
         }
 
         private void OnPlaySelectedCharacter()
@@ -796,7 +822,18 @@ namespace Client
                 () =>
                 {
                     SessionManager.SetCharacter(character.id);
-                    SceneManager.LoadScene(worldSceneName);
+                    if (worldPreviewTransitionManager != null)
+                    {
+                        worldPreviewTransitionManager.EnterWorld(character, worldSceneName);
+                    }
+                    else if (sceneTransitionController != null)
+                    {
+                        sceneTransitionController.TransitionToScene(worldSceneName);
+                    }
+                    else
+                    {
+                        SceneManager.LoadScene(worldSceneName);
+                    }
                 },
                 error =>
                 {
@@ -902,6 +939,10 @@ namespace Client
                         _spawnedCharacterEntries.Add(entry.gameObject);
                     }
                     DisplayCharacterDetails(character);
+                    if (worldPreviewTransitionManager != null)
+                    {
+                        worldPreviewTransitionManager.PreviewCharacter(character, worldSceneName);
+                    }
                     if (_createCharacterButton != null)
                     {
                         _createCharacterButton.interactable = true;
