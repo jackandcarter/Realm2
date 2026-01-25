@@ -12,6 +12,7 @@ using Client.UI.Dock;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
+using TMPro;
 using UnityEngine.EventSystems;
 #if ENABLE_INPUT_SYSTEM
 using UnityEngine.InputSystem.UI;
@@ -23,26 +24,37 @@ namespace Client
     {
         [Header("UI Setup")]
         [SerializeField] private Canvas _loginCanvas;
-        [SerializeField] private Text _loginMessage;
-        [SerializeField] private InputField _emailInput;
-        [SerializeField] private InputField _passwordInput;
+        [SerializeField] private TMP_Text _loginMessage;
+        [SerializeField] private TMP_InputField _emailInput;
+        [SerializeField] private TMP_InputField _passwordInput;
+        [SerializeField] private Toggle _rememberMeToggle;
         [SerializeField] private Button _loginButton;
+        [SerializeField] private Button _showCreateAccountButton;
+
+        [SerializeField] private Canvas _createAccountCanvas;
+        [SerializeField] private TMP_Text _createAccountMessage;
+        [SerializeField] private TMP_InputField _createEmailInput;
+        [SerializeField] private TMP_InputField _createUsernameInput;
+        [SerializeField] private TMP_InputField _createPasswordInput;
+        [SerializeField] private TMP_InputField _createConfirmPasswordInput;
+        [SerializeField] private Button _createAccountButton;
+        [SerializeField] private Button _backToLoginButton;
 
         [SerializeField] private Canvas _realmCanvas;
         [SerializeField] private RectTransform _realmListRoot;
         [SerializeField] private Button _reloadRealmsButton;
-        [SerializeField] private Text _realmMessage;
+        [SerializeField] private TMP_Text _realmMessage;
         [SerializeField] private Button _realmEntryTemplate;
 
         [SerializeField] private Canvas _characterCanvas;
         [SerializeField] private RectTransform _characterListRoot;
-        [SerializeField] private InputField _characterNameInput;
+        [SerializeField] private TMP_InputField _characterNameInput;
         [SerializeField] private Button _createCharacterButton;
-        [SerializeField] private Text _characterMessage;
-        [SerializeField] private Text _characterCreatedAtLabel;
-        [SerializeField] private Text _characterRaceLabel;
-        [SerializeField] private Text _characterClassLabel;
-        [SerializeField] private Text _characterLocationLabel;
+        [SerializeField] private TMP_Text _characterMessage;
+        [SerializeField] private TMP_Text _characterCreatedAtLabel;
+        [SerializeField] private TMP_Text _characterRaceLabel;
+        [SerializeField] private TMP_Text _characterClassLabel;
+        [SerializeField] private TMP_Text _characterLocationLabel;
         [SerializeField] private Button _playCharacterButton;
         [SerializeField] private Button _characterEntryTemplate;
         [SerializeField] private CharacterCreationPanel _characterCreationPanelPrefab;
@@ -68,6 +80,10 @@ namespace Client
         private CharacterCreationPanel _characterCreationPanelInstance;
         private bool _characterCreationPanelHooked;
         private CharacterInfo _selectedCharacter;
+
+        private const string RememberMeKey = "MainMenu.RememberMe";
+        private const string RememberEmailKey = "MainMenu.RememberEmail";
+        private const string RememberPasswordKey = "MainMenu.RememberPassword";
 
         private void Awake()
         {
@@ -115,11 +131,13 @@ namespace Client
             }
 
             ShowCanvas(_loginCanvas);
+            LoadRememberedCredentials();
         }
 
         private void EnsureUi()
         {
             ResolveCanvas(ref _loginCanvas, "LoginCanvas");
+            ResolveCanvas(ref _createAccountCanvas, "CreateAccountCanvas");
             ResolveCanvas(ref _realmCanvas, "RealmCanvas");
             ResolveCanvas(ref _characterCanvas, "CharacterCanvas");
 
@@ -134,6 +152,11 @@ namespace Client
             if (_realmCanvas != null)
             {
                 _realmCanvas.gameObject.SetActive(false);
+            }
+
+            if (_createAccountCanvas != null)
+            {
+                _createAccountCanvas.gameObject.SetActive(false);
             }
 
             if (_characterCanvas != null)
@@ -153,6 +176,30 @@ namespace Client
             {
                 _loginButton.onClick.RemoveListener(OnLoginClicked);
                 _loginButton.onClick.AddListener(OnLoginClicked);
+            }
+
+            if (_rememberMeToggle != null)
+            {
+                _rememberMeToggle.onValueChanged.RemoveListener(OnRememberMeToggled);
+                _rememberMeToggle.onValueChanged.AddListener(OnRememberMeToggled);
+            }
+
+            if (_showCreateAccountButton != null)
+            {
+                _showCreateAccountButton.onClick.RemoveListener(ShowCreateAccount);
+                _showCreateAccountButton.onClick.AddListener(ShowCreateAccount);
+            }
+
+            if (_createAccountButton != null)
+            {
+                _createAccountButton.onClick.RemoveListener(OnCreateAccountClicked);
+                _createAccountButton.onClick.AddListener(OnCreateAccountClicked);
+            }
+
+            if (_backToLoginButton != null)
+            {
+                _backToLoginButton.onClick.RemoveListener(ShowLoginPanel);
+                _backToLoginButton.onClick.AddListener(ShowLoginPanel);
             }
 
             if (_reloadRealmsButton != null)
@@ -190,6 +237,16 @@ namespace Client
             if (_emailInput == null || _passwordInput == null)
             {
                 Debug.LogWarning("MainMenuController is missing login input fields.", this);
+            }
+
+            if (_createAccountCanvas == null)
+            {
+                Debug.LogWarning("MainMenuController is missing CreateAccountCanvas.", this);
+            }
+
+            if (_createEmailInput == null || _createUsernameInput == null || _createPasswordInput == null || _createConfirmPasswordInput == null)
+            {
+                Debug.LogWarning("MainMenuController is missing create account input fields.", this);
             }
 
             if (_loginButton == null)
@@ -269,6 +326,57 @@ namespace Client
             StartCoroutine(LoginRoutine());
         }
 
+        private void ShowLoginPanel()
+        {
+            ShowCanvas(_loginCanvas);
+        }
+
+        private void ShowCreateAccount()
+        {
+            ShowCanvas(_createAccountCanvas);
+        }
+
+        private void OnRememberMeToggled(bool isOn)
+        {
+            if (!isOn)
+            {
+                PlayerPrefs.DeleteKey(RememberEmailKey);
+                PlayerPrefs.DeleteKey(RememberPasswordKey);
+                PlayerPrefs.SetInt(RememberMeKey, 0);
+                PlayerPrefs.Save();
+            }
+        }
+
+        private void OnCreateAccountClicked()
+        {
+            if (_createAccountButton == null || _createAccountMessage == null)
+            {
+                Debug.LogWarning("MainMenuController create account UI is not fully wired. Assign references in the scene or prefab.", this);
+                return;
+            }
+
+            var email = _createEmailInput != null ? _createEmailInput.text.Trim() : string.Empty;
+            var username = _createUsernameInput != null ? _createUsernameInput.text.Trim() : string.Empty;
+            var password = _createPasswordInput != null ? _createPasswordInput.text : string.Empty;
+            var confirm = _createConfirmPasswordInput != null ? _createConfirmPasswordInput.text : string.Empty;
+
+            if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(password))
+            {
+                SetMessage(_createAccountMessage, "Email, username, and password are required.");
+                return;
+            }
+
+            if (!string.Equals(password, confirm, StringComparison.Ordinal))
+            {
+                SetMessage(_createAccountMessage, "Passwords do not match.");
+                return;
+            }
+
+            _createAccountButton.interactable = false;
+            SetMessage(_createAccountMessage, "Creating account...");
+            StartCoroutine(RegisterRoutine(email, username, password));
+        }
+
         private IEnumerator LoginRoutine()
         {
             yield return _authService.Login(
@@ -277,6 +385,7 @@ namespace Client
                 response =>
                 {
                     SetMessage(_loginMessage, "Login successful!");
+                    PersistRememberedCredentials();
                     ShowCanvas(_realmCanvas);
                     StartCoroutine(LoadRealms());
                 },
@@ -284,6 +393,44 @@ namespace Client
                 {
                     _loginButton.interactable = true;
                     SetMessage(_loginMessage, error.Message);
+                });
+        }
+
+        private IEnumerator RegisterRoutine(string email, string username, string password)
+        {
+            yield return _authService.Register(
+                email,
+                username,
+                password,
+                response =>
+                {
+                    if (_emailInput != null)
+                    {
+                        _emailInput.SetTextWithoutNotify(email);
+                    }
+
+                    if (_passwordInput != null)
+                    {
+                        _passwordInput.SetTextWithoutNotify(password);
+                    }
+
+                    PersistRememberedCredentials();
+                    SetMessage(_loginMessage, "Account created! Welcome.");
+                    ShowCanvas(_realmCanvas);
+                    StartCoroutine(LoadRealms());
+                    ResetCreateAccountFields();
+                    if (_createAccountButton != null)
+                    {
+                        _createAccountButton.interactable = true;
+                    }
+                },
+                error =>
+                {
+                    SetMessage(_createAccountMessage, error.Message);
+                    if (_createAccountButton != null)
+                    {
+                        _createAccountButton.interactable = true;
+                    }
                 });
         }
 
@@ -543,7 +690,7 @@ namespace Client
             return classStatus;
         }
 
-        private static void SetDetailLabel(Text label, string value)
+        private static void SetDetailLabel(TMP_Text label, string value)
         {
             if (label != null)
             {
@@ -551,7 +698,7 @@ namespace Client
             }
         }
 
-        private static void SetMessage(Text label, string message)
+        private static void SetMessage(TMP_Text label, string message)
         {
             if (label != null)
             {
@@ -873,14 +1020,17 @@ namespace Client
             instance.gameObject.name = name;
             instance.gameObject.SetActive(true);
 
-            var labelText = instance.GetComponentInChildren<Text>(true);
-            if (labelText != null)
+            if (instance.GetComponentInChildren<TMP_Text>(true) is TMP_Text tmpLabel)
             {
-                labelText.text = label;
+                tmpLabel.text = label;
+            }
+            else if (instance.GetComponentInChildren<Text>(true) is Text legacyLabel)
+            {
+                legacyLabel.text = label;
             }
             else
             {
-                Debug.LogWarning($"List entry '{name}' is missing a Text component to set the label.", instance);
+                Debug.LogWarning($"List entry '{name}' is missing a Text/TMP_Text component to set the label.", instance);
             }
 
             return instance;
@@ -917,6 +1067,11 @@ namespace Client
                 _loginCanvas.gameObject.SetActive(canvasToShow == _loginCanvas);
             }
 
+            if (_createAccountCanvas != null)
+            {
+                _createAccountCanvas.gameObject.SetActive(canvasToShow == _createAccountCanvas);
+            }
+
             if (_realmCanvas != null)
             {
                 _realmCanvas.gameObject.SetActive(canvasToShow == _realmCanvas);
@@ -926,6 +1081,71 @@ namespace Client
             {
                 _characterCanvas.gameObject.SetActive(canvasToShow == _characterCanvas);
             }
+        }
+
+        private void PersistRememberedCredentials()
+        {
+            if (_rememberMeToggle == null)
+            {
+                return;
+            }
+
+            var remember = _rememberMeToggle.isOn;
+            PlayerPrefs.SetInt(RememberMeKey, remember ? 1 : 0);
+
+            if (remember)
+            {
+                PlayerPrefs.SetString(RememberEmailKey, _emailInput != null ? _emailInput.text : string.Empty);
+                PlayerPrefs.SetString(RememberPasswordKey, _passwordInput != null ? _passwordInput.text : string.Empty);
+            }
+            else
+            {
+                PlayerPrefs.DeleteKey(RememberEmailKey);
+                PlayerPrefs.DeleteKey(RememberPasswordKey);
+            }
+
+            PlayerPrefs.Save();
+        }
+
+        private void LoadRememberedCredentials()
+        {
+            if (_rememberMeToggle == null || _emailInput == null || _passwordInput == null)
+            {
+                return;
+            }
+
+            var remember = PlayerPrefs.GetInt(RememberMeKey, 0) == 1;
+            _rememberMeToggle.SetIsOnWithoutNotify(remember);
+            if (remember)
+            {
+                _emailInput.SetTextWithoutNotify(PlayerPrefs.GetString(RememberEmailKey, string.Empty));
+                _passwordInput.SetTextWithoutNotify(PlayerPrefs.GetString(RememberPasswordKey, string.Empty));
+            }
+        }
+
+        private void ResetCreateAccountFields()
+        {
+            if (_createEmailInput != null)
+            {
+                _createEmailInput.SetTextWithoutNotify(string.Empty);
+            }
+
+            if (_createUsernameInput != null)
+            {
+                _createUsernameInput.SetTextWithoutNotify(string.Empty);
+            }
+
+            if (_createPasswordInput != null)
+            {
+                _createPasswordInput.SetTextWithoutNotify(string.Empty);
+            }
+
+            if (_createConfirmPasswordInput != null)
+            {
+                _createConfirmPasswordInput.SetTextWithoutNotify(string.Empty);
+            }
+
+            SetMessage(_createAccountMessage, "");
         }
 
         private string ResolveBaseApiUrl()

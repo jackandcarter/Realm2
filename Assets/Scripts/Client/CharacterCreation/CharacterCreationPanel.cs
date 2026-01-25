@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using UnityEngine;
 using UnityEngine.UI;
+using TMPro;
 
 namespace Client.CharacterCreation
 {
@@ -13,22 +14,22 @@ namespace Client.CharacterCreation
         [SerializeField] private Button raceButtonTemplate;
         [SerializeField] private Transform previewRoot;
         [SerializeField] private RaceVisualConfig raceVisualConfig;
-        [SerializeField] private Text previewTitle;
-        [SerializeField] private Text previewSummary;
+        [SerializeField] private TMP_Text previewTitle;
+        [SerializeField] private TMP_Text previewSummary;
         [SerializeField] private Transform classListRoot;
         [SerializeField] private Button classButtonTemplate;
-        [SerializeField] private Text classSummaryLabel;
+        [SerializeField] private TMP_Text classSummaryLabel;
         [SerializeField] private Slider heightSlider;
-        [SerializeField] private Text heightValueLabel;
+        [SerializeField] private TMP_Text heightValueLabel;
         [SerializeField] private Slider buildSlider;
-        [SerializeField] private Text buildValueLabel;
+        [SerializeField] private TMP_Text buildValueLabel;
         [SerializeField] private Transform featureListRoot;
-        [SerializeField] private Text featureEntryTemplate;
+        [SerializeField] private TMP_Text featureEntryTemplate;
         [SerializeField] private Button confirmButton;
         [SerializeField] private Button cancelButton;
 
         private readonly List<Button> _spawnedRaceButtons = new();
-        private readonly List<Text> _spawnedFeatureEntries = new();
+        private readonly List<TMP_Text> _spawnedFeatureEntries = new();
         private readonly List<RaceViewModel> _raceViewModels = new();
         private readonly List<Button> _spawnedClassButtons = new();
         private readonly List<CharacterClassDefinition> _availableClassDefinitions = new();
@@ -259,10 +260,13 @@ namespace Client.CharacterCreation
                 button.gameObject.SetActive(true);
                 button.name = $"Race_{race.Id}";
 
-                var label = button.GetComponentInChildren<Text>();
-                if (label != null)
+                if (button.GetComponentInChildren<TMP_Text>() is TMP_Text tmpLabel)
                 {
-                    label.text = race.DisplayName;
+                    tmpLabel.text = race.DisplayName;
+                }
+                else if (button.GetComponentInChildren<Text>() is Text legacyLabel)
+                {
+                    legacyLabel.text = race.DisplayName;
                 }
 
                 var captured = viewModel;
@@ -395,7 +399,7 @@ namespace Client.CharacterCreation
             return sb.ToString().TrimEnd();
         }
 
-        private void ConfigureSlider(Slider slider, Text label, FloatRange? range, float defaultStep)
+        private void ConfigureSlider(Slider slider, TMP_Text label, FloatRange? range, float defaultStep)
         {
             if (slider == null)
             {
@@ -544,17 +548,17 @@ namespace Client.CharacterCreation
                     button.gameObject.SetActive(true);
                     button.name = $"Class_{classDefinition.Id}";
 
-                    var label = button.GetComponentInChildren<Text>();
-                    if (label != null)
+                    if (button.GetComponentInChildren<TMP_Text>() is TMP_Text tmpLabel)
                     {
-                        if (unlocked)
-                        {
-                            label.text = classDefinition.DisplayName;
-                        }
-                        else
-                        {
-                            label.text = $"{classDefinition.DisplayName} (Locked — unlock on server)";
-                        }
+                        tmpLabel.text = unlocked
+                            ? classDefinition.DisplayName
+                            : $"{classDefinition.DisplayName} (Locked — unlock on server)";
+                    }
+                    else if (button.GetComponentInChildren<Text>() is Text legacyLabel)
+                    {
+                        legacyLabel.text = unlocked
+                            ? classDefinition.DisplayName
+                            : $"{classDefinition.DisplayName} (Locked — unlock on server)";
                     }
 
                     button.interactable = unlocked;
@@ -745,7 +749,7 @@ namespace Client.CharacterCreation
             return states.ToArray();
         }
 
-        private void UpdateSliderLabel(Slider slider, Text label)
+        private void UpdateSliderLabel(Slider slider, TMP_Text label)
         {
             if (label == null || slider == null)
             {
