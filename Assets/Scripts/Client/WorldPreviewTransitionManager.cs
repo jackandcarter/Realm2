@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Globalization;
 using Client.Player;
+using Client.UI;
 using Client.World;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -25,6 +26,7 @@ namespace Client
         [Header("World HUD")]
         [SerializeField] private CanvasGroup worldHudGroup;
         [SerializeField] private string worldHudName = "ArkitectCanvas";
+        [SerializeField] private WorldUITransitionController worldUiTransitionController;
 
         [Header("Preview Avatar")]
         [SerializeField] private GameObject previewAvatarPrefab;
@@ -95,6 +97,10 @@ namespace Client
             }
 
             EnsureWorldHudHidden();
+            if (worldUiTransitionController != null)
+            {
+                worldUiTransitionController.PrepareForPreview();
+            }
 
             var spawnPosition = ResolveCharacterSpawnPosition(character);
             SpawnOrMovePreviewAvatar(spawnPosition);
@@ -118,6 +124,10 @@ namespace Client
 
             yield return FadeMenuPanels(0f, disableInteraction: true);
             EnsureWorldHudVisible();
+            if (worldUiTransitionController != null)
+            {
+                worldUiTransitionController.EnterWorld();
+            }
 
             if (unloadMenuSceneOnEnter && !string.IsNullOrWhiteSpace(_menuSceneName))
             {
@@ -163,6 +173,8 @@ namespace Client
             {
                 SceneManager.SetActiveScene(_worldScene);
             }
+
+            ResolveWorldUiTransitionController();
         }
 
         private Vector3 ResolveCharacterSpawnPosition(CharacterInfo character)
@@ -274,6 +286,53 @@ namespace Client
                 {
                     worldHudGroup = EnsureCanvasGroup(root);
                     return worldHudGroup;
+                }
+            }
+
+            return null;
+        }
+
+        private void ResolveWorldUiTransitionController()
+        {
+            if (worldUiTransitionController != null || !_worldScene.IsValid())
+            {
+                return;
+            }
+
+            foreach (var root in _worldScene.GetRootGameObjects())
+            {
+                worldUiTransitionController = root.GetComponentInChildren<WorldUITransitionController>(true);
+                if (worldUiTransitionController != null)
+                {
+                    if (worldUiTransitionController != null)
+                    {
+                        worldUiTransitionController.Configure(ResolveWorldHudGroup(), FindArkitectManager());
+                    }
+                    return;
+                }
+            }
+
+            var hudGroup = ResolveWorldHudGroup();
+            if (hudGroup != null)
+            {
+                worldUiTransitionController = hudGroup.gameObject.AddComponent<WorldUITransitionController>();
+                worldUiTransitionController.Configure(hudGroup, FindArkitectManager());
+            }
+        }
+
+        private ArkitectUIManager FindArkitectManager()
+        {
+            if (!_worldScene.IsValid())
+            {
+                return null;
+            }
+
+            foreach (var root in _worldScene.GetRootGameObjects())
+            {
+                var manager = root.GetComponentInChildren<ArkitectUIManager>(true);
+                if (manager != null)
+                {
+                    return manager;
                 }
             }
 
