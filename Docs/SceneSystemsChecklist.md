@@ -41,6 +41,7 @@ This checklist summarizes the minimum in-scene (or persistent singleton) systems
 - Gameplay HUD canvas and class dock anchor mounted.
 - Master dock prefab bound to the HUD controller.
 - Class UI modules list populated (e.g., Arkitect UI for builder).
+- World preview transition flow configured to hide/show HUD and class panels when entering the world.
 
 ## 8) Map & World State (Optional but typical)
 **Purpose:** Provide spatial awareness and world progression hooks.
@@ -57,6 +58,16 @@ This checklist summarizes the minimum in-scene (or persistent singleton) systems
 
 ## Immediate Next Task (Planned)
 **Wire the Arkitect UI module into the Gameplay HUD class module list** so the Builder class mounts the Arkitect UI automatically in the HUD dock.
+
+---
+
+## World Preview & UI Transition Checklist
+**Goal:** Ensure the live world preview behind the main menu is configured correctly.
+- `WorldPreviewTransitionManager` exists in the main menu runtime (auto-created by `MainMenuController` if missing).
+- World scene HUD canvas (`ArkitectCanvas`) has a `CanvasGroup`.
+- `WorldUITransitionController` attached and configured to hide HUD on preview and fade in on entry.
+- `ArkitectUIManager.startHidden` is enabled so builder panels do not auto-open.
+- At least one `PlayerSpawnPoint` exists for fallback spawns.
 
 ---
 
