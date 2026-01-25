@@ -39,6 +39,8 @@ namespace Realm.EditorTools
         private bool _emitTerrainImportChangeLog;
         private string _terrainImportChangeType = "terrain:import";
         private string _lastExportPath;
+        private string _defaultRegionId;
+        private DiggerSystem _diggerOverride;
 
         [MenuItem("Tools/Realm/Terrain Authoring Sync")]
         public static void ShowWindow()
@@ -109,6 +111,20 @@ namespace Realm.EditorTools
             if (!string.IsNullOrWhiteSpace(_lastExportPath))
             {
                 EditorGUILayout.HelpBox($"Last export: {_lastExportPath}", MessageType.Info);
+            }
+
+            EditorGUILayout.Space();
+            EditorGUILayout.LabelField("Quick Base Terrain Sync", EditorStyles.boldLabel);
+            _defaultRegionId = EditorGUILayout.TextField(new GUIContent("Default Region Id", "Used when no TerrainRegion is available."), _defaultRegionId);
+            _diggerOverride = (DiggerSystem)EditorGUILayout.ObjectField(
+                new GUIContent("Digger Override", "Optional Digger system to sync instead of scanning the scene."),
+                _diggerOverride,
+                typeof(DiggerSystem),
+                true);
+
+            if (GUILayout.Button(new GUIContent("Sync Base Terrain Now", "Upload base terrain payloads with immutable flags.")))
+            {
+                SyncBaseTerrain();
             }
         }
 
@@ -269,6 +285,22 @@ namespace Realm.EditorTools
             EditorCoroutineRunner.Start(UploadTerrainPayloadRoutine(payload));
         }
 
+        private void SyncBaseTerrain()
+        {
+            if (!ValidateConnection(_terrainApiUrl))
+            {
+                return;
+            }
+
+            var payload = BuildTerrainImportPayload(forceBaseTerrain: true);
+            if (payload == null)
+            {
+                return;
+            }
+
+            EditorCoroutineRunner.Start(UploadTerrainPayloadRoutine(payload));
+        }
+
         private IEnumerator UploadTerrainPayloadRoutine(TerrainImportRequest payload)
         {
             using var authScope = new AuthTokenScope(_authToken);
@@ -285,32 +317,27 @@ namespace Realm.EditorTools
             ReportCompletion("Terrain import complete.", errors);
         }
 
-        private TerrainImportRequest BuildTerrainImportPayload()
+        private TerrainImportRequest BuildTerrainImportPayload(bool forceBaseTerrain = false)
         {
-            var regions = ResolveRegions();
-            if (regions.Count == 0)
+            var diggerSystems = ResolveDiggerSystems();
+            if (diggerSystems.Count == 0)
             {
-                EditorUtility.DisplayDialog("Terrain Authoring Sync", "No terrain regions found for the selected mode.", "Ok");
+                EditorUtility.DisplayDialog("Terrain Authoring Sync", "No Digger systems found for export.", "Ok");
                 return null;
             }
 
             var chunks = new List<TerrainImportChunk>();
             var errors = new List<string>();
 
-            foreach (var region in regions)
+            foreach (var digger in diggerSystems)
             {
-                if (region == null || string.IsNullOrWhiteSpace(region.RegionId))
+                if (digger == null)
                 {
-                    errors.Add("Region is missing a Region Id.");
+                    errors.Add("Digger system was null.");
                     continue;
                 }
 
-                var digger = ResolveDiggerSystem(region);
-                if (digger == null)
-                {
-                    errors.Add($"{region.RegionId}: No Digger system found.");
-                    continue;
-                }
+                var regionId = ResolveRegionIdForDigger(digger);
 
                 var diggerChunks = digger.GetComponentsInChildren<Chunk>(includeInactive: true);
                 foreach (var diggerChunk in diggerChunks)
@@ -324,28 +351,30 @@ namespace Realm.EditorTools
                     var voxelPath = digger.GetEditorOnlyPathVoxelFile(chunkPosition);
                     if (!File.Exists(voxelPath))
                     {
-                        errors.Add($"{region.RegionId}: Missing voxel file for {Chunk.GetName(chunkPosition)}.");
+                        errors.Add($"{regionId}: Missing voxel file for {Chunk.GetName(chunkPosition)}.");
                         continue;
                     }
 
+                    var terrainLayer = forceBaseTerrain ? "base" : _terrainLayer;
+                    var immutableBase = forceBaseTerrain || _markImmutableBase;
                     var payload = new TerrainChunkPayload
                     {
-                        terrainLayer = string.IsNullOrWhiteSpace(_terrainLayer) ? null : _terrainLayer.Trim(),
-                        immutableBase = _markImmutableBase,
-                        regionId = region.RegionId,
+                        terrainLayer = string.IsNullOrWhiteSpace(terrainLayer) ? null : terrainLayer.Trim(),
+                        immutableBase = immutableBase,
+                        regionId = regionId,
                         chunkPosition = new SerializableVector3Int(new Vector3Int(chunkPosition.x, chunkPosition.y, chunkPosition.z)),
                         digger = BuildDiggerPayload(digger, chunkPosition, voxelPath)
                     };
 
                     if (payload.digger == null)
                     {
-                        errors.Add($"{region.RegionId}: Failed to read voxel data for {Chunk.GetName(chunkPosition)}.");
+                        errors.Add($"{regionId}: Failed to read voxel data for {Chunk.GetName(chunkPosition)}.");
                         continue;
                     }
 
                     chunks.Add(new TerrainImportChunk
                     {
-                        chunkId = BuildChunkId(region.RegionId, chunkPosition),
+                        chunkId = BuildChunkId(regionId, chunkPosition),
                         chunkX = chunkPosition.x,
                         chunkZ = chunkPosition.z,
                         payload = JsonUtility.ToJson(payload)
@@ -367,8 +396,10 @@ namespace Realm.EditorTools
             return new TerrainImportRequest
             {
                 chunks = chunks.ToArray(),
-                emitChangeLog = _emitTerrainImportChangeLog,
-                changeType = string.IsNullOrWhiteSpace(_terrainImportChangeType) ? null : _terrainImportChangeType.Trim()
+                emitChangeLog = forceBaseTerrain ? false : _emitTerrainImportChangeLog,
+                changeType = forceBaseTerrain
+                    ? "terrain:base-import"
+                    : string.IsNullOrWhiteSpace(_terrainImportChangeType) ? null : _terrainImportChangeType.Trim()
             };
         }
 
@@ -412,6 +443,45 @@ namespace Realm.EditorTools
             }
 
             return region.GetComponentInChildren<DiggerSystem>(includeInactive: true);
+        }
+
+        private List<DiggerSystem> ResolveDiggerSystems()
+        {
+            if (_diggerOverride != null)
+            {
+                return new List<DiggerSystem> { _diggerOverride };
+            }
+
+            var regions = ResolveRegions();
+            var diggers = regions
+                .Select(ResolveDiggerSystem)
+                .Where(digger => digger != null)
+                .Distinct()
+                .ToList();
+
+            if (diggers.Count > 0)
+            {
+                return diggers;
+            }
+
+            return FindObjectsOfType<DiggerSystem>(includeInactive: true).ToList();
+        }
+
+        private string ResolveRegionIdForDigger(DiggerSystem digger)
+        {
+            var region = digger != null ? digger.GetComponentInParent<TerrainRegion>() : null;
+            if (region != null && !string.IsNullOrWhiteSpace(region.RegionId))
+            {
+                return region.RegionId.Trim();
+            }
+
+            if (!string.IsNullOrWhiteSpace(_defaultRegionId))
+            {
+                return _defaultRegionId.Trim();
+            }
+
+            var scene = SceneManager.GetActiveScene();
+            return scene.IsValid() ? scene.name : "region";
         }
 
         private static string BuildChunkId(string regionId, Vector3i chunkPosition)
