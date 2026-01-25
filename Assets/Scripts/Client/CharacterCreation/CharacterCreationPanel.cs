@@ -213,6 +213,41 @@ namespace Client.CharacterCreation
             return state != null && state.Unlocked;
         }
 
+        private bool IsClassUnlockedForRace(string classId, RaceDefinition race)
+        {
+            if (string.IsNullOrWhiteSpace(classId))
+            {
+                return false;
+            }
+
+            if (race == null)
+            {
+                return IsClassUnlocked(classId);
+            }
+
+            var state = EnsureClassState(classId);
+            if (state != null && state.Unlocked)
+            {
+                return true;
+            }
+
+            if (race.StarterClassIds == null || race.StarterClassIds.Length == 0)
+            {
+                return false;
+            }
+
+            foreach (var starterId in race.StarterClassIds)
+            {
+                if (!string.IsNullOrWhiteSpace(starterId)
+                    && string.Equals(starterId.Trim(), classId.Trim(), StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
         private void OnClassUnlockStatesChanged(string characterId, ClassUnlockState[] states)
         {
             if (string.IsNullOrWhiteSpace(characterId) || !string.Equals(characterId, _boundCharacterId, StringComparison.OrdinalIgnoreCase))
@@ -519,7 +554,9 @@ namespace Client.CharacterCreation
                 return;
             }
 
-            var allowedClassIds = _classStatesById.Keys.ToArray();
+            var allowedClassIds = race.AllowedClassIds != null && race.AllowedClassIds.Length > 0
+                ? race.AllowedClassIds
+                : _classStatesById.Keys.ToArray();
             if (allowedClassIds == null || allowedClassIds.Length == 0)
             {
                 SelectClass(null);
@@ -536,8 +573,7 @@ namespace Client.CharacterCreation
                     continue;
                 }
 
-                var state = EnsureClassState(classDefinition.Id);
-                var unlocked = state?.Unlocked ?? false;
+                var unlocked = IsClassUnlockedForRace(classDefinition.Id, race);
 
                 _availableClassDefinitions.Add(classDefinition);
 
@@ -616,7 +652,7 @@ namespace Client.CharacterCreation
 
         private void SelectClass(CharacterClassDefinition classDefinition)
         {
-            if (classDefinition != null && !IsClassUnlocked(classDefinition.Id))
+            if (classDefinition != null && !IsClassUnlockedForRace(classDefinition.Id, _selectedRace))
             {
                 return;
             }
@@ -632,7 +668,7 @@ namespace Client.CharacterCreation
                 }
 
                 var associatedClass = i < _availableClassDefinitions.Count ? _availableClassDefinitions[i] : null;
-                var unlocked = associatedClass != null && IsClassUnlocked(associatedClass.Id);
+                var unlocked = associatedClass != null && IsClassUnlockedForRace(associatedClass.Id, _selectedRace);
                 button.interactable = unlocked && associatedClass != _selectedClass;
             }
 

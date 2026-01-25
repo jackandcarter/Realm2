@@ -195,6 +195,105 @@ namespace Client.Progression
             }
         }
 
+        public IEnumerator UpdateQuests(
+            string characterId,
+            CharacterQuestStateEntry[] quests,
+            int expectedVersion,
+            Action<CharacterProgressionEnvelope> onSuccess,
+            Action<ApiError> onError)
+        {
+            if (string.IsNullOrWhiteSpace(characterId))
+            {
+                onError?.Invoke(new ApiError(400, "Character id is required."));
+                yield break;
+            }
+
+            if (_useMock)
+            {
+                yield return RunMockProgression(characterId, onSuccess);
+                yield break;
+            }
+
+            var requestPayload = new CharacterProgressionUpdateRequest
+            {
+                quests = new CharacterQuestUpdatePayload
+                {
+                    expectedVersion = expectedVersion,
+                    quests = quests ?? Array.Empty<CharacterQuestStateEntry>()
+                }
+            };
+
+            var json = JsonUtility.ToJson(requestPayload);
+            using var request = new UnityWebRequest($"{_baseUrl}/characters/{characterId}/progression", UnityWebRequest.kHttpVerbPUT);
+            request.uploadHandler = new UploadHandlerRaw(Encoding.UTF8.GetBytes(json));
+            request.downloadHandler = new DownloadHandlerBuffer();
+            request.SetRequestHeader("Content-Type", "application/json");
+            AttachAuthHeader(request);
+
+            yield return request.SendWebRequest();
+
+            if (request.result == UnityWebRequest.Result.Success)
+            {
+                var payload = JsonUtility.FromJson<CharacterProgressionEnvelope>(request.downloadHandler.text);
+                onSuccess?.Invoke(Sanitize(payload));
+            }
+            else
+            {
+                onError?.Invoke(ApiError.FromRequest(request));
+            }
+        }
+
+        public IEnumerator CompleteQuest(
+            string characterId,
+            string questId,
+            string progressJson,
+            Action<ProgressionIntentResponse> onSuccess,
+            Action<ApiError> onError)
+        {
+            if (string.IsNullOrWhiteSpace(characterId) || string.IsNullOrWhiteSpace(questId))
+            {
+                onError?.Invoke(new ApiError(400, "Character id and quest id are required."));
+                yield break;
+            }
+
+            if (_useMock)
+            {
+                yield return null;
+                onSuccess?.Invoke(new ProgressionIntentResponse
+                {
+                    requestId = Guid.NewGuid().ToString("N"),
+                    status = "completed",
+                    createdAt = DateTime.UtcNow.ToString("O")
+                });
+                yield break;
+            }
+
+            var requestBody = new QuestCompletionRequest
+            {
+                questId = questId.Trim(),
+                progress = string.IsNullOrWhiteSpace(progressJson) ? null : progressJson
+            };
+
+            var json = JsonUtility.ToJson(requestBody);
+            using var request = new UnityWebRequest($"{_baseUrl}/characters/{characterId}/quests/complete", UnityWebRequest.kHttpVerbPOST);
+            request.uploadHandler = new UploadHandlerRaw(Encoding.UTF8.GetBytes(json));
+            request.downloadHandler = new DownloadHandlerBuffer();
+            request.SetRequestHeader("Content-Type", "application/json");
+            AttachAuthHeader(request);
+
+            yield return request.SendWebRequest();
+
+            if (request.result == UnityWebRequest.Result.Success)
+            {
+                var payload = JsonUtility.FromJson<ProgressionIntentResponse>(request.downloadHandler.text);
+                onSuccess?.Invoke(payload);
+            }
+            else
+            {
+                onError?.Invoke(ApiError.FromRequest(request));
+            }
+        }
+
         private static void AttachAuthHeader(UnityWebRequest request)
         {
             if (!string.IsNullOrEmpty(SessionManager.AuthToken))
@@ -302,6 +401,13 @@ namespace Client.Progression
             }
 
             return payload;
+        }
+
+        [Serializable]
+        private class QuestCompletionRequest
+        {
+            public string questId;
+            public string progress;
         }
 
         private IEnumerator RunMockProgression(string characterId, Action<CharacterProgressionEnvelope> onSuccess)

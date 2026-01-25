@@ -344,7 +344,37 @@ namespace Client
 
         private static ClassUnlockState[] BuildDefaultClassStates(string raceId, string activeClassId)
         {
-            return Array.Empty<ClassUnlockState>();
+            var allowedClassIds = ClassRulesCatalog.GetAllowedClassIdsForRace(raceId);
+            var starterClassIds = ClassRulesCatalog.GetStarterClassIdsForRace(raceId);
+            var starterSet = new HashSet<string>(starterClassIds ?? Array.Empty<string>(), StringComparer.OrdinalIgnoreCase);
+
+            var results = new List<ClassUnlockState>();
+            foreach (var classId in allowedClassIds ?? Array.Empty<string>())
+            {
+                if (string.IsNullOrWhiteSpace(classId))
+                {
+                    continue;
+                }
+
+                results.Add(new ClassUnlockState
+                {
+                    ClassId = classId.Trim(),
+                    Unlocked = starterSet.Contains(classId)
+                });
+            }
+
+            if (!string.IsNullOrWhiteSpace(activeClassId)
+                && ClassRulesCatalog.IsClassAllowedForRace(activeClassId, raceId)
+                && !results.Exists(state => string.Equals(state.ClassId, activeClassId, StringComparison.OrdinalIgnoreCase)))
+            {
+                results.Add(new ClassUnlockState
+                {
+                    ClassId = activeClassId.Trim(),
+                    Unlocked = starterSet.Contains(activeClassId)
+                });
+            }
+
+            return ClassUnlockUtility.SanitizeStates(results.Count > 0 ? results.ToArray() : null);
         }
 
         private IEnumerator RunMockCreateCharacter(string realmId, string name, string bio, Action<CharacterInfo> onSuccess, Action<ApiError> onError, CharacterCreationSelection? selection)
