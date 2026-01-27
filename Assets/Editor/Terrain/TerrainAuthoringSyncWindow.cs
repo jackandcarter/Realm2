@@ -464,7 +464,7 @@ namespace Realm.EditorTools
                 return diggers;
             }
 
-            return FindObjectsOfType<DiggerSystem>(includeInactive: true).ToList();
+            return FindObjectsByType<DiggerSystem>(FindObjectsInactive.Include, FindObjectsSortMode.None).ToList();
         }
 
         private string ResolveRegionIdForDigger(DiggerSystem digger)
@@ -549,20 +549,22 @@ namespace Realm.EditorTools
 
         private sealed class AuthTokenScope : IDisposable
         {
-            private readonly string _previousToken;
+            private readonly string _previousAuthToken;
+            private readonly string _previousRefreshToken;
 
             public AuthTokenScope(string token)
             {
-                _previousToken = SessionManager.AuthToken;
+                _previousAuthToken = SessionManager.AuthToken;
+                _previousRefreshToken = SessionManager.RefreshToken;
                 if (!string.IsNullOrWhiteSpace(token))
                 {
-                    SessionManager.AuthToken = token;
+                    SessionManager.SetTokens(token, _previousRefreshToken);
                 }
             }
 
             public void Dispose()
             {
-                SessionManager.AuthToken = _previousToken;
+                SessionManager.SetTokens(_previousAuthToken, _previousRefreshToken);
             }
         }
     }
