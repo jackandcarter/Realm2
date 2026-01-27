@@ -45,8 +45,7 @@ namespace Client.BuildState
             IEnumerable<BuildPlotDefinition> plots)
         {
             Debug.LogWarning(
-                "Client-side plot persistence is disabled. Build plots must be authored and stored on the server.",
-                _client as UnityEngine.Object);
+                "Client-side plot persistence is disabled. Build plots must be authored and stored on the server.");
         }
 
         public static void SaveConstructions(
@@ -55,8 +54,7 @@ namespace Client.BuildState
             IEnumerable<ConstructionInstance.SerializableConstructionState> constructions)
         {
             Debug.LogWarning(
-                "Client-side construction persistence is disabled. Construction state must be authored and stored on the server.",
-                _client as UnityEngine.Object);
+                "Client-side construction persistence is disabled. Construction state must be authored and stored on the server.");
         }
 
         public static void RequestLatest(string realmId, string characterId)
