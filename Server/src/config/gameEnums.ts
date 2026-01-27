@@ -66,3 +66,19 @@ export const resourceCategories = ['raw', 'processed', 'crafted', 'consumable', 
 export type ResourceCategory = (typeof resourceCategories)[number];
 
 export type ResourceId = string;
+export const weaponTypes: readonly WeaponType[] = [
+  'greatsword',
+  'double-saber',
+  'shield',
+  'staff',
+  'book',
+  'scythe',
+  'sword',
+  'mech-rod',
+  'pistol',
+  'dagger',
+  'dual-blades',
+  'bow',
+  'boomerang',
+  'toolkit',
+] as const;

@@ -5,6 +5,7 @@ import {
   ResourceCategory,
   ResourceId,
   WeaponType,
+  weaponTypes,
   resourceCategories,
 } from '../../config/gameEnums';
 
