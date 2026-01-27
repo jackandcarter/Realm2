@@ -538,22 +538,7 @@ function ensureInteger(value: unknown, field: string): number {
   throw new HttpError(400, `${field} must be a number`);
 }
 
-function isJsonValue(value: unknown): boolean {
-  if (value === null) {
-    return true;
-  }
-  const type = typeof value;
-  if (type === 'string' || type === 'number' || type === 'boolean') {
-    return true;
-  }
-  if (Array.isArray(value)) {
-    return value.every(isJsonValue);
-  }
-  if (type === 'object') {
-    return Object.values(value as Record<string, unknown>).every(isJsonValue);
-  }
-  return false;
-}
+
 
 function handleProgressionError(error: unknown, next: NextFunction): void {
   if (error instanceof VersionConflictError) {

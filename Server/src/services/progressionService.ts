@@ -4,7 +4,7 @@ import { WebSocket, WebSocketServer } from 'ws';
 import type { RawData } from 'ws';
 import { env } from '../config/env';
 import { findCharacterById } from '../db/characterRepository';
-import { ActionRequestStatus, createActionRequest } from '../db/actionRequestRepository';
+import { createActionRequest } from '../db/actionRequestRepository';
 import {
   CharacterProgressionSnapshot,
   ClassUnlockInput,
@@ -33,6 +33,7 @@ import { AuthPayload } from '../middleware/authMiddleware';
 import { JsonValue } from '../types/characterCustomization';
 import { HttpError } from '../utils/errors';
 import { resolveQuestCompletionHandler } from '../gameplay/quests/questRegistry';
+import { ActionRequestStatus } from '../config/gameEnums';
 
 export interface ProgressionUpdateInput {
   progression?: {
