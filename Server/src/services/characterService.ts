@@ -63,6 +63,8 @@ export async function createCharacterForUser(
     input.classStates
   );
 
+  const lastKnownLocation = normalizeLastKnownLocation(input.lastKnownLocation);
+
   try {
     return await createCharacter({
       realmId: realm.id,
@@ -73,7 +75,7 @@ export async function createCharacterForUser(
       appearance,
       classId,
       classStates,
-      lastKnownLocation: input.lastKnownLocation,
+      lastKnownLocation,
     });
   } catch (_error) {
     throw new HttpError(500, 'Unable to create character');
@@ -227,4 +229,27 @@ async function normalizeClassSelectionForRace(
   }
 
   return { classId, classStates: normalizedStates };
+}
+
+const fallbackSpawnLocation = '0,2,0';
+
+function normalizeLastKnownLocation(rawLocation?: string): string {
+  if (!rawLocation || rawLocation.trim() === '') {
+    return fallbackSpawnLocation;
+  }
+
+  const tokens = rawLocation
+    .split(/[,|;\s]+/u)
+    .map((token) => token.trim())
+    .filter(Boolean);
+  if (tokens.length < 3) {
+    return fallbackSpawnLocation;
+  }
+
+  const numbers = tokens.slice(0, 3).map((token) => Number(token));
+  if (numbers.some((value) => !Number.isFinite(value))) {
+    return fallbackSpawnLocation;
+  }
+
+  return `${numbers[0]},${numbers[1]},${numbers[2]}`;
 }
