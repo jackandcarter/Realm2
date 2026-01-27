@@ -38,7 +38,7 @@ namespace Client.BuildState
                     characterId = characterId,
                     realmId = realmId,
                     plots = Array.Empty<BuildPlotDefinition>(),
-                    constructions = Array.Empty<Building.ConstructionInstance.SerializableConstructionState>(),
+                    constructions = Array.Empty<global::Building.ConstructionInstance.SerializableConstructionState>(),
                     updatedAt = DateTime.UtcNow.ToString("O")
                 });
                 yield break;
@@ -91,7 +91,8 @@ namespace Client.BuildState
                     characterId = characterId,
                     realmId = realmId,
                     plots = payload?.plots ?? Array.Empty<BuildPlotDefinition>(),
-                    constructions = payload?.constructions ?? Array.Empty<Building.ConstructionInstance.SerializableConstructionState>(),
+                    constructions = payload?.constructions
+                        ?? Array.Empty<global::Building.ConstructionInstance.SerializableConstructionState>(),
                     updatedAt = DateTime.UtcNow.ToString("O")
                 });
                 yield break;
