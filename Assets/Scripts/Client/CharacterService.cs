@@ -278,7 +278,7 @@ namespace Client
                             build = 0.48f
                         },
                         createdAt = DateTime.UtcNow.ToString("O"),
-                        lastKnownLocation = "Whispering Glade"
+                        lastKnownLocation = "12.5,1.0,-48.2"
                     },
                     new CharacterInfo
                     {
@@ -296,7 +296,7 @@ namespace Client
                             build = 0.62f
                         },
                         createdAt = DateTime.UtcNow.ToString("O"),
-                        lastKnownLocation = "Stonewatch Keep"
+                        lastKnownLocation = "-5,2,18.75"
                     }
                 }
             });
