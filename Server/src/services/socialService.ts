@@ -42,7 +42,26 @@ import {
 } from '../db/chatRepository';
 import { requireCharacter, requireOwnedCharacter } from './characterAccessService';
 import { ensureMembership } from './realmService';
+import { ChatChannelType, chatChannelTypes } from '../config/gameEnums';
 import { HttpError } from '../utils/errors';
+
+type GuildRole = 'leader' | 'officer' | 'member';
+type PartyRole = 'leader' | 'member';
+
+function normalizeGuildRole(role?: string): GuildRole {
+  if (role === 'leader' || role === 'officer' || role === 'member') {
+    return role;
+  }
+  return 'member';
+}
+
+function normalizePartyRole(role?: string): PartyRole {
+  if (role === 'leader' || role === 'member') {
+    return role;
+  }
+  return 'member';
+}
+
 
 export async function listGuilds(userId: string, characterId: string): Promise<Guild[]> {
   await requireOwnedCharacter(userId, characterId);
@@ -73,7 +92,7 @@ export async function addGuildMemberForCharacter(
   guildId: string,
   actorCharacterId: string,
   memberCharacterId: string,
-  role: string
+  role?: string
 ): Promise<GuildMember> {
   const guild = await requireGuild(guildId);
   const actorMembership = await listGuildMembers(guildId);
@@ -96,7 +115,7 @@ export async function addGuildMemberForCharacter(
     throw new HttpError(400, 'Member must be in the same realm');
   }
 
-  return upsertGuildMember(guildId, memberCharacter.id, role || 'member');
+  return upsertGuildMember(guildId, memberCharacter.id, normalizeGuildRole(role));
 }
 
 export async function listFriends(userId: string, characterId: string): Promise<FriendRecord[]> {
@@ -162,7 +181,7 @@ export async function addPartyMemberForCharacter(
   userId: string,
   partyId: string,
   characterId: string,
-  role: string
+  role?: string
 ): Promise<PartyMember> {
   const party = await requireParty(partyId);
   const leader = await requireOwnedCharacter(userId, party.leaderCharacterId);
@@ -175,7 +194,7 @@ export async function addPartyMemberForCharacter(
     throw new HttpError(400, 'Party member must be in the same realm');
   }
 
-  return upsertPartyMember(partyId, characterId, role || 'member');
+  return upsertPartyMember(partyId, characterId, normalizePartyRole(role));
 }
 
 export async function listParties(userId: string, characterId: string): Promise<Party[]> {
@@ -290,7 +309,11 @@ export async function createChannelForRealm(
   if (!trimmedName) {
     throw new HttpError(400, 'Channel name is required');
   }
-  return createChatChannel(realmId, trimmedName, type || 'global');
+  const normalizedType = (type?.trim() || 'global') as ChatChannelType;
+  if (!chatChannelTypes.includes(normalizedType)) {
+    throw new HttpError(400, `Channel type must be one of: ${chatChannelTypes.join(', ')}`);
+  }
+  return createChatChannel(realmId, trimmedName, normalizedType);
 }
 
 export async function sendChatMessage(

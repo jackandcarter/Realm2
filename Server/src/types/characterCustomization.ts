@@ -47,7 +47,7 @@ export function isCharacterAppearance(value: unknown): value is CharacterAppeara
   return Object.values(value as Record<string, unknown>).every(isJsonValue);
 }
 
-function isJsonValue(value: unknown): value is JsonValue {
+export function isJsonValue(value: unknown): value is JsonValue {
   if (value === null) {
     return true;
   }

@@ -4,7 +4,7 @@ import { WebSocket, WebSocketServer } from 'ws';
 import type { RawData } from 'ws';
 import { env } from '../config/env';
 import { findCharacterById } from '../db/characterRepository';
-import { ActionRequestStatus, createActionRequest } from '../db/actionRequestRepository';
+import { createActionRequest } from '../db/actionRequestRepository';
 import {
   CharacterProgressionSnapshot,
   ClassUnlockInput,
@@ -32,6 +32,8 @@ import { findUserById } from '../db/userRepository';
 import { AuthPayload } from '../middleware/authMiddleware';
 import { JsonValue } from '../types/characterCustomization';
 import { HttpError } from '../utils/errors';
+import { resolveQuestCompletionHandler } from '../gameplay/quests/questRegistry';
+import { ActionRequestStatus } from '../config/gameEnums';
 
 export interface ProgressionUpdateInput {
   progression?: {
@@ -135,6 +137,39 @@ export async function submitProgressionIntentForUser(
     realmId: character.realmId,
     requestedBy: userId,
     requestType: 'progression.update',
+    payload: input,
+  });
+
+  return {
+    requestId: actionRequest.id,
+    status: actionRequest.status,
+    createdAt: actionRequest.createdAt,
+  };
+}
+
+export async function submitQuestCompletionForUser(
+  userId: string,
+  characterId: string,
+  input: QuestCompletionInput
+): Promise<ProgressionIntentResponse> {
+  const character = await findCharacterById(characterId);
+  if (!character) {
+    throw new HttpError(404, 'Character not found');
+  }
+
+  if (character.userId !== userId) {
+    throw new HttpError(403, 'You do not have access to this character');
+  }
+
+  if (!input.questId?.trim()) {
+    throw new HttpError(400, 'questId is required');
+  }
+
+  const actionRequest = await createActionRequest({
+    characterId,
+    realmId: character.realmId,
+    requestedBy: userId,
+    requestType: 'quest.complete',
     payload: input,
   });
 
@@ -275,11 +310,15 @@ export async function applyQuestCompletion(
   }
 
   await initializeCharacterProgressionState(characterId);
-  await upsertQuestState(characterId, {
-    questId: quest.questId.trim(),
-    status: 'completed',
-    progress: quest.progress,
-  });
+  const handler = resolveQuestCompletionHandler(quest.questId);
+  await handler(characterId);
+  if (quest.progress) {
+    await upsertQuestState(characterId, {
+      questId: quest.questId.trim(),
+      status: 'completed',
+      progress: quest.progress,
+    });
+  }
 
   const snapshot = await getCharacterProgressionSnapshot(characterId);
   broadcastProgression(characterId, snapshot);

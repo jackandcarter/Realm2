@@ -1,3 +1,14 @@
+import {
+  EquipmentSlot,
+  ItemCategory,
+  ItemRarity,
+  ResourceCategory,
+  ResourceId,
+  WeaponType,
+  weaponTypes,
+  resourceCategories,
+} from '../../config/gameEnums';
+
 export type ElementType =
   | 'fire'
   | 'ice'
@@ -91,6 +102,9 @@ function matchesElements(rule: FusionRule, casts: FusionCastSnapshot[]): boolean
     }
 
     const [matched] = remainingCasts.splice(index, 1);
+    if (!matched) {
+      return false;
+    }
     if (component.requiresAoE && !matched.isAreaOfEffect) {
       return false;
     }
@@ -169,9 +183,22 @@ export interface ClassDefinition {
   name: string;
   role: 'tank' | 'damage' | 'support' | 'builder';
   primaryStats: string[];
-  weaponProficiencies: string[];
+  weaponProficiencies: WeaponType[];
   signatureAbilities: string[];
   unlockQuestId?: string;
+  baseStats: ClassBaseStats;
+}
+
+export interface ClassBaseStats {
+  baseHealth: number;
+  baseMana: number;
+  strength: number;
+  agility: number;
+  intelligence: number;
+  vitality: number;
+  defense: number;
+  critChance: number;
+  speed: number;
 }
 
 export const coreClassDefinitions: ClassDefinition[] = [
@@ -182,6 +209,17 @@ export const coreClassDefinitions: ClassDefinition[] = [
     primaryStats: ['stat.strength', 'stat.vitality'],
     weaponProficiencies: ['greatsword', 'double-saber', 'shield'],
     signatureAbilities: ['ability.powerStrike'],
+    baseStats: {
+      baseHealth: 180,
+      baseMana: 40,
+      strength: 14,
+      agility: 8,
+      intelligence: 6,
+      vitality: 16,
+      defense: 12,
+      critChance: 0.04,
+      speed: 1,
+    },
   },
   {
     id: 'wizard',
@@ -190,6 +228,17 @@ export const coreClassDefinitions: ClassDefinition[] = [
     primaryStats: ['stat.magic', 'stat.spirit'],
     weaponProficiencies: ['staff', 'book'],
     signatureAbilities: ['ability.spiritBlessing'],
+    baseStats: {
+      baseHealth: 90,
+      baseMana: 160,
+      strength: 4,
+      agility: 7,
+      intelligence: 16,
+      vitality: 8,
+      defense: 5,
+      critChance: 0.06,
+      speed: 1.05,
+    },
   },
   {
     id: 'time-mage',
@@ -199,6 +248,17 @@ export const coreClassDefinitions: ClassDefinition[] = [
     weaponProficiencies: ['staff', 'book'],
     signatureAbilities: ['ability.spiritBlessing'],
     unlockQuestId: 'quest-time-mage-convergence',
+    baseStats: {
+      baseHealth: 100,
+      baseMana: 150,
+      strength: 5,
+      agility: 8,
+      intelligence: 15,
+      vitality: 9,
+      defense: 6,
+      critChance: 0.05,
+      speed: 1.06,
+    },
   },
   {
     id: 'necromancer',
@@ -207,6 +267,17 @@ export const coreClassDefinitions: ClassDefinition[] = [
     primaryStats: ['stat.strength', 'stat.magic'],
     weaponProficiencies: ['scythe', 'staff', 'sword'],
     signatureAbilities: ['ability.necromancer_reaper_combo', 'ability.necromancer_soul_bolt'],
+    baseStats: {
+      baseHealth: 120,
+      baseMana: 130,
+      strength: 9,
+      agility: 7,
+      intelligence: 13,
+      vitality: 10,
+      defense: 8,
+      critChance: 0.06,
+      speed: 1.03,
+    },
   },
   {
     id: 'technomancer',
@@ -215,6 +286,17 @@ export const coreClassDefinitions: ClassDefinition[] = [
     primaryStats: ['stat.magic', 'stat.spirit'],
     weaponProficiencies: ['mech-rod', 'pistol'],
     signatureAbilities: [],
+    baseStats: {
+      baseHealth: 110,
+      baseMana: 140,
+      strength: 6,
+      agility: 9,
+      intelligence: 14,
+      vitality: 9,
+      defense: 7,
+      critChance: 0.05,
+      speed: 1.05,
+    },
   },
   {
     id: 'sage',
@@ -223,6 +305,17 @@ export const coreClassDefinitions: ClassDefinition[] = [
     primaryStats: ['stat.magic', 'stat.spirit'],
     weaponProficiencies: ['staff', 'book'],
     signatureAbilities: ['ability.spiritBlessing'],
+    baseStats: {
+      baseHealth: 105,
+      baseMana: 145,
+      strength: 5,
+      agility: 8,
+      intelligence: 15,
+      vitality: 9,
+      defense: 6,
+      critChance: 0.05,
+      speed: 1.04,
+    },
   },
   {
     id: 'rogue',
@@ -231,6 +324,17 @@ export const coreClassDefinitions: ClassDefinition[] = [
     primaryStats: ['stat.agility', 'stat.attackPower'],
     weaponProficiencies: ['dagger', 'dual-blades'],
     signatureAbilities: [],
+    baseStats: {
+      baseHealth: 115,
+      baseMana: 70,
+      strength: 8,
+      agility: 15,
+      intelligence: 6,
+      vitality: 10,
+      defense: 7,
+      critChance: 0.09,
+      speed: 1.15,
+    },
   },
   {
     id: 'ranger',
@@ -240,6 +344,17 @@ export const coreClassDefinitions: ClassDefinition[] = [
     weaponProficiencies: ['bow', 'boomerang'],
     signatureAbilities: [],
     unlockQuestId: 'quest-ranger-trial',
+    baseStats: {
+      baseHealth: 125,
+      baseMana: 80,
+      strength: 7,
+      agility: 14,
+      intelligence: 7,
+      vitality: 11,
+      defense: 8,
+      critChance: 0.08,
+      speed: 1.12,
+    },
   },
   {
     id: 'mythologist',
@@ -248,6 +363,17 @@ export const coreClassDefinitions: ClassDefinition[] = [
     primaryStats: ['stat.magic', 'stat.spirit'],
     weaponProficiencies: ['book', 'staff'],
     signatureAbilities: [],
+    baseStats: {
+      baseHealth: 100,
+      baseMana: 150,
+      strength: 5,
+      agility: 8,
+      intelligence: 15,
+      vitality: 9,
+      defense: 6,
+      critChance: 0.05,
+      speed: 1.04,
+    },
   },
   {
     id: 'builder',
@@ -257,8 +383,32 @@ export const coreClassDefinitions: ClassDefinition[] = [
     weaponProficiencies: ['toolkit'],
     signatureAbilities: [],
     unlockQuestId: 'quest-builder-arkitect',
+    baseStats: {
+      baseHealth: 130,
+      baseMana: 110,
+      strength: 8,
+      agility: 9,
+      intelligence: 10,
+      vitality: 12,
+      defense: 9,
+      critChance: 0.04,
+      speed: 1.02,
+    },
   },
 ];
+
+function assertWeaponProficienciesValid(): void {
+  const allowed = new Set(weaponTypes);
+  for (const definition of coreClassDefinitions) {
+    for (const weapon of definition.weaponProficiencies) {
+      if (!allowed.has(weapon)) {
+        throw new Error(`Invalid weapon proficiency "${weapon}" for class ${definition.id}`);
+      }
+    }
+  }
+}
+
+assertWeaponProficienciesValid();
 
 export interface ProfessionDefinition {
   id: string;
@@ -278,15 +428,12 @@ export const professionDefinitions: ProfessionDefinition[] = [
   { id: 'mechanic', name: 'Mechanic', outputs: ['resource.tech-shards'], inputs: ['resource.ore', 'resource.tech-shards'] },
 ];
 
-export const equipmentSlots = ['weapon', 'head', 'chest', 'legs', 'hands', 'feet', 'accessory', 'tool'] as const;
-
-export type EquipmentSlot = (typeof equipmentSlots)[number];
 
 export interface EquipmentDefinition {
   id: string;
   name: string;
   slot: EquipmentSlot;
-  category: 'weapon' | 'armor' | 'consumable' | 'key-item';
+  category: ItemCategory;
   subtype?: string;
   requiredClassIds?: string[];
 }
@@ -300,10 +447,8 @@ export const equipmentArchetypes: EquipmentDefinition[] = [
   { id: 'key.chrono-shard', name: 'Chrono Nexus Shard', slot: 'accessory', category: 'key-item', subtype: 'artifact' },
 ];
 
-export type ResourceCategory = 'raw' | 'processed' | 'crafted' | 'consumable' | 'quest';
-
 export interface ResourceDefinition {
-  id: string;
+  id: ResourceId;
   name: string;
   category: ResourceCategory;
 }
@@ -328,8 +473,25 @@ export const resourceDefinitions: ResourceDefinition[] = [
   { id: 'resource.quest-chrono-shard', name: 'Chrono Shard Fragment', category: 'quest' },
 ];
 
+function assertResourceDefinitionsValid(): void {
+  const allowedCategories = new Set(resourceCategories);
+  const seen = new Set<string>();
+
+  for (const definition of resourceDefinitions) {
+    if (!allowedCategories.has(definition.category)) {
+      throw new Error(`Invalid resource category "${definition.category}" for ${definition.id}`);
+    }
+    if (seen.has(definition.id)) {
+      throw new Error(`Duplicate resource definition "${definition.id}"`);
+    }
+    seen.add(definition.id);
+  }
+}
+
+assertResourceDefinitionsValid();
+
 export interface EquipmentCatalogEntry extends EquipmentDefinition {
-  tier: 'starter' | 'standard' | 'rare' | 'legendary';
+  tier: ItemRarity;
   baseStats: Record<string, number>;
 }
 

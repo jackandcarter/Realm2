@@ -1,4 +1,13 @@
 import {
+  AbilityRecord,
+  ArmorRecord,
+  ClassBaseStatRecord,
+  ClassRecord,
+  EnemyBaseStatRecord,
+  EnemyRecord,
+  ItemRecord,
+  LevelProgressionRecord,
+  WeaponRecord,
   listAbilities,
   listArmor,
   listClassBaseStats,
@@ -22,15 +31,15 @@ function parseJson(value: string): unknown {
 }
 
 export interface CatalogSnapshot {
-  items: Array<Record<string, unknown>>;
-  weapons: Array<Record<string, unknown>>;
-  armor: Array<Record<string, unknown>>;
-  classes: Array<Record<string, unknown>>;
-  classBaseStats: Array<Record<string, unknown>>;
-  enemies: Array<Record<string, unknown>>;
-  enemyBaseStats: Array<Record<string, unknown>>;
-  abilities: Array<Record<string, unknown>>;
-  levelProgression: Array<Record<string, unknown>>;
+  items: Array<ItemRecord & { metadata: unknown }>;
+  weapons: Array<WeaponRecord & { metadata: unknown }>;
+  armor: Array<ArmorRecord & { resistances: unknown; metadata: unknown }>;
+  classes: Array<ClassRecord & { metadata: unknown }>;
+  classBaseStats: ClassBaseStatRecord[];
+  enemies: Array<EnemyRecord & { metadata: unknown }>;
+  enemyBaseStats: EnemyBaseStatRecord[];
+  abilities: Array<AbilityRecord & { metadata: unknown }>;
+  levelProgression: Array<LevelProgressionRecord & { reward: unknown }>;
 }
 
 export async function getCatalogSnapshot(): Promise<CatalogSnapshot> {

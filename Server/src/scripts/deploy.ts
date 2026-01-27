@@ -1,8 +1,10 @@
 import { logger } from '../observability/logger';
-import { initializeDatabase } from '../db/database';
+import { initializeWorldDatabase } from '../db/database';
+import { initializeTerrainDatabase } from '../db/terrainDatabase';
 
 async function main(): Promise<void> {
-  await initializeDatabase();
+  await initializeWorldDatabase();
+  await initializeTerrainDatabase();
   logger.info('Deployment migrations completed successfully');
 }
 

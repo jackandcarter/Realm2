@@ -1,8 +1,8 @@
 import { Router } from 'express';
 import { requireAuth } from '../middleware/authMiddleware';
-import { listRealmsForUser, getRealmCharacters } from '../services/realmService';
+import { listRealmsForUser, getRealmCharacters, selectRealmForUser } from '../services/realmService';
 import { HttpError, isHttpError } from '../utils/errors';
-import { validateBuildZoneForUser } from '../services/buildZoneService';
+import { replaceBuildZonesForRealm, validateBuildZoneForUser } from '../services/buildZoneService';
 import { applyWalletAdjustmentsForUser, listWalletForUser } from '../services/resourceWalletService';
 import { getPlotPermissionsForUser, replacePlotPermissionsForUser } from '../services/plotPermissionService';
 
@@ -12,6 +12,19 @@ realmRouter.get('/', requireAuth, async (req, res, next) => {
   try {
     const realms = await listRealmsForUser(req.user!.id);
     res.json({ realms });
+  } catch (error) {
+    next(error);
+  }
+});
+
+realmRouter.post('/select', requireAuth, async (req, res, next) => {
+  try {
+    const realmId = typeof req.body?.realmId === 'string' ? req.body.realmId.trim() : '';
+    if (!realmId) {
+      throw new HttpError(400, 'realmId is required');
+    }
+    const realm = await selectRealmForUser(req.user!.id, realmId);
+    res.status(200).json({ realmId: realm.id });
   } catch (error) {
     next(error);
   }
@@ -48,6 +61,17 @@ realmRouter.post('/:realmId/build-zones/validate', requireAuth, async (req, res,
     const bounds = toBuildZoneBounds(req.body?.bounds);
     const result = await validateBuildZoneForUser(req.user!.id, realmId, bounds);
     res.json(result);
+  } catch (error) {
+    next(error);
+  }
+});
+
+realmRouter.put('/:realmId/build-zones', requireAuth, async (req, res, next) => {
+  try {
+    const { realmId } = req.params as { realmId: string };
+    const zones = toBuildZoneDefinitions(req.body?.zones);
+    const updated = await replaceBuildZonesForRealm(req.user!.id, realmId, zones);
+    res.json({ zones: updated });
   } catch (error) {
     next(error);
   }
@@ -133,4 +157,22 @@ function toBuildZoneBounds(value: unknown): { center: { x: number; y: number; z:
     center: { x: centerX, y: centerY, z: centerZ },
     size: { x: sizeX, y: sizeY, z: sizeZ },
   };
+}
+
+function toBuildZoneDefinitions(value: unknown): { zoneId?: string; label?: string | null; bounds: { center: { x: number; y: number; z: number }; size: { x: number; y: number; z: number } } }[] {
+  if (!Array.isArray(value)) {
+    throw new HttpError(400, 'zones must be an array');
+  }
+
+  return value.map((entry) => {
+    if (!entry || typeof entry !== 'object') {
+      throw new HttpError(400, 'each build zone must be an object');
+    }
+    const record = entry as Record<string, any>;
+    return {
+      zoneId: typeof record.zoneId === 'string' ? record.zoneId : undefined,
+      label: typeof record.label === 'string' ? record.label : record.label ?? null,
+      bounds: toBuildZoneBounds(record.bounds),
+    };
+  });
 }

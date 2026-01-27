@@ -12,12 +12,12 @@ import {
   listTradesForCharacter,
   Trade,
   TradeItem,
-  TradeStatus,
   updateTradeStatus,
   upsertTradeItem,
 } from '../db/tradeRepository';
 import { requireCharacter, requireOwnedCharacter } from './characterAccessService';
 import { HttpError } from '../utils/errors';
+import { TradeStatus } from '../config/gameEnums';
 import {
   getCharacterProgressionSnapshot,
   getInventorySnapshotForUpdate,

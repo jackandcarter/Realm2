@@ -3,11 +3,14 @@ import { requireAuth } from '../middleware/authMiddleware';
 import {
   createCharacterForUser,
   CreateCharacterInput,
+  selectCharacterForUser,
 } from '../services/characterService';
 import {
   getCharacterProgressionForUser,
   ProgressionUpdateInput,
   submitProgressionIntentForUser,
+  submitQuestCompletionForUser,
+  QuestCompletionInput,
 } from '../services/progressionService';
 import {
   BuildStateUpdateInput,
@@ -19,8 +22,8 @@ import { getMapPinsForUser, MapPinUpdateInput, replaceMapPinsForUser } from '../
 import { VersionConflictError } from '../db/progressionRepository';
 import { CharacterClassState } from '../types/classUnlocks';
 import { HttpError, isHttpError } from '../utils/errors';
-import { JsonValue } from '../types/characterCustomization';
-import { equipmentSlots } from '../gameplay/design/systemFoundations';
+import { JsonValue, isJsonValue } from '../types/characterCustomization';
+import { EquipmentSlot, equipmentSlots } from '../config/gameEnums';
 
 export const characterRouter = Router();
 
@@ -69,6 +72,19 @@ characterRouter.post('/', requireAuth, async (req, res, next) => {
 
 export { characterRouter as charactersRouter };
 
+characterRouter.post('/select', requireAuth, async (req, res, next) => {
+  try {
+    const characterId = typeof req.body?.characterId === 'string' ? req.body.characterId.trim() : '';
+    if (!characterId) {
+      throw new HttpError(400, 'characterId is required');
+    }
+    await selectCharacterForUser(req.user!.id, characterId);
+    res.sendStatus(204);
+  } catch (error) {
+    next(error);
+  }
+});
+
 characterRouter.get('/:characterId/progression', requireAuth, async (req, res, next) => {
   try {
     const characterId = String(req.params.characterId ?? '').trim();
@@ -94,6 +110,20 @@ characterRouter.put('/:characterId/progression', requireAuth, async (req, res, n
       characterId,
       payload
     );
+    res.status(202).json(intent);
+  } catch (error) {
+    handleProgressionError(error, next);
+  }
+});
+
+characterRouter.post('/:characterId/quests/complete', requireAuth, async (req, res, next) => {
+  try {
+    const characterId = String(req.params.characterId ?? '').trim();
+    if (!characterId) {
+      throw new HttpError(400, 'Character id is required');
+    }
+    const payload = toQuestCompletionInput(req.body);
+    const intent = await submitQuestCompletionForUser(req.user!.id, characterId, payload);
     res.status(202).json(intent);
   } catch (error) {
     handleProgressionError(error, next);
@@ -349,7 +379,7 @@ function toProgressionUpdateInput(body: unknown): ProgressionUpdateInput {
       if (!Array.isArray(itemsRaw)) {
         throw new HttpError(400, 'equipment.items must be an array');
       }
-      const allowedSlots = new Set(equipmentSlots);
+      const allowedSlots = new Set<EquipmentSlot>(equipmentSlots);
       const items = itemsRaw.map((entry, index) => {
         if (!entry || typeof entry !== 'object') {
           throw new HttpError(400, `equipment.items[${index}] must be an object`);
@@ -360,7 +390,7 @@ function toProgressionUpdateInput(body: unknown): ProgressionUpdateInput {
           throw new HttpError(400, `equipment.items[${index}].classId is required`);
         }
         const slot = typeof record.slot === 'string' ? record.slot.trim() : '';
-        if (!slot || !allowedSlots.has(slot)) {
+        if (!slot || !allowedSlots.has(slot as EquipmentSlot)) {
           throw new HttpError(400, `equipment.items[${index}].slot is invalid`);
         }
         const itemId = typeof record.itemId === 'string' ? record.itemId.trim() : '';
@@ -418,6 +448,28 @@ function toProgressionUpdateInput(body: unknown): ProgressionUpdateInput {
   }
 
   return result;
+}
+
+function toQuestCompletionInput(body: unknown): QuestCompletionInput {
+  if (!body || typeof body !== 'object') {
+    throw new HttpError(400, 'Request body is required');
+  }
+
+  const record = body as Record<string, unknown>;
+  const questId = typeof record.questId === 'string' ? record.questId.trim() : '';
+  if (!questId) {
+    throw new HttpError(400, 'questId is required');
+  }
+
+  let progress: JsonValue | undefined;
+  if ('progress' in record) {
+    if (!isJsonValue(record.progress)) {
+      throw new HttpError(400, 'progress must be JSON-serializable');
+    }
+    progress = record.progress as JsonValue;
+  }
+
+  return { questId, progress };
 }
 
 function toMapPinUpdateInput(body: unknown): MapPinUpdateInput {
@@ -486,22 +538,7 @@ function ensureInteger(value: unknown, field: string): number {
   throw new HttpError(400, `${field} must be a number`);
 }
 
-function isJsonValue(value: unknown): boolean {
-  if (value === null) {
-    return true;
-  }
-  const type = typeof value;
-  if (type === 'string' || type === 'number' || type === 'boolean') {
-    return true;
-  }
-  if (Array.isArray(value)) {
-    return value.every(isJsonValue);
-  }
-  if (type === 'object') {
-    return Object.values(value as Record<string, unknown>).every(isJsonValue);
-  }
-  return false;
-}
+
 
 function handleProgressionError(error: unknown, next: NextFunction): void {
   if (error instanceof VersionConflictError) {

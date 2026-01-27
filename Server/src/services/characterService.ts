@@ -5,6 +5,7 @@ import {
   findCharacterByNameForUser,
   Character,
 } from '../db/characterRepository';
+import { updateUserCharacterSelection } from '../db/userRepository';
 import { HttpError } from '../utils/errors';
 import {
   CharacterAppearance,
@@ -12,18 +13,16 @@ import {
   JsonValue,
 } from '../types/characterCustomization';
 import { CharacterClassState, sanitizeClassStates } from '../types/classUnlocks';
+import { RaceCustomizationOptions, RaceDefinition } from '../config/races';
+import { findClassRule } from '../config/classRules';
 import {
-  findRaceById,
-  getCanonicalRaceIds,
-  getDefaultRace,
-  RaceCustomizationOptions,
-  RaceDefinition,
-} from '../config/races';
-import {
-  findClassRule,
-  getAllowedClassIdsForRace,
-  getStarterClassIdsForRace,
-} from '../config/classRules';
+  getDefaultRaceDefinition,
+  getRaceDefinitionById,
+  listAllowedClassIdsForRace,
+  listCanonicalRaceIds,
+  listStarterClassIdsForRace,
+} from './raceCatalogService';
+import { requireOwnedCharacter } from './characterAccessService';
 
 export interface CreateCharacterInput {
   realmId?: string;
@@ -56,9 +55,9 @@ export async function createCharacterForUser(
     throw new HttpError(409, 'Character with that name already exists in this realm');
   }
 
-  const { raceId, race } = resolveRace(input.raceId);
+  const { raceId, race } = await resolveRace(input.raceId);
   const appearance = normalizeAppearanceForRace(input.appearance, race);
-  const { classId, classStates } = normalizeClassSelectionForRace(
+  const { classId, classStates } = await normalizeClassSelectionForRace(
     race.id,
     input.classId,
     input.classStates
@@ -81,17 +80,26 @@ export async function createCharacterForUser(
   }
 }
 
-function resolveRace(rawRaceId: string | undefined) {
+export async function selectCharacterForUser(
+  userId: string,
+  characterId: string
+): Promise<Character> {
+  const character = await requireOwnedCharacter(userId, characterId);
+  await updateUserCharacterSelection(userId, character.id, character.realmId);
+  return character;
+}
+
+async function resolveRace(rawRaceId: string | undefined) {
   if (!rawRaceId) {
-    const fallback = getDefaultRace();
+    const fallback = await getDefaultRaceDefinition();
     return { raceId: fallback.id, race: fallback };
   }
 
-  const resolved = findRaceById(rawRaceId);
+  const resolved = await getRaceDefinitionById(rawRaceId);
   if (!resolved) {
     throw new HttpError(
       400,
-      `Invalid raceId. Allowed values: ${getCanonicalRaceIds().join(', ')}`
+      `Invalid raceId. Allowed values: ${(await listCanonicalRaceIds()).join(', ')}`
     );
   }
 
@@ -164,13 +172,13 @@ function validateDimension(
   return value;
 }
 
-function normalizeClassSelectionForRace(
+async function normalizeClassSelectionForRace(
   raceId: string,
   rawClassId: string | undefined,
   classStatesInput: CharacterClassState[] | undefined
-): { classId?: string; classStates: CharacterClassState[] } {
-  const allowedClassIds = getAllowedClassIdsForRace(raceId);
-  const starterClassIds = getStarterClassIdsForRace(raceId);
+): Promise<{ classId?: string; classStates: CharacterClassState[] }> {
+  const allowedClassIds = await listAllowedClassIdsForRace(raceId);
+  const starterClassIds = await listStarterClassIdsForRace(raceId);
   const allowedSet = new Set(allowedClassIds.map((id) => id.toLowerCase()));
   const starterSet = new Set(starterClassIds.map((id) => id.toLowerCase()));
 

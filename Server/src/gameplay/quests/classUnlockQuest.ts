@@ -7,6 +7,7 @@ import {
   replaceClassUnlocks,
   replaceQuestStates,
 } from '../../db/progressionRepository';
+import { JsonValue, isJsonValue } from '../../types/characterCustomization';
 
 export type QuestCompletionStatus = 'completed' | 'failed';
 export type QuestNotificationType = 'success' | 'info' | 'error';
@@ -291,12 +292,13 @@ function buildQuestStateInputs(
   return questInputs;
 }
 
-function deserializeStoredProgress(progressJson: string | undefined): unknown {
+function deserializeStoredProgress(progressJson: string | undefined): JsonValue | undefined {
   if (!progressJson) {
     return undefined;
   }
   try {
-    return JSON.parse(progressJson);
+    const parsed = JSON.parse(progressJson) as unknown;
+    return isJsonValue(parsed) ? parsed : undefined;
   } catch (_error) {
     return undefined;
   }
@@ -396,8 +398,8 @@ function normalizeJournalEntry(entry: unknown): QuestJournalEntry | null {
   return { title, body, timestamp };
 }
 
-function serializeQuestProgress(progress: QuestProgressData): Record<string, unknown> {
-  const result: Record<string, unknown> = {
+function serializeQuestProgress(progress: QuestProgressData): JsonValue {
+  const result: Record<string, JsonValue> = {
     notifications: progress.notifications.map((entry) => ({
       type: entry.type,
       message: entry.message,
@@ -432,6 +434,6 @@ function serializeQuestProgress(progress: QuestProgressData): Record<string, unk
 
 function formatMessage(template: string, classDisplayName: string, errorMessage?: string): string {
   return template
-    .replaceAll('{className}', classDisplayName)
-    .replaceAll('{error}', errorMessage ?? 'unknown error');
+    .replace(/{className}/g, classDisplayName)
+    .replace(/{error}/g, errorMessage ?? 'unknown error');
 }

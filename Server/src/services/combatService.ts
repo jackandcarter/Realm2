@@ -9,9 +9,20 @@ import { generatedStatDefinitions } from '../gameplay/combat/generated/statRegis
 import { CombatEntitySnapshot } from '../gameplay/combat/types';
 import { HttpError } from '../utils/errors';
 import { findCharacterById } from '../db/characterRepository';
+import {
+  getAbilityCooldown,
+  getCharacterResourceState,
+  getCombatClientTime,
+  recordCombatEvents,
+  upsertAbilityCooldown,
+  upsertCharacterResourceState,
+  upsertCombatClientTime,
+} from '../db/combatRepository';
+import { ClassResourceType, classResourceTypes } from '../config/gameEnums';
 import { getCharacterProgressionSnapshot } from '../db/progressionRepository';
 import {
   AbilityRecord,
+  getClassById,
   getAbilityById,
   getClassBaseStatsById,
   getItemsByIds,
@@ -21,8 +32,11 @@ import {
 const statRegistry = new CombatStatRegistry(generatedStatDefinitions);
 const abilityRegistry = new AbilityRegistry(generatedAbilityDefinitions);
 const executor = new AbilityExecutor({ stats: statRegistry, abilities: abilityRegistry });
-const lastClientTimes = new Map<string, number>();
-const abilityCooldowns = new Map<string, number>();
+interface ResourceSnapshot {
+  resourceType: ClassResourceType;
+  currentValue: number;
+  maxValue: number;
+}
 
 interface CombatExecutionContext {
   userId: string;
@@ -34,7 +48,10 @@ export async function executeCombatAbility(
 ): Promise<CombatAbilityExecutionResponseDto> {
   const casterId = request.casterId.trim();
   const abilityId = request.abilityId.trim();
-  const casterCharacter = await validateCombatRequest(request, context);
+  const { casterCharacter, abilityRecord, resourceSnapshot } = await validateCombatRequest(
+    request,
+    context,
+  );
   const participants = await buildCombatParticipants(request, casterCharacter);
 
   const abilityDefinition = abilityRegistry.get(abilityId);
@@ -50,6 +67,18 @@ export async function executeCombatAbility(
     new Set((result.events ?? []).map((event) => event.targetId).filter(Boolean)),
   );
 
+  if (abilityRecord) {
+    await applyAbilityCooldown(casterId, abilityRecord);
+    await applyResourceCost(casterId, abilityRecord, resourceSnapshot);
+  }
+
+  await recordCombatEvents(
+    request.requestId,
+    abilityId,
+    casterId,
+    result.events as CombatAbilityEventDto[],
+  );
+
   return {
     requestId: request.requestId,
     abilityId,
@@ -61,10 +90,16 @@ export async function executeCombatAbility(
   };
 }
 
+type CharacterRecord = NonNullable<Awaited<ReturnType<typeof findCharacterById>>>;
+
 async function validateCombatRequest(
   request: CombatAbilityExecutionRequestDto,
   context: CombatExecutionContext,
-): Promise<Awaited<ReturnType<typeof findCharacterById>>> {
+): Promise<{
+  casterCharacter: CharacterRecord;
+  abilityRecord?: AbilityRecord;
+  resourceSnapshot?: ResourceSnapshot;
+}> {
   const casterId = request.casterId.trim();
   const casterCharacter = await findCharacterById(casterId);
   if (!casterCharacter) {
@@ -75,18 +110,19 @@ async function validateCombatRequest(
     throw new HttpError(403, 'You do not have access to this caster.');
   }
 
-  const key = `${context.userId}:${casterId}`;
-  const lastClientTime = lastClientTimes.get(key);
-  if (lastClientTime !== undefined && request.clientTime <= lastClientTime) {
-    throw new HttpError(409, 'Out-of-order combat request detected.');
-  }
-  lastClientTimes.set(key, request.clientTime);
+  await ensureClientTimeIsMonotonic(context.userId, casterId, request.clientTime);
 
   const abilityRecord = await getAbilityById(request.abilityId);
+  let resourceSnapshot: ResourceSnapshot | undefined;
   if (abilityRecord) {
-    validateAbilityCooldown(casterId, abilityRecord);
+    await ensureAbilityOffCooldown(casterId, abilityRecord);
     const progression = await getCharacterProgressionSnapshot(casterId);
-    await validateAbilityResourceCost(abilityRecord, casterCharacter, progression.progression.level);
+    resourceSnapshot = await validateAbilityResourceCost(
+      abilityRecord,
+      casterCharacter,
+      progression.progression.level,
+      casterId,
+    );
     validateAbilityRange(request, abilityRecord);
   }
 
@@ -102,7 +138,19 @@ async function validateCombatRequest(
     }
   }
 
-  return casterCharacter;
+  return { casterCharacter: casterCharacter as CharacterRecord, abilityRecord, resourceSnapshot };
+}
+
+async function ensureClientTimeIsMonotonic(
+  userId: string,
+  casterId: string,
+  clientTime: number,
+): Promise<void> {
+  const last = await getCombatClientTime(userId, casterId);
+  if (last && clientTime <= last.lastClientTime) {
+    throw new HttpError(409, 'Out-of-order combat request detected.');
+  }
+  await upsertCombatClientTime(userId, casterId, clientTime);
 }
 
 async function buildCombatParticipants(
@@ -199,36 +247,43 @@ async function resolveMaxHealth(
   return Math.max(1, derived > 0 ? derived : 100);
 }
 
-function validateAbilityCooldown(casterId: string, ability: AbilityRecord): void {
+async function ensureAbilityOffCooldown(casterId: string, ability: AbilityRecord): Promise<void> {
   if (!ability.cooldownSeconds || ability.cooldownSeconds <= 0) {
     return;
   }
-  const key = `${casterId}:${ability.id}`;
-  const lastUsed = abilityCooldowns.get(key) ?? 0;
+  const lastUsed = await getAbilityCooldown(casterId, ability.id);
   const now = Date.now() / 1000;
-  if (now - lastUsed < ability.cooldownSeconds) {
+  if (lastUsed && now - lastUsed.lastUsedAt < ability.cooldownSeconds) {
     throw new HttpError(409, 'Ability is still on cooldown.');
   }
-  abilityCooldowns.set(key, now);
 }
 
 async function validateAbilityResourceCost(
   ability: AbilityRecord,
   caster: { classId: string | null },
   level: number,
-): Promise<void> {
+  casterId: string,
+): Promise<ResourceSnapshot | undefined> {
   if (!ability.resourceCost || ability.resourceCost <= 0) {
-    return;
+    return undefined;
   }
   const classBaseStats = caster.classId ? await getClassBaseStatsById(caster.classId) : undefined;
+  const classRecord = caster.classId ? await getClassById(caster.classId) : undefined;
   const levelProgression = await listLevelProgression();
   const manaBonus = levelProgression
     .filter((entry) => entry.level > 1 && entry.level <= level)
     .reduce((sum, entry) => sum + (entry.manaGain ?? 0), 0);
   const maxResource = (classBaseStats?.baseMana ?? 0) + manaBonus || 100;
-  if (ability.resourceCost > maxResource) {
+  const resolvedType = classRecord?.resourceType?.trim() as ClassResourceType | undefined;
+  const resourceType: ClassResourceType =
+    resolvedType && classResourceTypes.includes(resolvedType) ? resolvedType : 'mana';
+  const resourceState = await getCharacterResourceState(casterId, resourceType);
+  const currentValue = resourceState ? resourceState.currentValue : maxResource;
+  const clampedCurrent = Math.min(currentValue, maxResource);
+  if (ability.resourceCost > clampedCurrent) {
     throw new HttpError(400, 'Insufficient resources to use this ability.');
   }
+  return { resourceType, currentValue: clampedCurrent, maxValue: maxResource };
 }
 
 function validateAbilityRange(
@@ -246,6 +301,31 @@ function validateAbilityRange(
   if (distance > ability.rangeMeters) {
     throw new HttpError(400, 'Target is out of range.');
   }
+}
+
+async function applyAbilityCooldown(casterId: string, ability: AbilityRecord): Promise<void> {
+  if (!ability.cooldownSeconds || ability.cooldownSeconds <= 0) {
+    return;
+  }
+  const now = Date.now() / 1000;
+  await upsertAbilityCooldown(casterId, ability.id, now);
+}
+
+async function applyResourceCost(
+  casterId: string,
+  ability: AbilityRecord,
+  resourceSnapshot?: ResourceSnapshot,
+): Promise<void> {
+  if (!resourceSnapshot || !ability.resourceCost || ability.resourceCost <= 0) {
+    return;
+  }
+  const remaining = Math.max(0, resourceSnapshot.currentValue - ability.resourceCost);
+  await upsertCharacterResourceState(
+    casterId,
+    resourceSnapshot.resourceType,
+    remaining,
+    resourceSnapshot.maxValue,
+  );
 }
 
 function safeParseMetadata(metadataJson: string | undefined): Record<string, any> | undefined {
