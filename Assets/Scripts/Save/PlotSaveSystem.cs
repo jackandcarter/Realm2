@@ -21,8 +21,7 @@ namespace Client.Save
                 return;
             }
 
-            UnityEngine.Debug.LogWarning(
-                "Client-side plot persistence is disabled. Plot state must be stored on the server.");
+            BuildStateRepository.SavePlots(realmId, characterId, definitions);
         }
     }
 }

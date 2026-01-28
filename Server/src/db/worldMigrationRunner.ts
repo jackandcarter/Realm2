@@ -2,6 +2,11 @@ import { logger } from '../observability/logger';
 import { measurePersistenceOperationAsync } from '../observability/metrics';
 import type { DbExecutor } from './database';
 import { id as worldSchemaId, name as worldSchemaName, up as worldSchemaUp } from './migrations/200_worldSchema';
+import {
+  id as buildStateSchemaId,
+  name as buildStateSchemaName,
+  up as buildStateSchemaUp,
+} from './migrations/210_buildStateSchema';
 
 interface DatabaseMigration {
   id: string;
@@ -11,6 +16,7 @@ interface DatabaseMigration {
 
 const migrations: DatabaseMigration[] = [
   { id: worldSchemaId, name: worldSchemaName, up: worldSchemaUp },
+  { id: buildStateSchemaId, name: buildStateSchemaName, up: buildStateSchemaUp },
 ];
 
 async function ensureMigrationsTable(db: DbExecutor): Promise<void> {

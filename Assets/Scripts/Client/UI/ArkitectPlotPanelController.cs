@@ -182,7 +182,12 @@ namespace Client.UI
             var options = new List<string>();
             foreach (var plot in _cachedPlots)
             {
-                options.Add(plot?.PlotId ?? string.Empty);
+                if (plot == null)
+                {
+                    options.Add(string.Empty);
+                    continue;
+                }
+                options.Add(string.IsNullOrWhiteSpace(plot.PlotIdentifier) ? plot.PlotId : plot.PlotIdentifier);
             }
 
             if (options.Count == 0)

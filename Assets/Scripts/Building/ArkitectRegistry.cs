@@ -275,10 +275,10 @@ namespace Building
                 }
             }
 
-            instance.Initialize(state.BlueprintId, state.IsPlaced);
+            instance.Initialize(state.BlueprintId, state.IsPlaced, state.PlotId, state.PlacementState);
             instance.ApplyState(state);
             RegisterConstructionInstance(instance);
-            if (state.IsPlaced)
+            if (state.IsPlaced || state.PlacementState == ConstructionPlacementState.Placed)
             {
                 instance.Persist();
             }

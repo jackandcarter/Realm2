@@ -15,9 +15,15 @@ namespace Client.Save
                 return;
             }
 
-            UnityEngine.Debug.LogWarning(
-                "Client-side construction persistence is disabled. Construction state must be stored on the server.",
-                instance);
+            var (realmId, characterId) = ResolveSession();
+            if (string.IsNullOrWhiteSpace(realmId) || string.IsNullOrWhiteSpace(characterId))
+            {
+                return;
+            }
+
+            var existing = BuildStateRepository.GetConstructions(realmId, characterId);
+            var updated = Upsert(existing, instance.CaptureState());
+            BuildStateRepository.SaveConstructions(realmId, characterId, updated);
         }
 
         public static IReadOnlyList<ConstructionInstance.SerializableConstructionState> LoadInstances()
@@ -39,15 +45,19 @@ namespace Client.Save
                 ? new List<ConstructionInstance.SerializableConstructionState>(existing)
                 : new List<ConstructionInstance.SerializableConstructionState>();
 
-            if (string.IsNullOrWhiteSpace(state.InstanceId))
+            var resolvedId = string.IsNullOrWhiteSpace(state.ConstructionId) ? state.InstanceId : state.ConstructionId;
+            if (string.IsNullOrWhiteSpace(resolvedId))
             {
                 return list;
             }
 
-            var normalized = state.InstanceId.Trim();
+            var normalized = resolvedId.Trim();
             for (var i = 0; i < list.Count; i++)
             {
-                if (list[i].InstanceId == normalized)
+                var existingId = string.IsNullOrWhiteSpace(list[i].ConstructionId)
+                    ? list[i].InstanceId
+                    : list[i].ConstructionId;
+                if (existingId == normalized)
                 {
                     list[i] = state;
                     return list;

@@ -34,6 +34,7 @@ import { ResourceDelta } from '../types/resources';
 import { getPlotOwner, getPlotPermissionForUser, upsertPlotOwner } from '../db/plotAccessRepository';
 import { listResourceTypeIds } from './referenceDataService';
 import { logger } from '../observability/logger';
+import { BuildZoneBoundsInput, validateBuildZoneForUser } from './buildZoneService';
 
 export interface ChunkSnapshotEnvelope {
   realmId: string;
@@ -203,6 +204,56 @@ function isVector3(value: unknown): value is { x: number; y: number; z: number }
     typeof typed.z === 'number' &&
     Number.isFinite(typed.z)
   );
+}
+
+function parsePlotBounds(payload: unknown): BuildZoneBoundsInput | null {
+  const parsed = parsePayloadObject(payload);
+  if (!parsed) {
+    return null;
+  }
+
+  const bounds = parsed.bounds;
+  if (!bounds || typeof bounds !== 'object') {
+    return null;
+  }
+
+  const record = bounds as { center?: unknown; size?: unknown };
+  if (!isVector3(record.center) || !isVector3(record.size)) {
+    return null;
+  }
+
+  return {
+    center: record.center,
+    size: record.size,
+  };
+}
+
+async function applyBuildZoneCompliance(
+  userId: string,
+  realmId: string,
+  payload: unknown
+): Promise<unknown> {
+  const parsed = parsePayloadObject(payload);
+  if (!parsed) {
+    return payload;
+  }
+
+  const bounds = parsePlotBounds(parsed);
+  if (!bounds) {
+    return parsed;
+  }
+
+  const validation = await validateBuildZoneForUser(userId, realmId, bounds);
+  if (!validation.isValid) {
+    throw new HttpError(403, validation.failureReason ?? 'Plot is outside approved build zones');
+  }
+
+  return {
+    ...parsed,
+    buildZoneId: validation.zoneId ?? null,
+    buildZoneValid: validation.isValid,
+    buildZoneFailureReason: validation.failureReason ?? null,
+  };
 }
 
 function validateTerrainPayload(chunkId: string, chunkX: number, chunkZ: number, payload: unknown): void {
@@ -572,13 +623,17 @@ export async function recordChunkChange(
             typeof plot.ownerUserId === 'undefined'
               ? existingPlot?.ownerUserId ?? null
               : plot.ownerUserId ?? null;
+          const resolvedData =
+            plot.isDeleted || plot.data == null
+              ? plot.data ?? existingPlot?.dataJson ?? {}
+              : await applyBuildZoneCompliance(userId, realmId, plot.data ?? existingPlot?.dataJson ?? {});
           return {
             id: plotId,
             realmId,
             chunkId: chunkRecord!.id,
             plotIdentifier: identifier,
             ownerUserId,
-            dataJson: serializePayload(plot.data ?? existingPlot?.dataJson ?? {}),
+            dataJson: serializePayload(resolvedData ?? {}),
             isDeleted: Boolean(plot.isDeleted),
           };
         }),
@@ -734,13 +789,17 @@ export async function importTerrainSnapshot(
             typeof plot.ownerUserId === 'undefined'
               ? existingPlot?.ownerUserId ?? null
               : plot.ownerUserId ?? null;
+          const resolvedData =
+            plot.isDeleted || plot.data == null
+              ? plot.data ?? existingPlot?.dataJson ?? {}
+              : await applyBuildZoneCompliance(userId, realmId, plot.data ?? existingPlot?.dataJson ?? {});
           return {
             id: plotId,
             realmId,
             chunkId: chunkRecord.id,
             plotIdentifier: identifier,
             ownerUserId,
-            dataJson: serializePayload(plot.data ?? existingPlot?.dataJson ?? {}),
+            dataJson: serializePayload(resolvedData ?? {}),
             isDeleted: Boolean(plot.isDeleted),
           };
         })
