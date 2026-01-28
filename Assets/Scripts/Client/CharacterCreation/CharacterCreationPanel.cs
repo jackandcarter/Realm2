@@ -25,15 +25,18 @@ namespace Client.CharacterCreation
         [SerializeField] private TMP_Text buildValueLabel;
         [SerializeField] private Transform featureListRoot;
         [SerializeField] private TMP_Text featureEntryTemplate;
+        [SerializeField] private CharacterCreationFeatureEntry featureOptionTemplate;
         [SerializeField] private Button confirmButton;
         [SerializeField] private Button cancelButton;
 
         private readonly List<Button> _spawnedRaceButtons = new();
         private readonly List<TMP_Text> _spawnedFeatureEntries = new();
+        private readonly List<CharacterCreationFeatureEntry> _spawnedFeatureOptionEntries = new();
         private readonly List<RaceViewModel> _raceViewModels = new();
         private readonly List<Button> _spawnedClassButtons = new();
         private readonly List<CharacterClassDefinition> _availableClassDefinitions = new();
         private readonly Dictionary<string, ClassUnlockState> _classStatesById = new(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<string, string> _featureSelections = new(StringComparer.OrdinalIgnoreCase);
         private RaceDefinition _selectedRace;
         private RaceViewModel _selectedRaceViewModel;
         private CharacterClassDefinition _selectedClass;
@@ -66,6 +69,11 @@ namespace Client.CharacterCreation
             if (featureEntryTemplate != null)
             {
                 featureEntryTemplate.gameObject.SetActive(false);
+            }
+
+            if (featureOptionTemplate != null)
+            {
+                featureOptionTemplate.gameObject.SetActive(false);
             }
 
             if (heightSlider != null)
@@ -352,7 +360,7 @@ namespace Client.CharacterCreation
 
             ConfigureSlider(heightSlider, heightValueLabel, _selectedRace?.Customization?.Height, 0.01f);
             ConfigureSlider(buildSlider, buildValueLabel, _selectedRace?.Customization?.Build, 0.01f);
-            PopulateFeatureList(_selectedRace?.Customization?.AdjustableFeatures);
+            PopulateFeatureOptions(_selectedRace?.Customization);
             UpdateRacePreview(viewModel);
             PopulateClassButtons(_selectedRace);
 
@@ -379,6 +387,7 @@ namespace Client.CharacterCreation
             _activePreviewInstance.transform.localRotation = Quaternion.identity;
             _activePreviewInstance.transform.localScale = Vector3.one;
             viewModel.ApplyDefaultMaterials(_activePreviewInstance);
+            ApplyPreviewMorphs();
         }
 
         private void ClearPreviewInstance()
@@ -513,7 +522,7 @@ namespace Client.CharacterCreation
             return value >= range.Value.Min - Mathf.Epsilon && value <= range.Value.Max + Mathf.Epsilon;
         }
 
-        private void PopulateFeatureList(IReadOnlyCollection<string> features)
+        private void PopulateFeatureOptions(RaceCustomizationOptions customization)
         {
             foreach (var entry in _spawnedFeatureEntries)
             {
@@ -524,24 +533,107 @@ namespace Client.CharacterCreation
             }
 
             _spawnedFeatureEntries.Clear();
+            _featureSelections.Clear();
 
-            if (featureListRoot == null || featureEntryTemplate == null || features == null)
+            foreach (var entry in _spawnedFeatureOptionEntries)
+            {
+                if (entry != null)
+                {
+                    Destroy(entry.gameObject);
+                }
+            }
+
+            _spawnedFeatureOptionEntries.Clear();
+
+            if (featureListRoot == null || customization == null)
             {
                 return;
             }
 
-            foreach (var feature in features)
+            var featureOptions = customization.FeatureOptions;
+            if (featureOptions != null && featureOptions.Length > 0)
+            {
+                foreach (var feature in featureOptions)
+                {
+                    if (feature == null || string.IsNullOrWhiteSpace(feature.DisplayName))
+                    {
+                        continue;
+                    }
+
+                    if (featureOptionTemplate != null)
+                    {
+                        var entry = Instantiate(featureOptionTemplate, featureListRoot);
+                        entry.gameObject.SetActive(true);
+                        entry.Configure(feature, HandleFeatureChanged);
+                        _spawnedFeatureOptionEntries.Add(entry);
+
+                        if (!string.IsNullOrWhiteSpace(entry.FeatureId))
+                        {
+                            _featureSelections[entry.FeatureId] = entry.SelectedOption;
+                        }
+                    }
+                    else if (featureEntryTemplate != null)
+                    {
+                        var entry = Instantiate(featureEntryTemplate, featureListRoot);
+                        entry.gameObject.SetActive(true);
+                        entry.text = $"• {feature.DisplayName}";
+                        _spawnedFeatureEntries.Add(entry);
+                    }
+                }
+
+                return;
+            }
+
+            var adjustableFeatures = customization.AdjustableFeatures;
+            if (adjustableFeatures == null || adjustableFeatures.Length == 0)
+            {
+                return;
+            }
+
+            foreach (var feature in adjustableFeatures)
             {
                 if (string.IsNullOrWhiteSpace(feature))
                 {
                     continue;
                 }
 
-                var entry = Instantiate(featureEntryTemplate, featureListRoot);
-                entry.gameObject.SetActive(true);
-                entry.text = $"• {feature.Trim()}";
-                _spawnedFeatureEntries.Add(entry);
+                if (featureOptionTemplate != null)
+                {
+                    var placeholder = new RaceFeatureDefinition
+                    {
+                        Id = feature.Trim().ToLowerInvariant().Replace(' ', '-'),
+                        DisplayName = feature.Trim(),
+                        Options = new[] { "Standard", "Variant A", "Variant B" },
+                        DefaultOption = "Standard"
+                    };
+                    var entry = Instantiate(featureOptionTemplate, featureListRoot);
+                    entry.gameObject.SetActive(true);
+                    entry.Configure(placeholder, HandleFeatureChanged);
+                    _spawnedFeatureOptionEntries.Add(entry);
+
+                    if (!string.IsNullOrWhiteSpace(entry.FeatureId))
+                    {
+                        _featureSelections[entry.FeatureId] = entry.SelectedOption;
+                    }
+                }
+                else if (featureEntryTemplate != null)
+                {
+                    var entry = Instantiate(featureEntryTemplate, featureListRoot);
+                    entry.gameObject.SetActive(true);
+                    entry.text = $"• {feature.Trim()}";
+                    _spawnedFeatureEntries.Add(entry);
+                }
             }
+        }
+
+        private void HandleFeatureChanged(CharacterCreationFeatureEntry entry)
+        {
+            if (entry == null || string.IsNullOrWhiteSpace(entry.FeatureId))
+            {
+                return;
+            }
+
+            _featureSelections[entry.FeatureId] = entry.SelectedOption;
         }
 
         private void PopulateClassButtons(RaceDefinition race)
@@ -799,12 +891,61 @@ namespace Client.CharacterCreation
         {
             UpdateSliderLabel(heightSlider, heightValueLabel);
             UpdateConfirmButtonState();
+            ApplyPreviewMorphs();
         }
 
         private void OnBuildSliderChanged(float _)
         {
             UpdateSliderLabel(buildSlider, buildValueLabel);
             UpdateConfirmButtonState();
+            ApplyPreviewMorphs();
+        }
+
+        private void ApplyPreviewMorphs()
+        {
+            if (_activePreviewInstance == null || _selectedRace == null)
+            {
+                return;
+            }
+
+            var morphController = _activePreviewInstance.GetComponentInChildren<Realm.CharacterCustomization.CharacterMorphController>();
+            if (morphController == null)
+            {
+                return;
+            }
+
+            var heightNormalized = NormalizeSelectionValue(_selectedRace.Customization?.Height, SelectedHeight);
+            var buildNormalized = NormalizeSelectionValue(_selectedRace.Customization?.Build, SelectedBuild);
+
+            foreach (var region in morphController.Regions)
+            {
+                if (region == null)
+                {
+                    continue;
+                }
+
+                region.heightNormalized = heightNormalized;
+                region.widthNormalized = buildNormalized;
+            }
+
+            morphController.ApplyAll();
+        }
+
+        private static float NormalizeSelectionValue(FloatRange? range, float value)
+        {
+            if (!range.HasValue)
+            {
+                return 0.5f;
+            }
+
+            var min = range.Value.Min;
+            var max = range.Value.Max;
+            if (Mathf.Approximately(min, max))
+            {
+                return 0.5f;
+            }
+
+            return Mathf.InverseLerp(min, max, value);
         }
 
         private void NotifyConfirmed()
@@ -820,7 +961,8 @@ namespace Client.CharacterCreation
                 Class = _selectedClass,
                 Height = SelectedHeight,
                 Build = SelectedBuild,
-                ClassStates = BuildClassStates()
+                ClassStates = BuildClassStates(),
+                FeatureSelections = BuildFeatureSelections()
             };
 
             Confirmed?.Invoke(selection);
@@ -829,6 +971,31 @@ namespace Client.CharacterCreation
         private void NotifyCancelled()
         {
             Cancelled?.Invoke();
+        }
+
+        private CharacterFeatureSelection[] BuildFeatureSelections()
+        {
+            if (_featureSelections.Count == 0)
+            {
+                return Array.Empty<CharacterFeatureSelection>();
+            }
+
+            var selections = new List<CharacterFeatureSelection>(_featureSelections.Count);
+            foreach (var entry in _featureSelections)
+            {
+                if (string.IsNullOrWhiteSpace(entry.Key))
+                {
+                    continue;
+                }
+
+                selections.Add(new CharacterFeatureSelection
+                {
+                    FeatureId = entry.Key,
+                    OptionId = entry.Value
+                });
+            }
+
+            return selections.ToArray();
         }
     }
 
@@ -840,5 +1007,6 @@ namespace Client.CharacterCreation
         public float Height;
         public float Build;
         public ClassUnlockState[] ClassStates;
+        public CharacterFeatureSelection[] FeatureSelections;
     }
 }

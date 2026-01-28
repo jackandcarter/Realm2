@@ -15,6 +15,8 @@ namespace Client
         public string createdAt;
         public bool isMember;
         public string membershipRole;
+        public string worldSceneName;
+        public string worldServiceUrl;
     }
 
     [Serializable]
@@ -109,21 +111,23 @@ namespace Client
             {
                 new RealmInfo
                 {
-                    id = "realm-valoria",
-                    name = "Valoria",
+                    id = "realm-elysium-nexus",
+                    name = "Elysium Nexus",
                     narrative = "A realm of luminous skies and hidden archives.",
                     createdAt = DateTime.UtcNow.ToString("O"),
                     isMember = false,
-                    membershipRole = null
+                    membershipRole = null,
+                    worldSceneName = "SampleScene"
                 },
                 new RealmInfo
                 {
-                    id = "realm-eldamar",
-                    name = "Eldamar",
+                    id = "realm-arcane-haven",
+                    name = "Arcane Haven",
                     narrative = "Glittering coasts watched by timeless sentinels.",
                     createdAt = DateTime.UtcNow.ToString("O"),
                     isMember = true,
-                    membershipRole = "builder"
+                    membershipRole = "builder",
+                    worldSceneName = "SampleScene"
                 }
             });
         }
