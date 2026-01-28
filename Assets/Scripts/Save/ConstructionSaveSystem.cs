@@ -57,7 +57,7 @@ namespace Client.Save
                 var existingId = string.IsNullOrWhiteSpace(list[i].ConstructionId)
                     ? list[i].InstanceId
                     : list[i].ConstructionId;
-                if (existingId == normalized)
+                if (string.Equals(existingId?.Trim(), normalized, StringComparison.OrdinalIgnoreCase))
                 {
                     list[i] = state;
                     return list;

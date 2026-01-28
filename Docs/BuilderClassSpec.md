@@ -156,6 +156,14 @@ The client UI must reflect:
 - No global cap on concurrent builders; server still enforces per-plot/zone limits and conflict resolution.
 
 ## Missing Feature Inventory (What’s Left)
+### Recently completed
+- **Build-state persistence** for plots + constructions (server endpoints, repository, and client cache/persistence).
+- **Build-state schema alignment** with plot/construction payloads in the DB and migration runner.
+- **Construction instance persistence** (placement state, plot assignment, material snapshot) via serialized state + Arkitect registry reconciliation.
+- **Runtime plot gating + persistence** (Arkitect availability checks, build zone validation, and plot snapshot saving).
+- **Plot identifiers + build-zone metadata** in `BuildPlotDefinition`, with Arkitect plot dropdown using the identifier.
+- **Plot permission endpoints + client models** (UI wiring still pending).
+
 ### Data + Progression
 - **Energy/Construction stat tables** and level progression in server definitions.
 - **Builder ability definitions** in ability registry (design + data).
@@ -172,7 +180,7 @@ The client UI must reflect:
 - **Ability XP tracking hooks** to mirror server-authoritative progression.
 
 ### Server Support
-- **Construction persistence** (store constructions per plot + chunk payloads).
+- **Construction persistence** in plot/chunk payloads beyond build-state snapshots.
 - **Validated terrain edit batching** (rate limits, conflict resolution).
 - **Blueprint ownership tracking** (vendor/chest acquisition systems).
 - **Build-area enforcement** (volume limits + min/max height) in plot/terrain validation.

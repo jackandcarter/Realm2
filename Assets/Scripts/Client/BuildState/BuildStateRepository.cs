@@ -48,6 +48,11 @@ namespace Client.BuildState
             {
                 return;
             }
+            if (string.IsNullOrWhiteSpace(realmId) || string.IsNullOrWhiteSpace(characterId))
+            {
+                Debug.LogWarning("BuildStateRepository.SavePlots called without an active realm or character.");
+                return;
+            }
 
             var snapshot = GetOrCreateSnapshot(realmId, characterId);
             snapshot.plots = CopyPlots(plots);
@@ -72,6 +77,11 @@ namespace Client.BuildState
             {
                 return;
             }
+            if (string.IsNullOrWhiteSpace(realmId) || string.IsNullOrWhiteSpace(characterId))
+            {
+                Debug.LogWarning("BuildStateRepository.SaveConstructions called without an active realm or character.");
+                return;
+            }
 
             var snapshot = GetOrCreateSnapshot(realmId, characterId);
             snapshot.constructions = CopyConstructions(constructions);
@@ -89,7 +99,7 @@ namespace Client.BuildState
 
         public static void RequestLatest(string realmId, string characterId)
         {
-            if (_client == null || string.IsNullOrWhiteSpace(characterId))
+            if (_client == null || string.IsNullOrWhiteSpace(characterId) || string.IsNullOrWhiteSpace(realmId))
             {
                 return;
             }
