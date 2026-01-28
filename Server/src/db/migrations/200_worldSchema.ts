@@ -156,9 +156,13 @@ export async function up(db: DbExecutor): Promise<void> {
 
   await db.execute(
     `CREATE TABLE IF NOT EXISTS character_build_states (
-      character_id VARCHAR(36) PRIMARY KEY,
-      build_state_json LONGTEXT NOT NULL DEFAULT '{}',
+      id VARCHAR(36) PRIMARY KEY,
+      realm_id VARCHAR(36) NOT NULL,
+      character_id VARCHAR(36) NOT NULL,
+      plots_json LONGTEXT NOT NULL DEFAULT '[]',
+      constructions_json LONGTEXT NOT NULL DEFAULT '[]',
       updated_at VARCHAR(32) NOT NULL,
+      UNIQUE KEY uniq_character_realm (character_id, realm_id),
       FOREIGN KEY (character_id) REFERENCES characters(id) ON DELETE CASCADE
     ) ENGINE=InnoDB;`
   );

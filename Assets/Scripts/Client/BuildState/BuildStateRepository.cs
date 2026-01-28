@@ -44,8 +44,23 @@ namespace Client.BuildState
             string characterId,
             IEnumerable<BuildPlotDefinition> plots)
         {
-            Debug.LogWarning(
-                "Client-side plot persistence is disabled. Build plots must be authored and stored on the server.");
+            if (plots == null)
+            {
+                return;
+            }
+
+            var snapshot = GetOrCreateSnapshot(realmId, characterId);
+            snapshot.plots = CopyPlots(plots);
+            snapshot.updatedAt = DateTime.UtcNow.ToString("O");
+
+            if (_client == null)
+            {
+                Cache[BuildKey(realmId, characterId)] = snapshot;
+                Debug.LogWarning("BuildStateRepository has no client configured; plot updates are cached locally.");
+                return;
+            }
+
+            PersistSnapshot(snapshot);
         }
 
         public static void SaveConstructions(
@@ -53,8 +68,23 @@ namespace Client.BuildState
             string characterId,
             IEnumerable<ConstructionInstance.SerializableConstructionState> constructions)
         {
-            Debug.LogWarning(
-                "Client-side construction persistence is disabled. Construction state must be authored and stored on the server.");
+            if (constructions == null)
+            {
+                return;
+            }
+
+            var snapshot = GetOrCreateSnapshot(realmId, characterId);
+            snapshot.constructions = CopyConstructions(constructions);
+            snapshot.updatedAt = DateTime.UtcNow.ToString("O");
+
+            if (_client == null)
+            {
+                Cache[BuildKey(realmId, characterId)] = snapshot;
+                Debug.LogWarning("BuildStateRepository has no client configured; construction updates are cached locally.");
+                return;
+            }
+
+            PersistSnapshot(snapshot);
         }
 
         public static void RequestLatest(string realmId, string characterId)
@@ -185,6 +215,18 @@ namespace Client.BuildState
                 {
                     list.Add(new BuildPlotDefinition(plot));
                 }
+            }
+
+            return list.ToArray();
+        }
+
+        private static ConstructionInstance.SerializableConstructionState[] CopyConstructions(
+            IEnumerable<ConstructionInstance.SerializableConstructionState> constructions)
+        {
+            var list = new List<ConstructionInstance.SerializableConstructionState>();
+            foreach (var construction in constructions)
+            {
+                list.Add(construction);
             }
 
             return list.ToArray();
