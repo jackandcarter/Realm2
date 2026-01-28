@@ -51,6 +51,7 @@ This checklist summarizes the minimum in-scene (or persistent singleton) systems
 ## 9) Persistence & Save Systems
 **Purpose:** Make progress durable across sessions.
 - Plot save/load (per realm + character).
+- Build-state snapshot persistence for plots + constructions.
 - Inventory/equipment persistence.
 - Class unlock + quest state persistence.
 
