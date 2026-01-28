@@ -52,6 +52,8 @@ export interface ChunkUpdateInput {
   chunkZ?: number;
   payload?: unknown;
   isDeleted?: boolean;
+  plotId?: string;
+  plotIdentifier?: string;
 }
 
 export interface StructureUpdateInput {
@@ -422,6 +424,40 @@ async function validatePlotOwnership(
   }
 }
 
+async function validateTerrainEditAccess(
+  userId: string,
+  realmId: string,
+  chunkId: string,
+  plotId: string | undefined,
+  plotIdentifier: string | undefined,
+  executor: DbExecutor = terrainDb
+): Promise<void> {
+  const trimmedIdentifier = plotIdentifier?.trim();
+  const targetPlot =
+    (plotId && (await findPlotById(plotId, executor))) ||
+    (trimmedIdentifier
+      ? await findPlotByIdentifier(realmId, chunkId, trimmedIdentifier, executor)
+      : undefined);
+
+  if (!targetPlot) {
+    throw new HttpError(403, 'Terrain edits require an owned plot in this chunk');
+  }
+  if (targetPlot.realmId !== realmId || targetPlot.chunkId !== chunkId) {
+    throw new HttpError(400, 'Plot does not belong to the requested chunk');
+  }
+  if (targetPlot.isDeleted) {
+    throw new HttpError(403, 'Plot is inactive');
+  }
+
+  const ownerRecord = await getPlotOwner(targetPlot.id, executor);
+  const ownerUserId = ownerRecord?.ownerUserId ?? targetPlot.ownerUserId;
+  const permission = await getPlotPermissionForUser(targetPlot.id, userId, executor);
+  const hasAccess = ownerUserId === userId || Boolean(permission);
+  if (!hasAccess) {
+    throw new HttpError(403, 'You do not have permission to edit terrain in this plot');
+  }
+}
+
 export async function recordChunkChange(
   userId: string,
   realmId: string,
@@ -475,14 +511,28 @@ export async function recordChunkChange(
         if (typeof chunkX !== 'number' || typeof chunkZ !== 'number') {
           throw new HttpError(400, 'Chunk coordinates must be provided');
         }
+        if (chunk.payload !== undefined) {
+          validateTerrainPayload(chunkId, chunkX, chunkZ, chunk.payload);
+          if (!chunk.plotId && !chunk.plotIdentifier) {
+            throw new HttpError(400, 'plotId or plotIdentifier is required for terrain edits');
+          }
+          await validateTerrainEditAccess(
+            userId,
+            realmId,
+            chunkId,
+            chunk.plotId,
+            chunk.plotIdentifier,
+            tx
+          );
+        }
         chunkRecord = await upsertChunk(
           {
-          id: chunkId,
-          realmId,
-          chunkX,
-          chunkZ,
-          payloadJson: serializePayload(chunk.payload),
-          isDeleted: Boolean(chunk.isDeleted),
+            id: chunkId,
+            realmId,
+            chunkX,
+            chunkZ,
+            payloadJson: serializePayload(chunk.payload),
+            isDeleted: Boolean(chunk.isDeleted),
           },
           tx
         );
