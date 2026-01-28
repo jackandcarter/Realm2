@@ -69,6 +69,9 @@ Recommended tiers:
 The server stores the canonical appearance and equipment IDs. The client uses those IDs to build the
 visual representation.
 
+Character creation should enforce **race-gated class selection** (only classes allowed by the
+chosen race) and reject invalid combinations server-side.
+
 **Server authoritative fields:**
 - raceId
 - classId
@@ -388,4 +391,3 @@ bodyArchetypeId: "slim" | "athletic" | "heavy"
 hairStyleId: "short_01" | "long_01" | "braided_01"
 skinToneId: "tone_01" | "tone_02" | "tone_03"
 ```
-
