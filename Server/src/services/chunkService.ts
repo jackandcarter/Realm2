@@ -92,6 +92,8 @@ interface ChunkChangePayload {
   resources?: ResourceDeltaDTO[] | undefined;
 }
 
+const SUPPORTED_TERRAIN_PAYLOAD_VERSIONS = new Set([1]);
+
 async function ensureRealmAccess(userId: string, realmId: string) {
   const realm = await findRealmById(realmId);
   if (!realm) {
@@ -184,6 +186,75 @@ function parsePayloadObject(payload: unknown): Record<string, any> | null {
     return payload as Record<string, any>;
   }
   return null;
+}
+
+function isVector3(value: unknown): value is { x: number; y: number; z: number } {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+  const typed = value as { x?: unknown; y?: unknown; z?: unknown };
+  return (
+    typeof typed.x === 'number' &&
+    Number.isFinite(typed.x) &&
+    typeof typed.y === 'number' &&
+    Number.isFinite(typed.y) &&
+    typeof typed.z === 'number' &&
+    Number.isFinite(typed.z)
+  );
+}
+
+function validateTerrainPayload(chunkId: string, chunkX: number, chunkZ: number, payload: unknown): void {
+  const parsed = parsePayloadObject(payload);
+  if (!parsed) {
+    throw new HttpError(400, `Chunk ${chunkId} payload must be a JSON object`);
+  }
+
+  const payloadVersion = parsed.payloadVersion;
+  if (typeof payloadVersion !== 'number' || !SUPPORTED_TERRAIN_PAYLOAD_VERSIONS.has(payloadVersion)) {
+    throw new HttpError(400, `Chunk ${chunkId} payloadVersion is missing or unsupported`);
+  }
+
+  const regionId = parsed.regionId;
+  if (typeof regionId !== 'string' || regionId.trim().length === 0) {
+    throw new HttpError(400, `Chunk ${chunkId} regionId is required`);
+  }
+
+  const chunkPosition = parsed.chunkPosition;
+  if (!isVector3(chunkPosition)) {
+    throw new HttpError(400, `Chunk ${chunkId} chunkPosition is invalid`);
+  }
+  if (chunkPosition.x !== chunkX || chunkPosition.z !== chunkZ) {
+    throw new HttpError(400, `Chunk ${chunkId} chunkPosition does not match chunk coords`);
+  }
+
+  const digger = parsed.digger;
+  if (!digger || typeof digger !== 'object') {
+    throw new HttpError(400, `Chunk ${chunkId} digger payload is required`);
+  }
+  const diggerVersion = (digger as { diggerVersion?: unknown }).diggerVersion;
+  if (typeof diggerVersion !== 'number' || !Number.isFinite(diggerVersion)) {
+    throw new HttpError(400, `Chunk ${chunkId} diggerVersion is invalid`);
+  }
+  const diggerDataVersion = (digger as { diggerDataVersion?: unknown }).diggerDataVersion;
+  if (typeof diggerDataVersion !== 'string' || diggerDataVersion.trim().length === 0) {
+    throw new HttpError(400, `Chunk ${chunkId} diggerDataVersion is invalid`);
+  }
+  const sizeVox = (digger as { sizeVox?: unknown }).sizeVox;
+  if (typeof sizeVox !== 'number' || !Number.isFinite(sizeVox) || sizeVox <= 0) {
+    throw new HttpError(400, `Chunk ${chunkId} sizeVox is invalid`);
+  }
+  const heightmapScale = (digger as { heightmapScale?: unknown }).heightmapScale;
+  if (!isVector3(heightmapScale)) {
+    throw new HttpError(400, `Chunk ${chunkId} heightmapScale is invalid`);
+  }
+  const voxelData = (digger as { voxelData?: unknown }).voxelData;
+  if (typeof voxelData !== 'string' || voxelData.trim().length === 0) {
+    throw new HttpError(400, `Chunk ${chunkId} voxelData is required`);
+  }
+  const voxelMetadata = (digger as { voxelMetadata?: unknown }).voxelMetadata;
+  if (typeof voxelMetadata !== 'undefined' && typeof voxelMetadata !== 'string') {
+    throw new HttpError(400, `Chunk ${chunkId} voxelMetadata must be a string when present`);
+  }
 }
 
 function isImmutableBase(payload: unknown): boolean {
@@ -545,6 +616,7 @@ export async function importTerrainSnapshot(
   const changeType = payload.changeType ?? 'terrain:import';
   const emitChangeLog = Boolean(payload.emitChangeLog);
   const changes: ChunkChangeDTO[] = [];
+  let skippedChunks = 0;
 
   await terrainDb.withTransaction(async (tx) => {
     for (const chunkInput of payload.chunks) {
@@ -555,13 +627,30 @@ export async function importTerrainSnapshot(
         throw new HttpError(400, 'chunkX and chunkZ are required for terrain import');
       }
 
+      validateTerrainPayload(chunkInput.chunkId, chunkInput.chunkX, chunkInput.chunkZ, chunkInput.payload);
+
+      const payloadJson = serializePayload(chunkInput.payload);
+      const hasStructures = (chunkInput.structures ?? []).length > 0;
+      const hasPlots = (chunkInput.plots ?? []).length > 0;
+      const existingChunk = await findChunkById(chunkInput.chunkId, tx);
+      if (
+        existingChunk &&
+        existingChunk.payloadJson === payloadJson &&
+        existingChunk.isDeleted === Boolean(chunkInput.isDeleted) &&
+        !hasStructures &&
+        !hasPlots
+      ) {
+        skippedChunks += 1;
+        continue;
+      }
+
       const chunkRecord = await upsertChunk(
         {
           id: chunkInput.chunkId,
           realmId,
           chunkX: chunkInput.chunkX,
           chunkZ: chunkInput.chunkZ,
-          payloadJson: serializePayload(chunkInput.payload),
+          payloadJson,
           isDeleted: Boolean(chunkInput.isDeleted),
         },
         tx
@@ -649,6 +738,10 @@ export async function importTerrainSnapshot(
     for (const change of changes) {
       publishChunkChange(change);
     }
+  }
+
+  if (skippedChunks > 0) {
+    logger.info({ realmId, skippedChunks }, 'Skipped unchanged terrain chunks during import.');
   }
 
   return changes;
