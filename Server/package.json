@@ -14,6 +14,7 @@
     "dev:social": "ts-node-dev --respawn --transpile-only src/servers/socialService.ts",
     "dev:terrain": "ts-node-dev --respawn --transpile-only src/servers/terrainService.ts",
     "setup:local": "node scripts/setup-local.js",
+    "import:terrain": "node scripts/import-terrain.js",
     "build": "tsc -p tsconfig.json",
     "start": "node dist/index.js",
     "start:services": "node dist/servers/allServices.js",

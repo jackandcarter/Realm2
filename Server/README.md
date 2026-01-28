@@ -129,6 +129,24 @@ Terrain authoring utilities live under the terrain service as well: `/realms/:re
 
 Runtime chunk mutations are blocked when the chunk payload marks itself as immutable base terrain. To enable this guardrail, include `terrainLayer: "base"` or `immutableBase: true` inside the chunk payload JSON you import. Build zones can be authored via `PUT /realms/:realmId/build-zones` on the world API and validated via `POST /realms/:realmId/build-zones/validate`.
 
+### Importing Unity terrain payloads
+
+The Unity editor tooling exports a JSON payload containing chunk data. You can import that payload (or a bundle that also includes regions/build zones) with the helper script:
+
+```bash
+cd Server
+npm run import:terrain -- --file ../Assets/terrain-import.json --realm <realmId> --token <jwt> --terrain-url http://localhost:3007
+```
+
+To import regions and build zones, export a bundle from Unity and pass that file instead:
+
+```bash
+cd Server
+npm run import:terrain -- --file ../Assets/terrain-bundle.json --realm <realmId> --token <jwt> --terrain-url http://localhost:3007 --world-url http://localhost:3000
+```
+
+The script requires a builder-authenticated JWT. You can also set `REALM_AUTH_TOKEN`, `TERRAIN_API_URL`, and `WORLD_API_URL` environment variables instead of passing `--token`, `--terrain-url`, and `--world-url`.
+
 ## Observability
 
 - Prometheus metrics are exposed at `GET /metrics` and include latency histograms, replication queue gauges, and conflict/error counters for persistence layers.

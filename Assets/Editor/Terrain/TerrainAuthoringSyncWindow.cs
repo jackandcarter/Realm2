@@ -39,6 +39,7 @@ namespace Realm.EditorTools
         private bool _emitTerrainImportChangeLog;
         private string _terrainImportChangeType = "terrain:import";
         private string _lastExportPath;
+        private string _lastBundlePath;
         private string _defaultRegionId;
         private DiggerSystem _diggerOverride;
 
@@ -102,6 +103,11 @@ namespace Realm.EditorTools
                     ExportTerrainPayload();
                 }
 
+                if (GUILayout.Button(new GUIContent("Export Terrain Bundle", "Export terrain payloads, regions, and build zones to a single JSON file.")))
+                {
+                    ExportTerrainBundle();
+                }
+
                 if (GUILayout.Button(new GUIContent("Upload Terrain Payload", "Upload chunk payloads directly to the backend.")))
                 {
                     UploadTerrainPayload();
@@ -111,6 +117,11 @@ namespace Realm.EditorTools
             if (!string.IsNullOrWhiteSpace(_lastExportPath))
             {
                 EditorGUILayout.HelpBox($"Last export: {_lastExportPath}", MessageType.Info);
+            }
+
+            if (!string.IsNullOrWhiteSpace(_lastBundlePath))
+            {
+                EditorGUILayout.HelpBox($"Last bundle export: {_lastBundlePath}", MessageType.Info);
             }
 
             EditorGUILayout.Space();
@@ -153,32 +164,11 @@ namespace Realm.EditorTools
 
             foreach (var region in regions)
             {
-                if (region == null || string.IsNullOrWhiteSpace(region.RegionId))
+                var request = BuildRegionRequest(region, errors);
+                if (request == null)
                 {
-                    errors.Add("Region is missing a Region Id.");
                     continue;
                 }
-
-                var payload = new TerrainRegionPayload
-                {
-                    zoneId = region.ZoneId,
-                    mapWorldBounds = SerializableRect.FromRect(region.MapWorldBounds),
-                    chunkOriginOffset = region.ChunkOriginOffset,
-                    chunkSizeOverride = region.ChunkSizeOverride,
-                    chunkSize = region.GetChunkSize(),
-                    useTerrainBounds = region.UseTerrainBounds,
-                    miniMapTextureName = region.MiniMapTexture != null ? region.MiniMapTexture.name : null,
-                    worldMapTextureName = region.WorldMapTexture != null ? region.WorldMapTexture.name : null
-                };
-
-                var request = new TerrainRegionRequest
-                {
-                    regionId = region.RegionId,
-                    name = region.GetDisplayName(),
-                    bounds = SerializableBounds.FromBounds(region.GetWorldBounds()),
-                    terrainCount = region.Terrains?.Count ?? 0,
-                    payload = payload
-                };
 
                 ApiError error = null;
                 yield return client.UpsertRegion(_realmId, request, _ => { }, err => error = err);
@@ -189,6 +179,42 @@ namespace Realm.EditorTools
             }
 
             ReportCompletion("Region publish complete.", errors);
+        }
+
+        private TerrainRegionRequest BuildRegionRequest(TerrainRegion region, List<string> errors)
+        {
+            if (region == null)
+            {
+                errors.Add("Region was null.");
+                return null;
+            }
+
+            if (string.IsNullOrWhiteSpace(region.RegionId))
+            {
+                errors.Add("Region is missing a Region Id.");
+                return null;
+            }
+
+            var payload = new TerrainRegionPayload
+            {
+                zoneId = region.ZoneId,
+                mapWorldBounds = SerializableRect.FromRect(region.MapWorldBounds),
+                chunkOriginOffset = region.ChunkOriginOffset,
+                chunkSizeOverride = region.ChunkSizeOverride,
+                chunkSize = region.GetChunkSize(),
+                useTerrainBounds = region.UseTerrainBounds,
+                miniMapTextureName = region.MiniMapTexture != null ? region.MiniMapTexture.name : null,
+                worldMapTextureName = region.WorldMapTexture != null ? region.WorldMapTexture.name : null
+            };
+
+            return new TerrainRegionRequest
+            {
+                regionId = region.RegionId,
+                name = region.GetDisplayName(),
+                bounds = SerializableBounds.FromBounds(region.GetWorldBounds()),
+                terrainCount = region.Terrains?.Count ?? 0,
+                payload = payload
+            };
         }
 
         private void PublishBuildZones()
@@ -211,27 +237,10 @@ namespace Realm.EditorTools
         {
             using var authScope = new AuthTokenScope(_authToken);
             var client = new BuildZoneApiClient(_worldApiUrl, _useMocks);
-            var zones = _buildZoneAsset?.Zones;
-            if (zones == null || zones.Count == 0)
+            var definitions = BuildZoneDefinitions();
+            if (definitions == null || definitions.Length == 0)
             {
-                EditorUtility.DisplayDialog("Terrain Authoring Sync", "No build zones found on the selected asset.", "Ok");
                 yield break;
-            }
-
-            var prefix = string.IsNullOrWhiteSpace(_zoneIdPrefix)
-                ? ResolveZonePrefix()
-                : _zoneIdPrefix.Trim();
-
-            var definitions = new BuildZoneDefinition[zones.Count];
-            for (var i = 0; i < zones.Count; i++)
-            {
-                var bounds = zones[i].ToBounds();
-                definitions[i] = new BuildZoneDefinition
-                {
-                    zoneId = string.IsNullOrWhiteSpace(prefix) ? $"zone-{i + 1}" : $"{prefix}-zone-{i + 1}",
-                    label = $"Zone {i + 1}",
-                    bounds = SerializableBounds.FromBounds(bounds)
-                };
             }
 
             ApiError error = null;
@@ -267,6 +276,104 @@ namespace Realm.EditorTools
             File.WriteAllText(path, JsonUtility.ToJson(payload, true), Encoding.UTF8);
             _lastExportPath = path;
             EditorUtility.DisplayDialog("Terrain Authoring Sync", "Terrain payload exported.", "Ok");
+        }
+
+        private void ExportTerrainBundle()
+        {
+            var terrainPayload = BuildTerrainImportPayload();
+            if (terrainPayload == null)
+            {
+                return;
+            }
+
+            var regions = ResolveRegions();
+            var regionRequests = BuildRegionRequests(regions, out var regionErrors);
+            var zoneDefinitions = BuildZoneDefinitions(allowEmpty: true);
+
+            if (regionErrors.Count > 0)
+            {
+                ReportCompletion("Region export completed with errors.", regionErrors);
+            }
+
+            var bundle = new TerrainAuthoringBundle
+            {
+                sceneName = SceneManager.GetActiveScene().name,
+                exportedAt = DateTime.UtcNow.ToString("O"),
+                terrain = terrainPayload,
+                regions = regionRequests?.ToArray(),
+                buildZones = zoneDefinitions
+            };
+
+            var path = EditorUtility.SaveFilePanel("Export Terrain Bundle", Application.dataPath, "terrain-bundle.json", "json");
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                return;
+            }
+
+            File.WriteAllText(path, JsonUtility.ToJson(bundle, true), Encoding.UTF8);
+            _lastBundlePath = path;
+            EditorUtility.DisplayDialog("Terrain Authoring Sync", "Terrain bundle exported.", "Ok");
+        }
+
+        private List<TerrainRegionRequest> BuildRegionRequests(List<TerrainRegion> regions, out List<string> errors)
+        {
+            errors = new List<string>();
+            if (regions == null || regions.Count == 0)
+            {
+                return new List<TerrainRegionRequest>();
+            }
+
+            var requests = new List<TerrainRegionRequest>();
+            foreach (var region in regions)
+            {
+                var request = BuildRegionRequest(region, errors);
+                if (request != null)
+                {
+                    requests.Add(request);
+                }
+            }
+
+            return requests;
+        }
+
+        private BuildZoneDefinition[] BuildZoneDefinitions(bool allowEmpty = false)
+        {
+            if (_buildZoneAsset == null)
+            {
+                if (!allowEmpty)
+                {
+                    EditorUtility.DisplayDialog("Terrain Authoring Sync", "Assign a Buildable Zone Asset before publishing.", "Ok");
+                }
+                return allowEmpty ? Array.Empty<BuildZoneDefinition>() : null;
+            }
+
+            var zones = _buildZoneAsset.Zones;
+            if (zones == null || zones.Count == 0)
+            {
+                if (!allowEmpty)
+                {
+                    EditorUtility.DisplayDialog("Terrain Authoring Sync", "No build zones found on the selected asset.", "Ok");
+                }
+                return allowEmpty ? Array.Empty<BuildZoneDefinition>() : null;
+            }
+
+            var prefix = string.IsNullOrWhiteSpace(_zoneIdPrefix)
+                ? ResolveZonePrefix()
+                : _zoneIdPrefix.Trim();
+
+            var definitions = new BuildZoneDefinition[zones.Count];
+            for (var i = 0; i < zones.Count; i++)
+            {
+                var bounds = zones[i].ToBounds();
+                definitions[i] = new BuildZoneDefinition
+                {
+                    zoneId = string.IsNullOrWhiteSpace(prefix) ? $"zone-{i + 1}" : $"{prefix}-zone-{i + 1}",
+                    label = $"Zone {i + 1}",
+                    bounds = SerializableBounds.FromBounds(bounds)
+                };
+            }
+
+            return definitions;
         }
 
         private void UploadTerrainPayload()
@@ -545,6 +652,16 @@ namespace Realm.EditorTools
                 "Terrain Authoring Sync",
                 $"{title}\n\nErrors:\n- {string.Join("\n- ", errors)}",
                 "Ok");
+        }
+
+        [Serializable]
+        private sealed class TerrainAuthoringBundle
+        {
+            public string sceneName;
+            public string exportedAt;
+            public TerrainImportRequest terrain;
+            public TerrainRegionRequest[] regions;
+            public BuildZoneDefinition[] buildZones;
         }
 
         private sealed class AuthTokenScope : IDisposable
