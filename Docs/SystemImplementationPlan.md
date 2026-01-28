@@ -52,6 +52,7 @@
 ### World-Building Features
 - Use **settlement tier definitions** to drive Arkitect UI unlocks, commission board availability, and facility build timers per location.
 - Model **plot/blueprint ownership and permissions** so Builder players can place/snap grids and expose land settings through the Arkitect window.
+- Implement **Builder class runtime scope** (abilities, plots, blueprints, construction queue, and client/server reconciliation) as detailed in `BuilderClassSpec.md`.
 - Expose **kingdom progression** hooks (markets, embassies, governance rules) keyed off `settlementTiers` and `keyLocations`, including level/party gates for region entry.
 
 ### Narrative & Content
