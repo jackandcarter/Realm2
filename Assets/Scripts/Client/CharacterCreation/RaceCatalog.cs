@@ -25,6 +25,44 @@ namespace Client.CharacterCreation
                 {
                     Height = new FloatRange(1.55f, 1.9f),
                     Build = new FloatRange(0.35f, 0.7f),
+                    FeatureOptions = new[]
+                    {
+                        new RaceFeatureDefinition
+                        {
+                            Id = "ears",
+                            DisplayName = "Ear Shape",
+                            Options = new[] { "Tufted", "Arched", "Long" },
+                            DefaultOption = "Tufted"
+                        },
+                        new RaceFeatureDefinition
+                        {
+                            Id = "tail",
+                            DisplayName = "Tail Length",
+                            Options = new[] { "Short", "Balanced", "Long" },
+                            DefaultOption = "Balanced"
+                        },
+                        new RaceFeatureDefinition
+                        {
+                            Id = "fur-pattern",
+                            DisplayName = "Fur Pattern",
+                            Options = new[] { "Solid", "Striped", "Mottled" },
+                            DefaultOption = "Striped"
+                        },
+                        new RaceFeatureDefinition
+                        {
+                            Id = "eye-glow",
+                            DisplayName = "Eye Glow",
+                            Options = new[] { "Dim", "Radiant", "Luminous" },
+                            DefaultOption = "Radiant"
+                        },
+                        new RaceFeatureDefinition
+                        {
+                            Id = "hair-color",
+                            DisplayName = "Hair & Fur Color",
+                            Options = new[] { "Shadow", "Ember", "Mist" },
+                            DefaultOption = "Ember"
+                        }
+                    },
                     AdjustableFeatures = new[]
                     {
                         "Ear shape & tufting",
@@ -53,6 +91,44 @@ namespace Client.CharacterCreation
                 {
                     Height = new FloatRange(1.5f, 2.05f),
                     Build = new FloatRange(0.25f, 0.85f),
+                    FeatureOptions = new[]
+                    {
+                        new RaceFeatureDefinition
+                        {
+                            Id = "body-proportions",
+                            DisplayName = "Body Proportions",
+                            Options = new[] { "Lean", "Balanced", "Sturdy" },
+                            DefaultOption = "Balanced"
+                        },
+                        new RaceFeatureDefinition
+                        {
+                            Id = "facial-structure",
+                            DisplayName = "Facial Structure",
+                            Options = new[] { "Angular", "Classic", "Soft" },
+                            DefaultOption = "Classic"
+                        },
+                        new RaceFeatureDefinition
+                        {
+                            Id = "hair-style",
+                            DisplayName = "Hair Style",
+                            Options = new[] { "Short", "Braided", "Long" },
+                            DefaultOption = "Short"
+                        },
+                        new RaceFeatureDefinition
+                        {
+                            Id = "eye-color",
+                            DisplayName = "Eye Color",
+                            Options = new[] { "Sage", "Amber", "Steel" },
+                            DefaultOption = "Sage"
+                        },
+                        new RaceFeatureDefinition
+                        {
+                            Id = "markings",
+                            DisplayName = "Body Markings",
+                            Options = new[] { "None", "Runic", "Tattooed" },
+                            DefaultOption = "None"
+                        }
+                    },
                     AdjustableFeatures = new[]
                     {
                         "Body proportions",
@@ -81,6 +157,44 @@ namespace Client.CharacterCreation
                 {
                     Height = new FloatRange(1.8f, 2.3f),
                     Build = new FloatRange(0.45f, 0.95f),
+                    FeatureOptions = new[]
+                    {
+                        new RaceFeatureDefinition
+                        {
+                            Id = "facet-pattern",
+                            DisplayName = "Facet Pattern",
+                            Options = new[] { "Prismatic", "Geometric", "Ridge" },
+                            DefaultOption = "Prismatic"
+                        },
+                        new RaceFeatureDefinition
+                        {
+                            Id = "horn-style",
+                            DisplayName = "Horn & Scale Style",
+                            Options = new[] { "Crested", "Spined", "Smooth" },
+                            DefaultOption = "Crested"
+                        },
+                        new RaceFeatureDefinition
+                        {
+                            Id = "inner-light",
+                            DisplayName = "Internal Light Hue",
+                            Options = new[] { "Azure", "Violet", "Gold" },
+                            DefaultOption = "Azure"
+                        },
+                        new RaceFeatureDefinition
+                        {
+                            Id = "energy-traces",
+                            DisplayName = "Energy Traces",
+                            Options = new[] { "Threaded", "Flowing", "Crystalline" },
+                            DefaultOption = "Threaded"
+                        },
+                        new RaceFeatureDefinition
+                        {
+                            Id = "armor-density",
+                            DisplayName = "Armor Density",
+                            Options = new[] { "Light", "Reinforced", "Bulwark" },
+                            DefaultOption = "Reinforced"
+                        }
+                    },
                     AdjustableFeatures = new[]
                     {
                         "Crystal facet patterns",
@@ -109,6 +223,44 @@ namespace Client.CharacterCreation
                 {
                     Height = new FloatRange(1.65f, 2.0f),
                     Build = new FloatRange(0.2f, 0.6f),
+                    FeatureOptions = new[]
+                    {
+                        new RaceFeatureDefinition
+                        {
+                            Id = "glow",
+                            DisplayName = "Glow Color",
+                            Options = new[] { "Pale", "Spectral", "Ebon" },
+                            DefaultOption = "Spectral"
+                        },
+                        new RaceFeatureDefinition
+                        {
+                            Id = "skeletal-exposure",
+                            DisplayName = "Skeletal Exposure",
+                            Options = new[] { "Subtle", "Revealed", "Bare" },
+                            DefaultOption = "Revealed"
+                        },
+                        new RaceFeatureDefinition
+                        {
+                            Id = "sigils",
+                            DisplayName = "Sigil Placement",
+                            Options = new[] { "Veins", "Mask", "Core" },
+                            DefaultOption = "Veins"
+                        },
+                        new RaceFeatureDefinition
+                        {
+                            Id = "veil-cloth",
+                            DisplayName = "Veil Cloth",
+                            Options = new[] { "Tattered", "Flowing", "Cloaked" },
+                            DefaultOption = "Flowing"
+                        },
+                        new RaceFeatureDefinition
+                        {
+                            Id = "eye-flare",
+                            DisplayName = "Eye Flare",
+                            Options = new[] { "Ringed", "Shattered", "Ember" },
+                            DefaultOption = "Ringed"
+                        }
+                    },
                     AdjustableFeatures = new[]
                     {
                         "Glow intensity & color",
@@ -137,6 +289,44 @@ namespace Client.CharacterCreation
                 {
                     Height = new FloatRange(1.0f, 1.4f),
                     Build = new FloatRange(0.25f, 0.55f),
+                    FeatureOptions = new[]
+                    {
+                        new RaceFeatureDefinition
+                        {
+                            Id = "gear-config",
+                            DisplayName = "Gear Configuration",
+                            Options = new[] { "Compact", "Balanced", "Overclocked" },
+                            DefaultOption = "Balanced"
+                        },
+                        new RaceFeatureDefinition
+                        {
+                            Id = "rune-glow",
+                            DisplayName = "Rune Glow",
+                            Options = new[] { "Cobalt", "Crimson", "Verdant" },
+                            DefaultOption = "Cobalt"
+                        },
+                        new RaceFeatureDefinition
+                        {
+                            Id = "limb-chassis",
+                            DisplayName = "Limb Chassis",
+                            Options = new[] { "Articulated", "Reinforced", "Lightweight" },
+                            DefaultOption = "Articulated"
+                        },
+                        new RaceFeatureDefinition
+                        {
+                            Id = "plating",
+                            DisplayName = "Plating Style",
+                            Options = new[] { "Etched", "Riveted", "Polished" },
+                            DefaultOption = "Etched"
+                        },
+                        new RaceFeatureDefinition
+                        {
+                            Id = "eye-lenses",
+                            DisplayName = "Eye Lenses",
+                            Options = new[] { "Round", "Hex", "Catlike" },
+                            DefaultOption = "Round"
+                        }
+                    },
                     AdjustableFeatures = new[]
                     {
                         "Gear configuration",

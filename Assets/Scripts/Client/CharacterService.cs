@@ -13,6 +13,7 @@ namespace Client
     {
         public float height;
         public float build;
+        public CharacterFeatureSelection[] features;
     }
 
     [Serializable]
@@ -48,6 +49,7 @@ namespace Client
     {
         public float height;
         public float build;
+        public CharacterFeatureSelection[] features;
     }
 
     [Serializable]
@@ -63,6 +65,8 @@ namespace Client
         public string name;
         public string narrative;
         public string createdAt;
+        public string worldSceneName;
+        public string worldServiceUrl;
     }
 
     [Serializable]
@@ -132,6 +136,10 @@ namespace Client
                         {
                             character.appearance = new CharacterAppearanceInfo();
                         }
+                        if (character.appearance.features == null)
+                        {
+                            character.appearance.features = Array.Empty<CharacterFeatureSelection>();
+                        }
                         if (character.lastKnownLocation == null)
                         {
                             character.lastKnownLocation = string.Empty;
@@ -188,6 +196,10 @@ namespace Client
                     if (response.character.appearance == null)
                     {
                         response.character.appearance = new CharacterAppearanceInfo();
+                    }
+                    if (response.character.appearance.features == null)
+                    {
+                        response.character.appearance.features = Array.Empty<CharacterFeatureSelection>();
                     }
                     if (response.character.lastKnownLocation == null)
                     {
@@ -275,7 +287,8 @@ namespace Client
                         appearance = new CharacterAppearanceInfo
                         {
                             height = 1.72f,
-                            build = 0.48f
+                            build = 0.48f,
+                            features = Array.Empty<CharacterFeatureSelection>()
                         },
                         createdAt = DateTime.UtcNow.ToString("O"),
                         lastKnownLocation = "12.5,1.0,-48.2"
@@ -293,7 +306,8 @@ namespace Client
                         appearance = new CharacterAppearanceInfo
                         {
                             height = 1.85f,
-                            build = 0.62f
+                            build = 0.62f,
+                            features = Array.Empty<CharacterFeatureSelection>()
                         },
                         createdAt = DateTime.UtcNow.ToString("O"),
                         lastKnownLocation = "-5,2,18.75"
@@ -312,7 +326,8 @@ namespace Client
             return new CharacterAppearanceRequest
             {
                 height = selection.Value.Height,
-                build = selection.Value.Build
+                build = selection.Value.Build,
+                features = selection.Value.FeatureSelections
             };
         }
 
@@ -414,12 +429,14 @@ namespace Client
                     ? new CharacterAppearanceInfo
                     {
                         height = selection.Value.Height,
-                        build = selection.Value.Build
+                        build = selection.Value.Build,
+                        features = selection.Value.FeatureSelections ?? Array.Empty<CharacterFeatureSelection>()
                     }
                     : new CharacterAppearanceInfo
                     {
                         height = 1.75f,
-                        build = 0.5f
+                        build = 0.5f,
+                        features = Array.Empty<CharacterFeatureSelection>()
                     },
                 createdAt = DateTime.UtcNow.ToString("O"),
                 lastKnownLocation = "Hearthlight Outpost"

@@ -258,6 +258,11 @@ namespace Client.Terrain
                 return baseApiUrlOverride.TrimEnd('/');
             }
 
+            if (!string.IsNullOrWhiteSpace(SessionManager.SelectedRealmServiceUrl))
+            {
+                return SessionManager.SelectedRealmServiceUrl.TrimEnd('/');
+            }
+
             return ApiClientRegistry.BaseUrl;
         }
 

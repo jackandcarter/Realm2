@@ -11,10 +11,13 @@ import {
   Character,
 } from '../db/characterRepository';
 import { HttpError } from '../utils/errors';
+import { resolveRealmHosting } from '../config/realmHosting';
 
 export interface RealmSummary extends Realm {
   membershipRole: RealmMembership['role'] | null;
   isMember: boolean;
+  worldSceneName: string;
+  worldServiceUrl?: string;
 }
 
 export interface RealmCharactersResult {
@@ -28,10 +31,13 @@ export async function listRealmsForUser(userId: string): Promise<RealmSummary[]>
   const summaries = await Promise.all(
     realms.map(async (realm) => {
       const membership = await findMembership(userId, realm.id);
+      const hosting = resolveRealmHosting(realm.id);
       return {
         ...realm,
         membershipRole: membership?.role ?? null,
         isMember: Boolean(membership),
+        worldSceneName: hosting.worldSceneName,
+        worldServiceUrl: hosting.worldServiceUrl,
       };
     })
   );

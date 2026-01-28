@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Globalization;
+using Client.CharacterCreation;
 using Client.Player;
 using Client.UI;
 using Client.World;
@@ -30,6 +31,7 @@ namespace Client
 
         [Header("Preview Avatar")]
         [SerializeField] private GameObject previewAvatarPrefab;
+        [SerializeField] private CharacterPrefabCatalog characterPrefabCatalog;
         [SerializeField] private Vector3 fallbackSpawnPosition = new(0f, 2f, 0f);
         [SerializeField] private bool disableAvatarInputDuringPreview = true;
 
@@ -191,9 +193,10 @@ namespace Client
         {
             if (_previewAvatar == null)
             {
-                if (previewAvatarPrefab != null)
+                var resolvedPrefab = ResolvePreviewPrefab(_previewCharacter);
+                if (resolvedPrefab != null)
                 {
-                    _previewAvatar = Instantiate(previewAvatarPrefab, spawnPosition, Quaternion.identity);
+                    _previewAvatar = Instantiate(resolvedPrefab, spawnPosition, Quaternion.identity);
                 }
                 else
                 {
@@ -212,10 +215,13 @@ namespace Client
                 {
                     SceneManager.MoveGameObjectToScene(_previewAvatar, _worldScene);
                 }
+
+                ApplyAppearanceToAvatar(_previewAvatar, _previewCharacter);
             }
             else
             {
                 _previewAvatar.transform.position = spawnPosition;
+                ApplyAppearanceToAvatar(_previewAvatar, _previewCharacter);
             }
 
             ToggleAvatarInput(!disableAvatarInputDuringPreview);
@@ -439,6 +445,72 @@ namespace Client
         private static bool TryParseFloat(string value, out float result)
         {
             return float.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out result);
+        }
+
+        private GameObject ResolvePreviewPrefab(CharacterInfo character)
+        {
+            if (characterPrefabCatalog != null)
+            {
+                var resolved = characterPrefabCatalog.ResolvePrefab(character?.raceId, character?.classId);
+                if (resolved != null)
+                {
+                    return resolved;
+                }
+            }
+
+            return previewAvatarPrefab;
+        }
+
+        private void ApplyAppearanceToAvatar(GameObject avatar, CharacterInfo character)
+        {
+            if (avatar == null || character?.appearance == null)
+            {
+                return;
+            }
+
+            if (!RaceCatalog.TryGetRace(character.raceId, out var race))
+            {
+                return;
+            }
+
+            var morphController = avatar.GetComponentInChildren<Realm.CharacterCustomization.CharacterMorphController>();
+            if (morphController == null)
+            {
+                return;
+            }
+
+            var heightNormalized = NormalizeSelectionValue(race.Customization?.Height, character.appearance.height);
+            var buildNormalized = NormalizeSelectionValue(race.Customization?.Build, character.appearance.build);
+
+            foreach (var region in morphController.Regions)
+            {
+                if (region == null)
+                {
+                    continue;
+                }
+
+                region.heightNormalized = heightNormalized;
+                region.widthNormalized = buildNormalized;
+            }
+
+            morphController.ApplyAll();
+        }
+
+        private static float NormalizeSelectionValue(FloatRange? range, float value)
+        {
+            if (!range.HasValue)
+            {
+                return 0.5f;
+            }
+
+            var min = range.Value.Min;
+            var max = range.Value.Max;
+            if (Mathf.Approximately(min, max))
+            {
+                return 0.5f;
+            }
+
+            return Mathf.InverseLerp(min, max, value);
         }
     }
 }

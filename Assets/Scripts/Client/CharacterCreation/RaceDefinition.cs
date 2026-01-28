@@ -20,7 +20,17 @@ namespace Client.CharacterCreation
     {
         public FloatRange Height;
         public FloatRange Build;
+        public RaceFeatureDefinition[] FeatureOptions;
         public string[] AdjustableFeatures;
+    }
+
+    [Serializable]
+    public class RaceFeatureDefinition
+    {
+        public string Id;
+        public string DisplayName;
+        public string[] Options;
+        public string DefaultOption;
     }
 
     [Serializable]

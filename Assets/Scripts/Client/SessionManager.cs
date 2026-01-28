@@ -11,6 +11,8 @@ namespace Client
         public static string AuthToken { get; private set; }
         public static string RefreshToken { get; private set; }
         public static string SelectedRealmId { get; private set; }
+        public static string SelectedRealmSceneName { get; private set; }
+        public static string SelectedRealmServiceUrl { get; private set; }
         public static string SelectedCharacterId { get; private set; }
 
         public static void SetTokens(string authToken, string refreshToken)
@@ -21,13 +23,21 @@ namespace Client
 
         public static void SetRealm(string realmId)
         {
-            if (string.Equals(SelectedRealmId, realmId, StringComparison.Ordinal))
-            {
-                return;
-            }
+            SetRealmContext(realmId, null, null);
+        }
+
+        public static void SetRealmContext(string realmId, string worldSceneName, string worldServiceUrl)
+        {
+            var realmChanged = !string.Equals(SelectedRealmId, realmId, StringComparison.Ordinal);
 
             SelectedRealmId = realmId;
-            SelectedRealmChanged?.Invoke(realmId);
+            SelectedRealmSceneName = string.IsNullOrWhiteSpace(worldSceneName) ? null : worldSceneName.Trim();
+            SelectedRealmServiceUrl = string.IsNullOrWhiteSpace(worldServiceUrl) ? null : worldServiceUrl.TrimEnd('/');
+
+            if (realmChanged)
+            {
+                SelectedRealmChanged?.Invoke(realmId);
+            }
         }
 
         public static void SetCharacter(string characterId)
@@ -49,6 +59,8 @@ namespace Client
             AuthToken = null;
             RefreshToken = null;
             SelectedRealmId = null;
+            SelectedRealmSceneName = null;
+            SelectedRealmServiceUrl = null;
             SelectedCharacterId = null;
 
             if (hadRealm)

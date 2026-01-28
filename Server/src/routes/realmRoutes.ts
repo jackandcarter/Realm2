@@ -5,6 +5,7 @@ import { HttpError, isHttpError } from '../utils/errors';
 import { replaceBuildZonesForRealm, validateBuildZoneForUser } from '../services/buildZoneService';
 import { applyWalletAdjustmentsForUser, listWalletForUser } from '../services/resourceWalletService';
 import { getPlotPermissionsForUser, replacePlotPermissionsForUser } from '../services/plotPermissionService';
+import { resolveRealmHosting } from '../config/realmHosting';
 
 export const realmRouter = Router();
 
@@ -34,11 +35,14 @@ realmRouter.get('/:realmId/characters', requireAuth, async (req, res, next) => {
   try {
     const { realmId } = req.params as { realmId: string };
     const result = await getRealmCharacters(req.user!.id, realmId);
+    const hosting = resolveRealmHosting(result.realm.id);
     res.json({
       realm: {
         id: result.realm.id,
         name: result.realm.name,
         narrative: result.realm.narrative,
+        worldSceneName: hosting.worldSceneName,
+        worldServiceUrl: hosting.worldServiceUrl,
       },
       membership: {
         realmId: result.membership.realmId,

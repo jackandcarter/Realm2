@@ -83,6 +83,8 @@ namespace Client
         private CharacterCreationPanel _characterCreationPanelInstance;
         private bool _characterCreationPanelHooked;
         private CharacterInfo _selectedCharacter;
+        private string _selectedWorldSceneName;
+        private string _selectedWorldServiceUrl;
 
         private const string RememberMeKey = "MainMenu.RememberMe";
         private const string RememberEmailKey = "MainMenu.RememberEmail";
@@ -518,7 +520,10 @@ namespace Client
 
         private void OnRealmSelected(RealmInfo realm)
         {
-            SessionManager.SetRealm(realm.id);
+            var resolvedWorldScene = ResolveWorldSceneName(realm);
+            _selectedWorldSceneName = resolvedWorldScene;
+            _selectedWorldServiceUrl = string.IsNullOrWhiteSpace(realm?.worldServiceUrl) ? null : realm.worldServiceUrl.Trim();
+            SessionManager.SetRealmContext(realm.id, resolvedWorldScene, _selectedWorldServiceUrl);
             SetMessage(_characterMessage, $"Selecting {realm.name}...");
             ShowCanvas(_characterCanvas);
             StartCoroutine(SelectRealmRoutine(realm));
@@ -680,7 +685,7 @@ namespace Client
 
             if (worldPreviewTransitionManager != null && classStatus.CanPlay)
             {
-                worldPreviewTransitionManager.PreviewCharacter(character, worldSceneName);
+                worldPreviewTransitionManager.PreviewCharacter(character, ResolveActiveWorldSceneName());
             }
         }
 
@@ -826,15 +831,15 @@ namespace Client
                     SessionManager.SetCharacter(character.id);
                     if (worldPreviewTransitionManager != null)
                     {
-                        worldPreviewTransitionManager.EnterWorld(character, worldSceneName);
+                        worldPreviewTransitionManager.EnterWorld(character, ResolveActiveWorldSceneName());
                     }
                     else if (sceneTransitionController != null)
                     {
-                        sceneTransitionController.TransitionToScene(worldSceneName);
+                        sceneTransitionController.TransitionToScene(ResolveActiveWorldSceneName());
                     }
                     else
                     {
-                        SceneManager.LoadScene(worldSceneName);
+                        SceneManager.LoadScene(ResolveActiveWorldSceneName());
                     }
                 },
                 error =>
@@ -943,7 +948,7 @@ namespace Client
                     DisplayCharacterDetails(character);
                     if (worldPreviewTransitionManager != null)
                     {
-                        worldPreviewTransitionManager.PreviewCharacter(character, worldSceneName);
+                        worldPreviewTransitionManager.PreviewCharacter(character, ResolveActiveWorldSceneName());
                     }
                     if (_createCharacterButton != null)
                     {
@@ -1210,6 +1215,26 @@ namespace Client
             }
 
             SetMessage(_createAccountMessage, "");
+        }
+
+        private string ResolveWorldSceneName(RealmInfo realm)
+        {
+            if (!string.IsNullOrWhiteSpace(realm?.worldSceneName))
+            {
+                return realm.worldSceneName.Trim();
+            }
+
+            return worldSceneName;
+        }
+
+        private string ResolveActiveWorldSceneName()
+        {
+            if (!string.IsNullOrWhiteSpace(_selectedWorldSceneName))
+            {
+                return _selectedWorldSceneName;
+            }
+
+            return worldSceneName;
         }
 
         private string ResolveBaseApiUrl()
