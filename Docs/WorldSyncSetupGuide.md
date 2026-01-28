@@ -32,6 +32,10 @@ Add a **Zone Registry** (config or database) that defines where each zone lives 
 to load it in Unity. A starter TypeScript registry lives in `Server/src/config/zoneRegistry.ts` and
 is intentionally empty until you seed real data.
 
+When realms map to distinct world scenes, extend the registry (or a parallel realm registry) so the
+client can resolve **realmId → default world scene + zone list** for the preview background and
+authoritative spawn flow.
+
 ```
 ZoneDefinition {
   zoneId: string
@@ -69,7 +73,8 @@ point if missing or invalid.【F:Docs/WorldPreviewAndUISetup.md†L65-L84】
 
 **Recommendation:** Generate `lastKnownLocation` from the persisted numeric fields (zone + position)
 and send it only as a convenience for UI preview; the server should still treat the numeric fields
-as authoritative.
+as authoritative. When using realm-specific world scenes, the preview should select the scene based
+on the chosen realm before interpreting `lastKnownLocation`.
 
 ---
 

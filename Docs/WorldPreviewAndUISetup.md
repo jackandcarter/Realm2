@@ -7,6 +7,7 @@ This guide documents how to configure the **main menu → world preview → worl
 ## 1) Scene Overview (High-Level Flow)
 1. **Main Menu scene** loads first and shows login/realm/character selection UI.
 2. **World scene** is loaded additively when a character is highlighted or created, and a preview avatar appears at the last-known or fallback spawn location.
+   - The world scene must be selected based on the **currently selected realm** so the preview reflects the correct realm background.
 3. **Enter World** finalizes the transition, fades out the menu, and enables the world HUD + input.
 
 Key runtime components:
@@ -127,6 +128,7 @@ When “Enter World” is clicked:
 ### Data
 ✅ `CharacterInfo.lastKnownLocation` contains valid coordinates  
 ✅ Realm selection sets `SessionManager.SelectedRealmId`  
+✅ Selected realm resolves to the correct world scene for preview/background loading  
 
 ---
 
