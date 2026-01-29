@@ -124,12 +124,17 @@ devToolkitUiRouter.get('/', (_req, res) => {
         </div>
         <nav>
           <button class="secondary" data-tab="items">Items</button>
+          <button class="secondary" data-tab="races">Races</button>
           <button class="secondary" data-tab="weapons">Weapons</button>
           <button class="secondary" data-tab="armor">Armor</button>
           <button class="secondary" data-tab="classes">Classes</button>
           <button class="secondary" data-tab="classStats">Class Stats</button>
           <button class="secondary" data-tab="abilities">Abilities</button>
+          <button class="secondary" data-tab="enemies">Enemies</button>
+          <button class="secondary" data-tab="enemyStats">Enemy Stats</button>
+          <button class="secondary" data-tab="levelProgression">Level Progression</button>
           <button class="secondary" data-tab="types">Types</button>
+          <button class="secondary" data-tab="resources">Resources</button>
         </nav>
       </header>
 
@@ -170,6 +175,27 @@ devToolkitUiRouter.get('/', (_req, res) => {
           <div>
             <h3>Item Catalog</h3>
             <div class="list" id="list-items"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel" id="panel-races" data-panel="races" hidden>
+        <h2>Races</h2>
+        <div class="split">
+          <form id="form-races">
+            <div class="grid-2">
+              <label>Id <input name="id" required /></label>
+              <label>Display Name <input name="displayName" required /></label>
+            </div>
+            <label>Customization (JSON) <textarea name="customization">{}</textarea></label>
+            <div>
+              <button type="submit">Save Race</button>
+              <button type="button" class="secondary" data-action="refresh-races">Refresh List</button>
+            </div>
+          </form>
+          <div>
+            <h3>Race Catalog</h3>
+            <div class="list" id="list-races"></div>
           </div>
         </div>
       </section>
@@ -346,6 +372,84 @@ devToolkitUiRouter.get('/', (_req, res) => {
         </div>
       </section>
 
+      <section class="panel" id="panel-enemies" data-panel="enemies" hidden>
+        <h2>Enemies</h2>
+        <div class="split">
+          <form id="form-enemies">
+            <div class="grid-2">
+              <label>Id <input name="id" required /></label>
+              <label>Name <input name="name" required /></label>
+              <label>Enemy Type <input name="enemyType" /></label>
+              <label>Level <input name="level" type="number" min="1" value="1" /></label>
+              <label>Faction <input name="faction" /></label>
+              <label>Is Boss <input name="isBoss" type="checkbox" /></label>
+            </div>
+            <label>Description <textarea name="description"></textarea></label>
+            <label>Metadata (JSON) <textarea name="metadata">{}</textarea></label>
+            <div>
+              <button type="submit">Save Enemy</button>
+              <button type="button" class="secondary" data-action="refresh-enemies">Refresh List</button>
+            </div>
+          </form>
+          <div>
+            <h3>Enemy Catalog</h3>
+            <div class="list" id="list-enemies"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel" id="panel-enemyStats" data-panel="enemyStats" hidden>
+        <h2>Enemy Base Stats</h2>
+        <div class="split">
+          <form id="form-enemyStats">
+            <div class="grid-2">
+              <label>Enemy Id <input name="enemyId" required /></label>
+              <label>Base Health <input name="baseHealth" type="number" value="0" /></label>
+              <label>Base Mana <input name="baseMana" type="number" value="0" /></label>
+              <label>Attack <input name="attack" type="number" value="0" /></label>
+              <label>Defense <input name="defense" type="number" value="0" /></label>
+              <label>Agility <input name="agility" type="number" value="0" /></label>
+              <label>Crit Chance <input name="critChance" type="number" step="0.1" value="0" /></label>
+              <label>XP Reward <input name="xpReward" type="number" value="0" /></label>
+              <label>Gold Reward <input name="goldReward" type="number" value="0" /></label>
+            </div>
+            <div>
+              <button type="submit">Save Enemy Stats</button>
+              <button type="button" class="secondary" data-action="refresh-enemyStats">Refresh List</button>
+            </div>
+          </form>
+          <div>
+            <h3>Enemy Stats Catalog</h3>
+            <div class="list" id="list-enemyStats"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel" id="panel-levelProgression" data-panel="levelProgression" hidden>
+        <h2>Level Progression</h2>
+        <div class="split">
+          <form id="form-levelProgression">
+            <div class="grid-2">
+              <label>Level <input name="level" type="number" min="1" value="1" /></label>
+              <label>XP Required <input name="xpRequired" type="number" value="0" /></label>
+              <label>Total XP <input name="totalXp" type="number" value="0" /></label>
+              <label>HP Gain <input name="hpGain" type="number" value="0" /></label>
+              <label>Mana Gain <input name="manaGain" type="number" value="0" /></label>
+              <label>Stat Points <input name="statPoints" type="number" value="0" /></label>
+            </div>
+            <label>Reward (JSON) <textarea name="reward">{}</textarea></label>
+            <div>
+              <button type="submit">Save Level</button>
+              <button type="button" class="secondary" data-action="refresh-levelProgression">Refresh List</button>
+            </div>
+          </form>
+          <div>
+            <h3>Level Progression</h3>
+            <div class="list" id="list-levelProgression"></div>
+          </div>
+        </div>
+      </section>
+
       <section class="panel" id="panel-types" data-panel="types" hidden>
         <h2>Reference Types</h2>
         <div class="split">
@@ -379,6 +483,35 @@ devToolkitUiRouter.get('/', (_req, res) => {
           </div>
         </div>
       </section>
+
+      <section class="panel" id="panel-resources" data-panel="resources" hidden>
+        <h2>Resource Types</h2>
+        <div class="split">
+          <form id="form-resourceTypes">
+            <div class="grid-2">
+              <label>Id <input name="id" required /></label>
+              <label>Display Name <input name="displayName" required /></label>
+              <label>Category
+                <select name="category" required>
+                  <option value="raw">raw</option>
+                  <option value="processed">processed</option>
+                  <option value="crafted">crafted</option>
+                  <option value="consumable">consumable</option>
+                  <option value="quest">quest</option>
+                </select>
+              </label>
+            </div>
+            <div>
+              <button type="submit">Save Resource Type</button>
+              <button type="button" class="secondary" data-action="refresh-resourceTypes">Refresh List</button>
+            </div>
+          </form>
+          <div>
+            <h3>Resource Catalog</h3>
+            <div class="list" id="list-resourceTypes"></div>
+          </div>
+        </div>
+      </section>
     </main>
 
     <script>
@@ -386,6 +519,21 @@ devToolkitUiRouter.get('/', (_req, res) => {
       const panelButtons = document.querySelectorAll('[data-tab]');
       const panels = document.querySelectorAll('[data-panel]');
       const statusEl = document.querySelector('.status');
+      const cache = {
+        items: [],
+        races: [],
+        weapons: [],
+        armor: [],
+        classes: [],
+        classBaseStats: [],
+        abilities: [],
+        enemies: [],
+        enemyBaseStats: [],
+        levelProgression: [],
+        weaponTypes: [],
+        abilityTypes: [],
+        resourceTypes: [],
+      };
 
       function setStatus(message) {
         if (statusEl) {
@@ -425,6 +573,26 @@ devToolkitUiRouter.get('/', (_req, res) => {
         }
       }
 
+      function assignField(form, name, value) {
+        const field = form.querySelector('[name="' + name + '"]');
+        if (!field) return;
+        if (field.type === 'checkbox') {
+          field.checked = Boolean(value);
+        } else if (value === null || typeof value === 'undefined') {
+          field.value = '';
+        } else if (typeof value === 'object') {
+          field.value = JSON.stringify(value, null, 2);
+        } else {
+          field.value = value;
+        }
+      }
+
+      function populateForm(formId, data) {
+        const form = document.getElementById(formId);
+        if (!form) return;
+        Object.keys(data).forEach((key) => assignField(form, key, data[key]));
+      }
+
       function attachForm(formId, endpoint, handler) {
         const form = document.getElementById(formId);
         if (!form) return;
@@ -433,12 +601,12 @@ devToolkitUiRouter.get('/', (_req, res) => {
           const formData = new FormData(form);
           try {
             const payload = handler(formData);
-            await requestJson(\`\${apiBase}/\${endpoint}\`, {
+            await requestJson(apiBase + '/' + endpoint, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify(payload),
             });
-            setStatus(\`\${endpoint} saved.\`);
+            setStatus(endpoint + ' saved.');
           } catch (error) {
             setStatus(error.message);
           }
@@ -446,22 +614,22 @@ devToolkitUiRouter.get('/', (_req, res) => {
       }
 
       function attachRefresh(action, endpoint, renderer) {
-        document.querySelectorAll(\`[data-action="\${action}"]\`).forEach((button) => {
+        document.querySelectorAll('[data-action="' + action + '"]').forEach((button) => {
           button.addEventListener('click', () => loadList(endpoint, renderer));
         });
       }
 
       async function loadList(endpoint, renderer) {
         try {
-          const data = await requestJson(\`\${apiBase}/\${endpoint}\`);
+          const data = await requestJson(apiBase + '/' + endpoint);
           renderer(data);
-          setStatus(\`\${endpoint} refreshed.\`);
+          setStatus(endpoint + ' refreshed.');
         } catch (error) {
           setStatus(error.message);
         }
       }
 
-      function renderList(containerId, items, getLabel) {
+      function renderList(containerId, items, getLabel, onSelect) {
         const container = document.getElementById(containerId);
         if (!container) return;
         container.innerHTML = '';
@@ -469,8 +637,31 @@ devToolkitUiRouter.get('/', (_req, res) => {
           const row = document.createElement('div');
           row.className = 'list-item';
           row.innerHTML = getLabel(item);
+          if (onSelect) {
+            row.style.cursor = 'pointer';
+            row.addEventListener('click', () => onSelect(item));
+          }
           container.appendChild(row);
         });
+      }
+
+      function openItemById(itemId) {
+        const item = cache.items.find((entry) => entry.id === itemId);
+        if (!item) {
+          setStatus('Item ' + itemId + ' not found in cache. Refresh items first.');
+          return;
+        }
+        populateForm('form-items', {
+          id: item.id,
+          name: item.name,
+          category: item.category,
+          rarity: item.rarity,
+          stackLimit: item.stackLimit,
+          iconUrl: item.iconUrl,
+          description: item.description,
+          metadata: item.metadata,
+        });
+        setPanel('items');
       }
 
       attachForm('form-items', 'items', (data) => ({
@@ -482,6 +673,12 @@ devToolkitUiRouter.get('/', (_req, res) => {
         iconUrl: data.get('iconUrl') || null,
         description: data.get('description') || null,
         metadata: parseJsonField(data.get('metadata')),
+      }));
+
+      attachForm('form-races', 'races', (data) => ({
+        id: data.get('id'),
+        displayName: data.get('displayName'),
+        customization: parseJsonField(data.get('customization')),
       }));
 
       attachForm('form-weapons', 'weapons', (data) => ({
@@ -543,6 +740,39 @@ devToolkitUiRouter.get('/', (_req, res) => {
         metadata: parseJsonField(data.get('metadata')),
       }));
 
+      attachForm('form-enemies', 'enemies', (data) => ({
+        id: data.get('id'),
+        name: data.get('name'),
+        description: data.get('description') || null,
+        enemyType: data.get('enemyType') || null,
+        level: Number(data.get('level') || 1),
+        faction: data.get('faction') || null,
+        isBoss: data.get('isBoss') === 'on',
+        metadata: parseJsonField(data.get('metadata')),
+      }));
+
+      attachForm('form-enemyStats', 'enemy-base-stats', (data) => ({
+        enemyId: data.get('enemyId'),
+        baseHealth: Number(data.get('baseHealth') || 0),
+        baseMana: Number(data.get('baseMana') || 0),
+        attack: Number(data.get('attack') || 0),
+        defense: Number(data.get('defense') || 0),
+        agility: Number(data.get('agility') || 0),
+        critChance: Number(data.get('critChance') || 0),
+        xpReward: Number(data.get('xpReward') || 0),
+        goldReward: Number(data.get('goldReward') || 0),
+      }));
+
+      attachForm('form-levelProgression', 'level-progression', (data) => ({
+        level: Number(data.get('level') || 1),
+        xpRequired: Number(data.get('xpRequired') || 0),
+        totalXp: Number(data.get('totalXp') || 0),
+        hpGain: Number(data.get('hpGain') || 0),
+        manaGain: Number(data.get('manaGain') || 0),
+        statPoints: Number(data.get('statPoints') || 0),
+        reward: parseJsonField(data.get('reward')),
+      }));
+
       attachForm('form-weaponTypes', 'weapon-types', (data) => ({
         id: data.get('id'),
         displayName: data.get('displayName'),
@@ -553,60 +783,119 @@ devToolkitUiRouter.get('/', (_req, res) => {
         displayName: data.get('displayName'),
       }));
 
-      attachRefresh('refresh-items', 'items', (data) =>
-        renderList('list-items', data.items || [], (item) =>
-          \`<strong>\${item.name}</strong><span class="status">\${item.id} · \${item.category}</span>\`
-        )
-      );
+      attachForm('form-resourceTypes', 'resource-types', (data) => ({
+        id: data.get('id'),
+        displayName: data.get('displayName'),
+        category: data.get('category'),
+      }));
 
-      attachRefresh('refresh-weapons', 'weapons', (data) =>
-        renderList('list-weapons', data.weapons || [], (weapon) =>
-          \`<strong>\${weapon.itemId}</strong><span class="status">\${weapon.weaponType} · \${weapon.handedness}</span>\`
-        )
-      );
+      attachRefresh('refresh-items', 'items', (data) => {
+        cache.items = data.items || [];
+        renderList('list-items', cache.items, (item) =>
+          '<strong>' + item.name + '</strong><span class="status">' + item.id + ' · ' + item.category + '</span>',
+        (item) => populateForm('form-items', item));
+      });
 
-      attachRefresh('refresh-armor', 'armor', (data) =>
-        renderList('list-armor', data.armor || [], (armor) =>
-          \`<strong>\${armor.itemId}</strong><span class="status">\${armor.slot} · \${armor.armorType}</span>\`
-        )
-      );
+      attachRefresh('refresh-races', 'races', (data) => {
+        cache.races = data.races || [];
+        renderList('list-races', cache.races, (race) =>
+          '<strong>' + race.displayName + '</strong><span class="status">' + race.id + '</span>',
+        (race) => populateForm('form-races', race));
+      });
 
-      attachRefresh('refresh-classes', 'classes', (data) =>
-        renderList('list-classes', data.classes || [], (entry) =>
-          \`<strong>\${entry.name}</strong><span class="status">\${entry.id} · \${entry.role || 'n/a'}</span>\`
-        )
-      );
+      attachRefresh('refresh-weapons', 'weapons', (data) => {
+        cache.weapons = data.weapons || [];
+        renderList('list-weapons', cache.weapons, (weapon) =>
+          '<strong>' + weapon.itemId + '</strong><span class="status">' + weapon.weaponType + ' · ' + weapon.handedness + '</span>' +
+          '<div><button type="button" data-action="open-item" data-item-id="' + weapon.itemId + '">Open Item</button></div>',
+        (weapon) => populateForm('form-weapons', weapon));
+        document.querySelectorAll('[data-action="open-item"]').forEach((button) => {
+          button.addEventListener('click', (event) => {
+            event.stopPropagation();
+            openItemById(button.dataset.itemId);
+          });
+        });
+      });
 
-      attachRefresh('refresh-classStats', 'class-base-stats', (data) =>
-        renderList('list-classStats', data.classBaseStats || [], (entry) =>
-          \`<strong>\${entry.classId}</strong><span class="status">HP \${entry.baseHealth} · STR \${entry.strength}</span>\`
-        )
-      );
+      attachRefresh('refresh-armor', 'armor', (data) => {
+        cache.armor = data.armor || [];
+        renderList('list-armor', cache.armor, (armor) =>
+          '<strong>' + armor.itemId + '</strong><span class="status">' + armor.slot + ' · ' + armor.armorType + '</span>' +
+          '<div><button type="button" data-action="open-item" data-item-id="' + armor.itemId + '">Open Item</button></div>',
+        (armor) => populateForm('form-armor', armor));
+        document.querySelectorAll('[data-action="open-item"]').forEach((button) => {
+          button.addEventListener('click', (event) => {
+            event.stopPropagation();
+            openItemById(button.dataset.itemId);
+          });
+        });
+      });
 
-      attachRefresh('refresh-abilities', 'abilities', (data) =>
-        renderList('list-abilities', data.abilities || [], (entry) =>
-          \`<strong>\${entry.name}</strong><span class="status">\${entry.id} · cooldown \${entry.cooldownSeconds}s</span>\`
-        )
-      );
+      attachRefresh('refresh-classes', 'classes', (data) => {
+        cache.classes = data.classes || [];
+        renderList('list-classes', cache.classes, (entry) =>
+          '<strong>' + entry.name + '</strong><span class="status">' + entry.id + ' · ' + (entry.role || 'n/a') + '</span>',
+        (entry) => populateForm('form-classes', entry));
+      });
 
-      attachRefresh('refresh-weaponTypes', 'weapon-types', (data) =>
-        renderList('list-weaponTypes', data.weaponTypes || [], (entry) =>
-          \`<strong>\${entry.displayName}</strong><span class="status">\${entry.id}</span>\`
-        )
-      );
+      attachRefresh('refresh-classStats', 'class-base-stats', (data) => {
+        cache.classBaseStats = data.classBaseStats || [];
+        renderList('list-classStats', cache.classBaseStats, (entry) =>
+          '<strong>' + entry.classId + '</strong><span class="status">HP ' + entry.baseHealth + ' · STR ' + entry.strength + '</span>',
+        (entry) => populateForm('form-classStats', entry));
+      });
 
-      attachRefresh('refresh-abilityTypes', 'ability-types', (data) =>
-        renderList('list-abilityTypes', data.abilityTypes || [], (entry) =>
-          \`<strong>\${entry.displayName}</strong><span class="status">\${entry.id}</span>\`
-        )
-      );
+      attachRefresh('refresh-abilities', 'abilities', (data) => {
+        cache.abilities = data.abilities || [];
+        renderList('list-abilities', cache.abilities, (entry) =>
+          '<strong>' + entry.name + '</strong><span class="status">' + entry.id + ' · cooldown ' + entry.cooldownSeconds + 's</span>',
+        (entry) => populateForm('form-abilities', entry));
+      });
 
-      loadList('items', (data) =>
-        renderList('list-items', data.items || [], (item) =>
-          \`<strong>\${item.name}</strong><span class="status">\${item.id} · \${item.category}</span>\`
-        )
-      );
+      attachRefresh('refresh-enemies', 'enemies', (data) => {
+        cache.enemies = data.enemies || [];
+        renderList('list-enemies', cache.enemies, (entry) =>
+          '<strong>' + entry.name + '</strong><span class="status">' + entry.id + ' · lvl ' + entry.level + '</span>',
+        (entry) => populateForm('form-enemies', entry));
+      });
+
+      attachRefresh('refresh-enemyStats', 'enemy-base-stats', (data) => {
+        cache.enemyBaseStats = data.enemyBaseStats || [];
+        renderList('list-enemyStats', cache.enemyBaseStats, (entry) =>
+          '<strong>' + entry.enemyId + '</strong><span class="status">HP ' + entry.baseHealth + ' · ATK ' + entry.attack + '</span>',
+        (entry) => populateForm('form-enemyStats', entry));
+      });
+
+      attachRefresh('refresh-levelProgression', 'level-progression', (data) => {
+        cache.levelProgression = data.levelProgression || [];
+        renderList('list-levelProgression', cache.levelProgression, (entry) =>
+          '<strong>Level ' + entry.level + '</strong><span class="status">XP ' + entry.xpRequired + ' · HP ' + entry.hpGain + '</span>',
+        (entry) => populateForm('form-levelProgression', entry));
+      });
+
+      attachRefresh('refresh-weaponTypes', 'weapon-types', (data) => {
+        cache.weaponTypes = data.weaponTypes || [];
+        renderList('list-weaponTypes', cache.weaponTypes, (entry) =>
+          '<strong>' + entry.displayName + '</strong><span class="status">' + entry.id + '</span>',
+        (entry) => populateForm('form-weaponTypes', entry));
+      });
+
+      attachRefresh('refresh-abilityTypes', 'ability-types', (data) => {
+        cache.abilityTypes = data.abilityTypes || [];
+        renderList('list-abilityTypes', cache.abilityTypes, (entry) =>
+          '<strong>' + entry.displayName + '</strong><span class="status">' + entry.id + '</span>',
+        (entry) => populateForm('form-abilityTypes', entry));
+      });
+
+      attachRefresh('refresh-resourceTypes', 'resource-types', (data) => {
+        cache.resourceTypes = data.resourceTypes || [];
+        renderList('list-resourceTypes', cache.resourceTypes, (entry) =>
+          '<strong>' + entry.displayName + '</strong><span class="status">' + entry.id + ' · ' + entry.category + '</span>',
+        (entry) => populateForm('form-resourceTypes', entry));
+      });
     </script>
+
+
   </body>
 </html>`);
 });

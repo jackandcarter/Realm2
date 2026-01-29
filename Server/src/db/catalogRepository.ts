@@ -100,6 +100,14 @@ export interface EnemyBaseStatRecord {
   updatedAt: string;
 }
 
+export interface RaceRecord {
+  id: string;
+  displayName: string;
+  customizationJson: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface AbilityRecord {
   id: string;
   name: string;
@@ -323,6 +331,25 @@ export async function listEnemies(): Promise<EnemyRecord[]> {
   );
 }
 
+export async function getEnemyById(enemyId: string): Promise<EnemyRecord | undefined> {
+  const rows = await db.query<EnemyRecord[]>(
+    `SELECT id,
+            name,
+            description,
+            enemy_type as enemyType,
+            level,
+            faction,
+            is_boss as isBoss,
+            metadata_json as metadataJson,
+            created_at as createdAt,
+            updated_at as updatedAt
+     FROM enemies
+     WHERE id = ?`,
+    [enemyId]
+  );
+  return rows[0];
+}
+
 export async function listEnemyBaseStats(): Promise<EnemyBaseStatRecord[]> {
   return db.query<EnemyBaseStatRecord[]>(
     `SELECT enemy_id as enemyId,
@@ -338,6 +365,53 @@ export async function listEnemyBaseStats(): Promise<EnemyBaseStatRecord[]> {
      FROM enemy_base_stats
      ORDER BY enemy_id ASC`
   );
+}
+
+export async function getEnemyBaseStatsById(
+  enemyId: string
+): Promise<EnemyBaseStatRecord | undefined> {
+  const rows = await db.query<EnemyBaseStatRecord[]>(
+    `SELECT enemy_id as enemyId,
+            base_health as baseHealth,
+            base_mana as baseMana,
+            attack,
+            defense,
+            agility,
+            crit_chance as critChance,
+            xp_reward as xpReward,
+            gold_reward as goldReward,
+            updated_at as updatedAt
+     FROM enemy_base_stats
+     WHERE enemy_id = ?`,
+    [enemyId]
+  );
+  return rows[0];
+}
+
+export async function listRaces(): Promise<RaceRecord[]> {
+  return db.query<RaceRecord[]>(
+    `SELECT id,
+            display_name as displayName,
+            customization_json as customizationJson,
+            created_at as createdAt,
+            updated_at as updatedAt
+     FROM races
+     ORDER BY display_name ASC`
+  );
+}
+
+export async function getRaceById(raceId: string): Promise<RaceRecord | undefined> {
+  const rows = await db.query<RaceRecord[]>(
+    `SELECT id,
+            display_name as displayName,
+            customization_json as customizationJson,
+            created_at as createdAt,
+            updated_at as updatedAt
+     FROM races
+     WHERE id = ?`,
+    [raceId]
+  );
+  return rows[0];
 }
 
 export async function listAbilities(): Promise<AbilityRecord[]> {
@@ -391,4 +465,23 @@ export async function listLevelProgression(): Promise<LevelProgressionRecord[]> 
      FROM level_progression
      ORDER BY level ASC`
   );
+}
+
+export async function getLevelProgressionByLevel(
+  level: number
+): Promise<LevelProgressionRecord | undefined> {
+  const rows = await db.query<LevelProgressionRecord[]>(
+    `SELECT level,
+            xp_required as xpRequired,
+            total_xp as totalXp,
+            hp_gain as hpGain,
+            mana_gain as manaGain,
+            stat_points as statPoints,
+            reward_json as rewardJson,
+            updated_at as updatedAt
+     FROM level_progression
+     WHERE level = ?`,
+    [level]
+  );
+  return rows[0];
 }

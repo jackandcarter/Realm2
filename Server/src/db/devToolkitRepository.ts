@@ -85,6 +85,51 @@ export interface NamedTypeInput {
   displayName: string;
 }
 
+export interface ResourceTypeInput {
+  id: string;
+  displayName: string;
+  category: string;
+}
+
+export interface RaceInput {
+  id: string;
+  displayName: string;
+  customizationJson: string;
+}
+
+export interface EnemyInput {
+  id: string;
+  name: string;
+  description: string | null;
+  enemyType: string | null;
+  level: number;
+  faction: string | null;
+  isBoss: boolean;
+  metadataJson: string;
+}
+
+export interface EnemyBaseStatInput {
+  enemyId: string;
+  baseHealth: number;
+  baseMana: number;
+  attack: number;
+  defense: number;
+  agility: number;
+  critChance: number;
+  xpReward: number;
+  goldReward: number;
+}
+
+export interface LevelProgressionInput {
+  level: number;
+  xpRequired: number;
+  totalXp: number;
+  hpGain: number;
+  manaGain: number;
+  statPoints: number;
+  rewardJson: string;
+}
+
 function nowIso(): string {
   return new Date().toISOString();
 }
@@ -305,6 +350,132 @@ export async function upsertAbility(
       input.castTimeSeconds,
       input.metadataJson,
       now,
+      now,
+    ]
+  );
+}
+
+export async function upsertResourceType(
+  input: ResourceTypeInput,
+  executor: DbExecutor = db
+): Promise<void> {
+  const now = nowIso();
+  await executor.execute(
+    `INSERT INTO resource_types (id, display_name, category, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?)
+     ON DUPLICATE KEY UPDATE
+       display_name = VALUES(display_name),
+       category = VALUES(category),
+       updated_at = VALUES(updated_at)`,
+    [input.id, input.displayName, input.category, now, now]
+  );
+}
+
+export async function upsertRace(
+  input: RaceInput,
+  executor: DbExecutor = db
+): Promise<void> {
+  const now = nowIso();
+  await executor.execute(
+    `INSERT INTO races (id, display_name, customization_json, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?)
+     ON DUPLICATE KEY UPDATE
+       display_name = VALUES(display_name),
+       customization_json = VALUES(customization_json),
+       updated_at = VALUES(updated_at)`,
+    [input.id, input.displayName, input.customizationJson, now, now]
+  );
+}
+
+export async function upsertEnemy(
+  input: EnemyInput,
+  executor: DbExecutor = db
+): Promise<void> {
+  const now = nowIso();
+  await executor.execute(
+    `INSERT INTO enemies (id, name, description, enemy_type, level, faction, is_boss, metadata_json, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ON DUPLICATE KEY UPDATE
+       name = VALUES(name),
+       description = VALUES(description),
+       enemy_type = VALUES(enemy_type),
+       level = VALUES(level),
+       faction = VALUES(faction),
+       is_boss = VALUES(is_boss),
+       metadata_json = VALUES(metadata_json),
+       updated_at = VALUES(updated_at)`,
+    [
+      input.id,
+      input.name,
+      input.description,
+      input.enemyType,
+      input.level,
+      input.faction,
+      input.isBoss ? 1 : 0,
+      input.metadataJson,
+      now,
+      now,
+    ]
+  );
+}
+
+export async function upsertEnemyBaseStats(
+  input: EnemyBaseStatInput,
+  executor: DbExecutor = db
+): Promise<void> {
+  const now = nowIso();
+  await executor.execute(
+    `INSERT INTO enemy_base_stats (enemy_id, base_health, base_mana, attack, defense, agility, crit_chance, xp_reward, gold_reward, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ON DUPLICATE KEY UPDATE
+       base_health = VALUES(base_health),
+       base_mana = VALUES(base_mana),
+       attack = VALUES(attack),
+       defense = VALUES(defense),
+       agility = VALUES(agility),
+       crit_chance = VALUES(crit_chance),
+       xp_reward = VALUES(xp_reward),
+       gold_reward = VALUES(gold_reward),
+       updated_at = VALUES(updated_at)`,
+    [
+      input.enemyId,
+      input.baseHealth,
+      input.baseMana,
+      input.attack,
+      input.defense,
+      input.agility,
+      input.critChance,
+      input.xpReward,
+      input.goldReward,
+      now,
+    ]
+  );
+}
+
+export async function upsertLevelProgression(
+  input: LevelProgressionInput,
+  executor: DbExecutor = db
+): Promise<void> {
+  const now = nowIso();
+  await executor.execute(
+    `INSERT INTO level_progression (level, xp_required, total_xp, hp_gain, mana_gain, stat_points, reward_json, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+     ON DUPLICATE KEY UPDATE
+       xp_required = VALUES(xp_required),
+       total_xp = VALUES(total_xp),
+       hp_gain = VALUES(hp_gain),
+       mana_gain = VALUES(mana_gain),
+       stat_points = VALUES(stat_points),
+       reward_json = VALUES(reward_json),
+       updated_at = VALUES(updated_at)`,
+    [
+      input.level,
+      input.xpRequired,
+      input.totalXp,
+      input.hpGain,
+      input.manaGain,
+      input.statPoints,
+      input.rewardJson,
       now,
     ]
   );

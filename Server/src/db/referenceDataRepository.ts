@@ -63,6 +63,23 @@ export async function listResourceTypes(
   );
 }
 
+export async function getResourceTypeById(
+  id: string,
+  executor: DbExecutor = db
+): Promise<ResourceTypeRecord | undefined> {
+  const rows = await executor.query<ResourceTypeRecord[]>(
+    `SELECT id,
+            display_name as displayName,
+            category,
+            created_at as createdAt,
+            updated_at as updatedAt
+     FROM resource_types
+     WHERE id = ?`,
+    [id]
+  );
+  return rows[0];
+}
+
 export async function listAbilityTypes(
   executor: DbExecutor = db
 ): Promise<AbilityTypeRecord[]> {

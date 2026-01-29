@@ -5,6 +5,7 @@ import {
   equipmentSlots,
   itemCategories,
   itemRarities,
+  resourceCategories,
   weaponHandedness,
 } from '../config/gameEnums';
 import {
@@ -12,27 +13,42 @@ import {
   ArmorRecord,
   ClassBaseStatRecord,
   ClassRecord,
+  EnemyBaseStatRecord,
+  EnemyRecord,
   ItemRecord,
+  LevelProgressionRecord,
+  RaceRecord,
   WeaponRecord,
   getAbilityById,
+  getEnemyBaseStatsById,
+  getEnemyById,
   getClassBaseStatsById,
   getClassById,
   getItemsByIds,
+  getLevelProgressionByLevel,
+  getRaceById,
   getArmorByItemId,
   getWeaponByItemId,
   listAbilities,
   listArmor,
   listClassBaseStats,
   listClasses,
+  listEnemies,
+  listEnemyBaseStats,
   listItems,
+  listLevelProgression,
+  listRaces,
   listWeapons,
 } from '../db/catalogRepository';
 import {
   AbilityTypeRecord,
+  ResourceTypeRecord,
   WeaponTypeRecord,
   getAbilityTypeById,
+  getResourceTypeById,
   getWeaponTypeById,
   listAbilityTypes,
+  listResourceTypes,
   listWeaponTypes,
 } from '../db/referenceDataRepository';
 import {
@@ -41,7 +57,12 @@ import {
   upsertArmor,
   upsertClass,
   upsertClassBaseStats,
+  upsertEnemy,
+  upsertEnemyBaseStats,
   upsertItem,
+  upsertLevelProgression,
+  upsertRace,
+  upsertResourceType,
   upsertWeapon,
   upsertWeaponType,
 } from '../db/devToolkitRepository';
@@ -152,9 +173,30 @@ export async function listDevToolkitItems(): Promise<Array<ItemRecord & { metada
   return items.map((item) => ({ ...item, metadata: parseJson(item.metadataJson) }));
 }
 
+export async function listDevToolkitRaces(): Promise<
+  Array<RaceRecord & { customization: unknown }>
+> {
+  const races = await listRaces();
+  return races.map((race) => ({
+    ...race,
+    customization: parseJson(race.customizationJson),
+  }));
+}
+
 export async function listDevToolkitWeapons(): Promise<Array<WeaponRecord & { metadata: unknown }>> {
   const weapons = await listWeapons();
   return weapons.map((weapon) => ({ ...weapon, metadata: parseJson(weapon.metadataJson) }));
+}
+
+export async function listDevToolkitEnemies(): Promise<
+  Array<EnemyRecord & { metadata: unknown }>
+> {
+  const enemies = await listEnemies();
+  return enemies.map((entry) => ({ ...entry, metadata: parseJson(entry.metadataJson) }));
+}
+
+export async function listDevToolkitEnemyBaseStats(): Promise<EnemyBaseStatRecord[]> {
+  return listEnemyBaseStats();
 }
 
 export async function listDevToolkitArmor(): Promise<
@@ -166,6 +208,13 @@ export async function listDevToolkitArmor(): Promise<
     resistances: parseJson(entry.resistancesJson),
     metadata: parseJson(entry.metadataJson),
   }));
+}
+
+export async function listDevToolkitLevelProgression(): Promise<
+  Array<LevelProgressionRecord & { reward: unknown }>
+> {
+  const levels = await listLevelProgression();
+  return levels.map((entry) => ({ ...entry, reward: parseJson(entry.rewardJson) }));
 }
 
 export async function listDevToolkitClasses(): Promise<
@@ -192,6 +241,10 @@ export async function listDevToolkitWeaponTypes(): Promise<WeaponTypeRecord[]> {
 
 export async function listDevToolkitAbilityTypes(): Promise<AbilityTypeRecord[]> {
   return listAbilityTypes();
+}
+
+export async function listDevToolkitResourceTypes(): Promise<ResourceTypeRecord[]> {
+  return listResourceTypes();
 }
 
 export async function saveItem(input: unknown): Promise<ItemRecord & { metadata: unknown }> {
@@ -226,6 +279,22 @@ export async function saveItem(input: unknown): Promise<ItemRecord & { metadata:
   return { ...item, metadata: parseJson(item.metadataJson) };
 }
 
+export async function saveRace(
+  input: unknown
+): Promise<RaceRecord & { customization: unknown }> {
+  const payload = ensureRecord(input, 'race');
+  const id = ensureNonEmptyString(payload.id, 'race.id');
+  const displayName = ensureNonEmptyString(payload.displayName, 'race.displayName');
+  const customizationJson = serializeJson(payload.customization, 'race.customization');
+
+  await upsertRace({ id, displayName, customizationJson });
+  const record = await getRaceById(id);
+  if (!record) {
+    throw new HttpError(404, 'race not found after save');
+  }
+  return { ...record, customization: parseJson(record.customizationJson) };
+}
+
 export async function saveWeaponType(input: unknown): Promise<WeaponTypeRecord> {
   const payload = ensureRecord(input, 'weaponType');
   const id = ensureNonEmptyString(payload.id, 'weaponType.id');
@@ -246,6 +315,19 @@ export async function saveAbilityType(input: unknown): Promise<AbilityTypeRecord
   const record = await getAbilityTypeById(id);
   if (!record) {
     throw new HttpError(404, 'ability type not found after save');
+  }
+  return record;
+}
+
+export async function saveResourceType(input: unknown): Promise<ResourceTypeRecord> {
+  const payload = ensureRecord(input, 'resourceType');
+  const id = ensureNonEmptyString(payload.id, 'resourceType.id');
+  const displayName = ensureNonEmptyString(payload.displayName, 'resourceType.displayName');
+  const category = ensureEnum(payload.category, resourceCategories, 'resourceType.category');
+  await upsertResourceType({ id, displayName, category });
+  const record = await getResourceTypeById(id);
+  if (!record) {
+    throw new HttpError(404, 'resource type not found after save');
   }
   return record;
 }
@@ -285,6 +367,70 @@ export async function saveWeapon(
   return { ...weapon, metadata: parseJson(weapon.metadataJson) };
 }
 
+export async function saveEnemy(
+  input: unknown
+): Promise<EnemyRecord & { metadata: unknown }> {
+  const payload = ensureRecord(input, 'enemy');
+  const id = ensureNonEmptyString(payload.id, 'enemy.id');
+  const name = ensureNonEmptyString(payload.name, 'enemy.name');
+  const description = ensureOptionalString(payload.description);
+  const enemyType = ensureOptionalString(payload.enemyType);
+  const level = ensureInteger(payload.level, 'enemy.level', 1);
+  const faction = ensureOptionalString(payload.faction);
+  const isBoss = Boolean(payload.isBoss);
+  const metadataJson = serializeJson(payload.metadata, 'enemy.metadata');
+
+  await upsertEnemy({
+    id,
+    name,
+    description,
+    enemyType,
+    level,
+    faction,
+    isBoss,
+    metadataJson,
+  });
+
+  const record = await getEnemyById(id);
+  if (!record) {
+    throw new HttpError(404, 'enemy not found after save');
+  }
+  return { ...record, metadata: parseJson(record.metadataJson) };
+}
+
+export async function saveEnemyBaseStats(
+  input: unknown
+): Promise<EnemyBaseStatRecord> {
+  const payload = ensureRecord(input, 'enemyBaseStats');
+  const enemyId = ensureNonEmptyString(payload.enemyId, 'enemyBaseStats.enemyId');
+  const baseHealth = ensureInteger(payload.baseHealth, 'enemyBaseStats.baseHealth', 0);
+  const baseMana = ensureInteger(payload.baseMana, 'enemyBaseStats.baseMana', 0);
+  const attack = ensureInteger(payload.attack, 'enemyBaseStats.attack', 0);
+  const defense = ensureInteger(payload.defense, 'enemyBaseStats.defense', 0);
+  const agility = ensureInteger(payload.agility, 'enemyBaseStats.agility', 0);
+  const critChance = ensureNumber(payload.critChance, 'enemyBaseStats.critChance', 0);
+  const xpReward = ensureInteger(payload.xpReward, 'enemyBaseStats.xpReward', 0);
+  const goldReward = ensureInteger(payload.goldReward, 'enemyBaseStats.goldReward', 0);
+
+  await upsertEnemyBaseStats({
+    enemyId,
+    baseHealth,
+    baseMana,
+    attack,
+    defense,
+    agility,
+    critChance,
+    xpReward,
+    goldReward,
+  });
+
+  const record = await getEnemyBaseStatsById(enemyId);
+  if (!record) {
+    throw new HttpError(404, 'enemy base stats not found after save');
+  }
+  return record;
+}
+
 export async function saveArmor(
   input: unknown
 ): Promise<ArmorRecord & { resistances: unknown; metadata: unknown }> {
@@ -318,6 +464,35 @@ export async function saveArmor(
     resistances: parseJson(armor.resistancesJson),
     metadata: parseJson(armor.metadataJson),
   };
+}
+
+export async function saveLevelProgression(
+  input: unknown
+): Promise<LevelProgressionRecord & { reward: unknown }> {
+  const payload = ensureRecord(input, 'levelProgression');
+  const level = ensureInteger(payload.level, 'levelProgression.level', 1);
+  const xpRequired = ensureInteger(payload.xpRequired, 'levelProgression.xpRequired', 0);
+  const totalXp = ensureInteger(payload.totalXp, 'levelProgression.totalXp', 0);
+  const hpGain = ensureInteger(payload.hpGain, 'levelProgression.hpGain', 0);
+  const manaGain = ensureInteger(payload.manaGain, 'levelProgression.manaGain', 0);
+  const statPoints = ensureInteger(payload.statPoints, 'levelProgression.statPoints', 0);
+  const rewardJson = serializeJson(payload.reward, 'levelProgression.reward');
+
+  await upsertLevelProgression({
+    level,
+    xpRequired,
+    totalXp,
+    hpGain,
+    manaGain,
+    statPoints,
+    rewardJson,
+  });
+
+  const record = await getLevelProgressionByLevel(level);
+  if (!record) {
+    throw new HttpError(404, 'level progression not found after save');
+  }
+  return { ...record, reward: parseJson(record.rewardJson) };
 }
 
 export async function saveClass(input: unknown): Promise<ClassRecord & { metadata: unknown }> {

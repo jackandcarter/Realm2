@@ -3,17 +3,27 @@ import {
   listDevToolkitAbilities,
   listDevToolkitAbilityTypes,
   listDevToolkitArmor,
+  listDevToolkitEnemies,
+  listDevToolkitEnemyBaseStats,
   listDevToolkitClassBaseStats,
   listDevToolkitClasses,
   listDevToolkitItems,
+  listDevToolkitLevelProgression,
+  listDevToolkitRaces,
+  listDevToolkitResourceTypes,
   listDevToolkitWeaponTypes,
   listDevToolkitWeapons,
   saveAbility,
   saveAbilityType,
   saveArmor,
+  saveEnemy,
+  saveEnemyBaseStats,
   saveClass,
   saveClassBaseStats,
   saveItem,
+  saveLevelProgression,
+  saveRace,
+  saveResourceType,
   saveWeapon,
   saveWeaponType,
 } from '../services/devToolkitService';
@@ -28,6 +38,14 @@ devToolkitRouter.get('/items', async (_req, res, next) => {
   }
 });
 
+devToolkitRouter.get('/races', async (_req, res, next) => {
+  try {
+    res.json({ races: await listDevToolkitRaces() });
+  } catch (error) {
+    next(error);
+  }
+});
+
 devToolkitRouter.get('/weapons', async (_req, res, next) => {
   try {
     res.json({ weapons: await listDevToolkitWeapons() });
@@ -36,9 +54,33 @@ devToolkitRouter.get('/weapons', async (_req, res, next) => {
   }
 });
 
+devToolkitRouter.get('/enemies', async (_req, res, next) => {
+  try {
+    res.json({ enemies: await listDevToolkitEnemies() });
+  } catch (error) {
+    next(error);
+  }
+});
+
+devToolkitRouter.get('/enemy-base-stats', async (_req, res, next) => {
+  try {
+    res.json({ enemyBaseStats: await listDevToolkitEnemyBaseStats() });
+  } catch (error) {
+    next(error);
+  }
+});
+
 devToolkitRouter.get('/armor', async (_req, res, next) => {
   try {
     res.json({ armor: await listDevToolkitArmor() });
+  } catch (error) {
+    next(error);
+  }
+});
+
+devToolkitRouter.get('/level-progression', async (_req, res, next) => {
+  try {
+    res.json({ levelProgression: await listDevToolkitLevelProgression() });
   } catch (error) {
     next(error);
   }
@@ -84,10 +126,27 @@ devToolkitRouter.get('/ability-types', async (_req, res, next) => {
   }
 });
 
+devToolkitRouter.get('/resource-types', async (_req, res, next) => {
+  try {
+    res.json({ resourceTypes: await listDevToolkitResourceTypes() });
+  } catch (error) {
+    next(error);
+  }
+});
+
 devToolkitRouter.post('/items', async (req, res, next) => {
   try {
     const item = await saveItem(req.body);
     res.json({ item });
+  } catch (error) {
+    next(error);
+  }
+});
+
+devToolkitRouter.post('/races', async (req, res, next) => {
+  try {
+    const race = await saveRace(req.body);
+    res.json({ race });
   } catch (error) {
     next(error);
   }
@@ -111,6 +170,15 @@ devToolkitRouter.post('/ability-types', async (req, res, next) => {
   }
 });
 
+devToolkitRouter.post('/resource-types', async (req, res, next) => {
+  try {
+    const resourceType = await saveResourceType(req.body);
+    res.json({ resourceType });
+  } catch (error) {
+    next(error);
+  }
+});
+
 devToolkitRouter.post('/weapons', async (req, res, next) => {
   try {
     const weapon = await saveWeapon(req.body);
@@ -120,10 +188,37 @@ devToolkitRouter.post('/weapons', async (req, res, next) => {
   }
 });
 
+devToolkitRouter.post('/enemies', async (req, res, next) => {
+  try {
+    const enemy = await saveEnemy(req.body);
+    res.json({ enemy });
+  } catch (error) {
+    next(error);
+  }
+});
+
+devToolkitRouter.post('/enemy-base-stats', async (req, res, next) => {
+  try {
+    const enemyBaseStats = await saveEnemyBaseStats(req.body);
+    res.json({ enemyBaseStats });
+  } catch (error) {
+    next(error);
+  }
+});
+
 devToolkitRouter.post('/armor', async (req, res, next) => {
   try {
     const armor = await saveArmor(req.body);
     res.json({ armor });
+  } catch (error) {
+    next(error);
+  }
+});
+
+devToolkitRouter.post('/level-progression', async (req, res, next) => {
+  try {
+    const levelProgression = await saveLevelProgression(req.body);
+    res.json({ levelProgression });
   } catch (error) {
     next(error);
   }
