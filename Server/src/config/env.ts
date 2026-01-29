@@ -15,6 +15,7 @@ export const env = {
   economyPort: parseInt(process.env.ECONOMY_PORT ?? '3005', 10),
   socialPort: parseInt(process.env.SOCIAL_PORT ?? '3006', 10),
   terrainPort: parseInt(process.env.TERRAIN_PORT ?? '3007', 10),
+  devToolkitPort: parseInt(process.env.DEV_TOOLKIT_PORT ?? '3008', 10),
   jwtSecret: process.env.JWT_SECRET ?? 'dev-secret-change-me',
   accessTokenTtlSeconds: parseInt(process.env.ACCESS_TOKEN_TTL ?? '900', 10), // 15 minutes
   refreshTokenTtlSeconds: parseInt(process.env.REFRESH_TOKEN_TTL ?? '604800', 10), // 7 days
