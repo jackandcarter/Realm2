@@ -33,6 +33,22 @@ export async function listWeaponTypes(executor: DbExecutor = db): Promise<Weapon
   );
 }
 
+export async function getWeaponTypeById(
+  id: string,
+  executor: DbExecutor = db
+): Promise<WeaponTypeRecord | undefined> {
+  const rows = await executor.query<WeaponTypeRecord[]>(
+    `SELECT id,
+            display_name as displayName,
+            created_at as createdAt,
+            updated_at as updatedAt
+     FROM weapon_types
+     WHERE id = ?`,
+    [id]
+  );
+  return rows[0];
+}
+
 export async function listResourceTypes(
   executor: DbExecutor = db
 ): Promise<ResourceTypeRecord[]> {
@@ -47,6 +63,23 @@ export async function listResourceTypes(
   );
 }
 
+export async function getResourceTypeById(
+  id: string,
+  executor: DbExecutor = db
+): Promise<ResourceTypeRecord | undefined> {
+  const rows = await executor.query<ResourceTypeRecord[]>(
+    `SELECT id,
+            display_name as displayName,
+            category,
+            created_at as createdAt,
+            updated_at as updatedAt
+     FROM resource_types
+     WHERE id = ?`,
+    [id]
+  );
+  return rows[0];
+}
+
 export async function listAbilityTypes(
   executor: DbExecutor = db
 ): Promise<AbilityTypeRecord[]> {
@@ -58,4 +91,20 @@ export async function listAbilityTypes(
      FROM ability_types
      ORDER BY id ASC`
   );
+}
+
+export async function getAbilityTypeById(
+  id: string,
+  executor: DbExecutor = db
+): Promise<AbilityTypeRecord | undefined> {
+  const rows = await executor.query<AbilityTypeRecord[]>(
+    `SELECT id,
+            display_name as displayName,
+            created_at as createdAt,
+            updated_at as updatedAt
+     FROM ability_types
+     WHERE id = ?`,
+    [id]
+  );
+  return rows[0];
 }
