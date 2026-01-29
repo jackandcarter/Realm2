@@ -181,6 +181,25 @@ export async function listWeapons(): Promise<WeaponRecord[]> {
   );
 }
 
+export async function getWeaponByItemId(itemId: string): Promise<WeaponRecord | undefined> {
+  const rows = await db.query<WeaponRecord[]>(
+    `SELECT item_id as itemId,
+            weapon_type as weaponType,
+            handedness,
+            min_damage as minDamage,
+            max_damage as maxDamage,
+            attack_speed as attackSpeed,
+            range_meters as rangeMeters,
+            required_level as requiredLevel,
+            required_class_id as requiredClassId,
+            metadata_json as metadataJson
+     FROM weapons
+     WHERE item_id = ?`,
+    [itemId]
+  );
+  return rows[0];
+}
+
 export async function listArmor(): Promise<ArmorRecord[]> {
   return db.query<ArmorRecord[]>(
     `SELECT item_id as itemId,
@@ -194,6 +213,23 @@ export async function listArmor(): Promise<ArmorRecord[]> {
      FROM armor
      ORDER BY item_id ASC`
   );
+}
+
+export async function getArmorByItemId(itemId: string): Promise<ArmorRecord | undefined> {
+  const rows = await db.query<ArmorRecord[]>(
+    `SELECT item_id as itemId,
+            slot,
+            armor_type as armorType,
+            defense,
+            resistances_json as resistancesJson,
+            required_level as requiredLevel,
+            required_class_id as requiredClassId,
+            metadata_json as metadataJson
+     FROM armor
+     WHERE item_id = ?`,
+    [itemId]
+  );
+  return rows[0];
 }
 
 export async function listClasses(): Promise<ClassRecord[]> {

@@ -1,6 +1,7 @@
 import { authApp } from '../apps/authApp';
 import { catalogApp } from '../apps/catalogApp';
 import { combatApp } from '../apps/combatApp';
+import { devToolkitApp } from '../apps/devToolkitApp';
 import { economyApp } from '../apps/economyApp';
 import { gatewayApp } from '../apps/gatewayApp';
 import { socialApp } from '../apps/socialApp';
@@ -40,6 +41,13 @@ async function startAll(): Promise<void> {
     serviceName: 'terrain',
     initializeDb: false,
     enableChunkSockets: true,
+  });
+
+  await startHttpService({
+    app: devToolkitApp,
+    port: env.devToolkitPort,
+    serviceName: 'devtoolkit',
+    initializeDb: false,
   });
 
   await startHttpService({
